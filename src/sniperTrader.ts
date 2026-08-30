@@ -12,7 +12,7 @@
  * Размер сделки берётся из SNIPER_TRADE_SIZE_USD (по умолчанию $10 —
  * маленькая тестовая сумма для проверки, что всё работает end-to-end).
  */
-
+console.log(`🔧 Node.js версия: ${process.version}`);
 import "dotenv/config";
 import { Side } from "@polymarket/clob-client-v2";
 import { discoverCryptoUpDownMarkets, CryptoUpDownMarket } from "./cryptoMarketDiscovery.js";
