@@ -1,8 +1,8 @@
 /**
  * Исследовательский модуль (не торгует, только собирает статистику).
  *
- * Мониторит ВСЕ активные 5-минутные крипто up/down рынки с самого их
- * появления (не только последние секунды, как торговый бот). Для каждой
+ * Мониторит ВСЕ активные крипто up/down рынки (5-мин, 15-мин, час, 4 часа,
+ * день) с самого их появления.
  * стороны каждого рынка отслеживает момент первого пересечения уровней
  * цены 0.99 / 0.98 / 0.97 / 0.96 / 0.95, и сколько секунд на тот момент
  * оставалось до закрытия окна.
@@ -19,7 +19,7 @@
  */
 
 import "dotenv/config";
-import { discoverCryptoUpDownMarkets, CryptoUpDownMarket } from "./cryptoMarketDiscovery.js";
+import { discoverCryptoUpDownMarkets, CryptoUpDownMarket, ALL_TIMEFRAMES } from "./cryptoMarketDiscovery.js";
 import { PriceWatcher, PriceUpdate } from "./priceWatcher.js";
 import { createTelegramNotifier } from "./telegram.js";
 import { createLogger } from "./logger.js";
@@ -32,7 +32,11 @@ const MARKET_REFRESH_MS = 30 * 1000;
 // В отличие от торгового бота (3 мин), тут наблюдаем ВЕСЬ активный
 // 5-минутный рынок с момента его появления — окно берём с запасом чуть
 // больше длины самого рынка.
-const OBSERVE_WINDOW_MS = 6 * 60 * 1000;
+// Наблюдаем каждый рынок с самого его начала — окно наблюдения зависит от
+// длины самого рынка (5-минутке хватит 6 мин запаса, дневному — почти сутки).
+function observeWindowMs(windowMinutes: number): number {
+  return (windowMinutes + 1) * 60 * 1000;
+}
 // Через сколько секунд после закрытия можно надёжно спросить у Gamma API
 // финальный исход (даём время на резолв оракула + запас).
 const RESOLVE_CHECK_DELAY_SEC = 180;
@@ -45,6 +49,7 @@ const GAMMA_HOST = "https://gamma-api.polymarket.com";
 interface CrossingEvent {
   coin: string;
   eventSlug: string;
+  windowMinutes: number;
   side: "Up" | "Down";
   level: number;
   secToCloseAtCross: number;
@@ -91,16 +96,16 @@ class ResearchLogger {
   async refreshMarkets(): Promise<void> {
     let allMarkets: CryptoUpDownMarket[];
     try {
-      allMarkets = await discoverCryptoUpDownMarkets();
+      allMarkets = await discoverCryptoUpDownMarkets(ALL_TIMEFRAMES);
     } catch (err) {
       console.error("[refresh] ошибка:", (err as Error).message);
       return;
     }
 
-    // Только 5-минутки — по просьбе, это отдельное исследование именно по ним.
-    const fiveMin = allMarkets.filter((m) => m.windowMinutes === 5);
+    // Наблюдаем ВСЕ таймфреймы (5м/15м/час/4ч/день), каждый со своим
+    // окном наблюдения от начала своего же периода.
     const now = Date.now();
-    const markets = fiveMin.filter((m) => m.closeTimeMs - now <= OBSERVE_WINDOW_MS);
+    const markets = allMarkets.filter((m) => m.closeTimeMs - now <= observeWindowMs(m.windowMinutes));
 
     this.tokenIndex = buildTokenIndex(markets);
     const tokenIds = [...this.tokenIndex.keys()].sort();
@@ -112,7 +117,7 @@ class ResearchLogger {
     }
 
     console.log(
-      `[refresh] наблюдаем 5-минуток: ${markets.length} (${tokenIds.length} токенов), пересечений записано: ${this.crossings.length}, ждём резолва: ${this.pendingResolution.size}`,
+      `[refresh] наблюдаем рынков: ${markets.length} (${tokenIds.length} токенов), пересечений записано: ${this.crossings.length}, ждём резолва: ${this.pendingResolution.size}`,
     );
 
     const sameAsLastTime =
@@ -150,6 +155,7 @@ class ResearchLogger {
       this.crossings.push({
         coin: market.coin,
         eventSlug: market.eventSlug,
+        windowMinutes: market.windowMinutes,
         side,
         level,
         secToCloseAtCross: secToClose,
@@ -220,39 +226,75 @@ class ResearchLogger {
     const resolved = this.crossings.filter((c) => c.resolved);
     const pending = this.crossings.length - resolved.length;
 
-    type Key = string; // "level|bucket"
+    type Key = string; // "windowMinutes|level|bucket"
     const stats = new Map<Key, { held: number; reversed: number }>();
 
     for (const c of resolved) {
       const bucket = timeBucketLabel(c.secToCloseAtCross);
-      const key = `${c.level}|${bucket}`;
+      const key = `${c.windowMinutes}|${c.level}|${bucket}`;
       const s = stats.get(key) ?? { held: 0, reversed: 0 };
       if (c.won) s.held++;
       else s.reversed++;
       stats.set(key, s);
     }
 
+    const timeframeLabel = (m: number) =>
+      m === 5 ? "5 минут" : m === 15 ? "15 минут" : m === 60 ? "1 час" : m === 240 ? "4 часа" : m === 1440 ? "1 день" : `${m} мин`;
+
+    const timeframesPresent = [...new Set(resolved.map((c) => c.windowMinutes))].sort((a, b) => a - b);
+
     const lines: string[] = [];
-    lines.push(`<b>📊 Отчёт по уровням входа (5-мин крипто рынки)</b>`);
+    lines.push(`<b>📊 Отчёт по уровням входа (крипто рынки, все таймфреймы)</b>`);
     lines.push(`Всего пересечений записано: ${this.crossings.length} (резолвнуто: ${resolved.length}, ждём: ${pending})`);
     lines.push("");
 
-    for (const level of LEVELS) {
-      lines.push(`<b>Уровень ${level}</b>`);
-      let anyForLevel = false;
-      for (let i = 0; i <= TIME_BUCKETS.length; i++) {
-        const bucket =
-          i < TIME_BUCKETS.length
-            ? `${i === 0 ? 0 : TIME_BUCKETS[i - 1]}-${TIME_BUCKETS[i]}с`
-            : `>${TIME_BUCKETS[TIME_BUCKETS.length - 1]}с`;
-        const s = stats.get(`${level}|${bucket}`);
-        if (!s || s.held + s.reversed === 0) continue;
-        anyForLevel = true;
-        const total = s.held + s.reversed;
-        const pct = ((s.held / total) * 100).toFixed(0);
-        lines.push(`  ${bucket} до закрытия: ${s.held}/${total} удержалось (${pct}%)`);
+    // Сравнение монет — по всем данным сразу (все таймфреймы/уровни/бакеты
+    // вместе), чтобы сразу видеть, какая монета в среднем надёжнее.
+    const coinStats = new Map<string, { held: number; total: number }>();
+    for (const c of resolved) {
+      const s = coinStats.get(c.coin) ?? { held: 0, total: 0 };
+      s.total++;
+      if (c.won) s.held++;
+      coinStats.set(c.coin, s);
+    }
+    if (coinStats.size > 0) {
+      lines.push(`<b>Сравнение монет (по всем данным)</b>`);
+      const ranked = [...coinStats.entries()].sort((a, b) => b[1].held / b[1].total - a[1].held / a[1].total);
+      for (const [coin, s] of ranked) {
+        const pct = ((s.held / s.total) * 100).toFixed(1);
+        lines.push(`  ${coin}: ${s.held}/${s.total} удержалось (${pct}%)`);
       }
-      if (!anyForLevel) lines.push(`  (пока нет данных)`);
+      lines.push("");
+    }
+
+    if (timeframesPresent.length === 0) {
+      lines.push("Пока нет резолвнутых данных.");
+      return lines.join("\n");
+    }
+
+    for (const windowMinutes of timeframesPresent) {
+      lines.push(`<b>═══ ${timeframeLabel(windowMinutes)} ═══</b>`);
+      for (const level of LEVELS) {
+        let anyForLevel = false;
+        const levelLines: string[] = [];
+        for (let i = 0; i <= TIME_BUCKETS.length; i++) {
+          const bucket =
+            i < TIME_BUCKETS.length
+              ? `${i === 0 ? 0 : TIME_BUCKETS[i - 1]}-${TIME_BUCKETS[i]}с`
+              : `>${TIME_BUCKETS[TIME_BUCKETS.length - 1]}с`;
+          const s = stats.get(`${windowMinutes}|${level}|${bucket}`);
+          if (!s || s.held + s.reversed === 0) continue;
+          anyForLevel = true;
+          const total = s.held + s.reversed;
+          const pct = ((s.held / total) * 100).toFixed(0);
+          levelLines.push(`    ${bucket} до закрытия: ${s.held}/${total} удержалось (${pct}%)`);
+        }
+        if (anyForLevel) {
+          lines.push(`  Уровень ${level}`);
+          lines.push(...levelLines);
+        }
+      }
+      lines.push("");
     }
 
     return lines.join("\n");
