@@ -96,7 +96,6 @@ class FastFlipBot {
 
   private tradesToday = 0;
   private tradesTodayKey = todayKey();
-  private skipNext = false; // селект: чередование через один
 
   constructor(
     private clob: ClobService | null,
@@ -170,14 +169,6 @@ class FastFlipBot {
       return;
     }
 
-    // Селект: чередуем через один подходящий момент
-    if (this.skipNext) {
-      this.skipNext = false;
-      this.entered.add(market.eventSlug);
-      console.log(`[селект] пропускаем ${market.eventSlug} (через один)`);
-      return;
-    }
-    this.skipNext = true;
 
     this.entered.add(market.eventSlug);
     this.tradesToday++;
