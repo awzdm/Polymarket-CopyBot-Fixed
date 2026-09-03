@@ -4,17 +4,19 @@
  *
  * Логика на рынок:
  *  1. Следим за ценой с самого начала каждого 5-мин окна.
- *  2. Как только цена любой стороны впервые достигает ENTRY_PRICE —
- *     это "подходящий момент". Применяем селект (чередование через
- *     один) и дневной лимит. Если прошли — ставим GTC-лимитку на
- *     ПОКУПКУ по ENTRY_PRICE.
+ *  2. Как только цена любой стороны ВПЕРВЫЕ достигает ENTRY_PRICE (0.98) —
+ *     сразу покупаем по этой цене (при условии дневного лимита). Ровно
+ *     один раз на рынок — повторные касания того же рынка игнорируются.
  *  3. Как только покупка исполнилась — сразу ставим GTC-лимитку на
- *     ПРОДАЖУ (тейк-профит) по 0.999, чтобы зафиксировать прибыль до
- *     резолва, если получится.
- *  4. Если тейк-профит не исполнился до закрытия — ждём официальный
- *     резолв (через Gamma API, как в researchLogger.ts), узнаём
- *     реальный исход и шлём в Telegram итог сделки. Авто-клейм заберёт
- *     деньги отдельно, эта проверка нужна только для уведомления.
+ *     ПРОДАЖУ по TP_PRICE (0.99) — это резервирует "первое касание 0.99"
+ *     как momент продажи, кто бы ни купил у нас первым по этой цене.
+ *  4. Если тейк-профит исполнился до закрытия — сделка закрыта, профит
+ *     ~1% (0.98 -> 0.99), шлём итог в Telegram.
+ *  5. Если тейк-профит НЕ исполнился до закрытия — бот НЕ ждёт резолва и
+ *     не отслеживает исход дальше. Позиция просто остаётся висеть;
+ *     отдельный фоновый redeemLoop() заберёт выигрыш, если он будет,
+ *     когда рынок официально зарезолвится — этот бот сразу идёт искать
+ *     следующие сделки.
  *
  * НАСТРОЙКИ МЕНЯЮТСЯ ЧЕРЕЗ TELEGRAM НА ЛЕТУ (без передеплоя):
  *   лимит 25        — дневной лимит сделок
@@ -39,13 +41,11 @@ import { createLogger } from "./logger.js";
 const DRY_RUN = (process.env.FASTFLIP_DRY_RUN ?? "true").toLowerCase() !== "false";
 const AUTO_REDEEM = (process.env.FASTFLIP_AUTO_REDEEM ?? "true").toLowerCase() !== "false";
 const TRADE_SIZE_USD = Number(process.env.FASTFLIP_TRADE_SIZE_USD ?? "5");
-const TP_PRICE = Number(process.env.FASTFLIP_TP_PRICE ?? "0.999");
+const TP_PRICE = Number(process.env.FASTFLIP_TP_PRICE ?? "0.99");
 const MARKET_REFRESH_MS = 30 * 1000;
 const OBSERVE_WINDOW_MS = 6 * 60 * 1000;
 const FILL_CHECK_INTERVAL_MS = 5 * 1000;
 const REDEEM_POLL_MS = 60 * 1000;
-const RESOLVE_CHECK_DELAY_SEC = 180;
-const GAMMA_HOST = "https://gamma-api.polymarket.com";
 
 const TICKER_TO_COIN: Record<string, string> = {
   BTC: "Bitcoin",
@@ -64,7 +64,7 @@ const settings = {
   entryPrice: Number(process.env.FASTFLIP_ENTRY_PRICE ?? "0.98"),
   coins: (process.env.FASTFLIP_COINS ?? "BTC,SOL,ETH,DOGE")
     .split(",")
-    .map((s: string) => s.trim().toUpperCase())
+    .map((s) => s.trim().toUpperCase())
     .filter((t) => TICKER_TO_COIN[t])
     .map((t) => TICKER_TO_COIN[t]),
 };
@@ -168,7 +168,6 @@ class FastFlipBot {
       this.entered.add(market.eventSlug); // не пересматриваем этот рынок повторно
       return;
     }
-
 
     this.entered.add(market.eventSlug);
     this.tradesToday++;
@@ -286,56 +285,11 @@ class FastFlipBot {
       }
     }
 
-    // Шаг 3: тейк не исполнился — ждём официальный резолв, чтобы узнать итог
-    console.log(`   ⏳ Тейк-профит не исполнился до закрытия — ждём резолва (eventSlug: ${market.eventSlug})`);
-    await this.waitForResolutionAndNotify(market, side, filledSize, buyPrice);
-  }
-
-  private async waitForResolutionAndNotify(
-    market: CryptoUpDownMarket,
-    side: "Up" | "Down",
-    filledSize: number,
-    buyPrice: number,
-  ): Promise<void> {
-    for (;;) {
-      const waitMs = market.closeTimeMs + RESOLVE_CHECK_DELAY_SEC * 1000 - Date.now();
-      if (waitMs > 0) await new Promise((r) => setTimeout(r, waitMs));
-      else await new Promise((r) => setTimeout(r, 30 * 1000));
-
-      try {
-        const resp = await fetch(`${GAMMA_HOST}/events/slug/${market.eventSlug}`);
-        if (!resp.ok) continue;
-        const event = await resp.json();
-        const m = (event.markets ?? [])[0];
-        if (!m) continue;
-
-        let outcomes: string[];
-        let outcomePrices: string[];
-        try {
-          outcomes = JSON.parse(m.outcomes ?? "[]");
-          outcomePrices = JSON.parse(m.outcomePrices ?? "[]");
-        } catch {
-          continue;
-        }
-        if (outcomes.length !== 2 || outcomePrices.length !== 2) continue;
-
-        const upIdx = outcomes.findIndex((o) => /^up$/i.test(o.trim()));
-        const downIdx = outcomes.findIndex((o) => /^down$/i.test(o.trim()));
-        if (upIdx === -1 || downIdx === -1) continue;
-
-        const upPrice = Number(outcomePrices[upIdx]);
-        const downPrice = Number(outcomePrices[downIdx]);
-        if (upPrice > 0.05 && upPrice < 0.95) continue; // ещё не зарезолвился
-
-        const winner: "Up" | "Down" = upPrice > downPrice ? "Up" : "Down";
-        const won = side === winner;
-        const profit = won ? filledSize * (1 - buyPrice) : -filledSize * buyPrice;
-        await this.notifyClose(market, side, won ? "резолв (победа)" : "резолв (проигрыш)", profit);
-        return;
-      } catch (err) {
-        console.error(`   [ожидание резолва] ошибка:`, (err as Error).message);
-      }
-    }
+    // Тейк-профит не исполнился до закрытия окна — просто оставляем
+    // позицию висеть. Резолв и клейм при выигрыше сделает отдельный
+    // фоновый redeemLoop() — этот конкретный бот дальше не ждёт и не
+    // отслеживает исход, идёт искать следующие сделки.
+    console.log(`   ⏳ Тейк-профит не исполнился до закрытия — оставляем висеть (eventSlug: ${market.eventSlug}). Авто-клейм заберёт выигрыш отдельно, если сработает.`);
   }
 
   private async notifyClose(
@@ -452,8 +406,8 @@ async function pollTelegramCommands(
 
         const coinsMatch = text.match(/^монеты\s+([a-zа-я,\s]+)$/i);
         if (coinsMatch) {
-          const tickers = coinsMatch[1].split(",").map((s: string) => s.trim().toUpperCase());
-          const coins = tickers.filter((t: string) => TICKER_TO_COIN[t]).map((t: string) => TICKER_TO_COIN[t]);
+          const tickers = coinsMatch[1].split(",").map((s) => s.trim().toUpperCase());
+          const coins = tickers.filter((t) => TICKER_TO_COIN[t]).map((t) => TICKER_TO_COIN[t]);
           if (coins.length > 0) {
             settings.coins = coins;
             await telegram?.send(`Монеты установлены: ${tickers.join(", ")}`);
