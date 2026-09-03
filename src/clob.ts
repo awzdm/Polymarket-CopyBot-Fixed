@@ -409,6 +409,83 @@ export class ClobService {
       filledUsdc: respAny.takingAmount,
     };
   }
+
+  /**
+   * Exact-price GTC limit order.
+   *
+   * Unlike placeGtcLimitOrder(), this method NEVER applies an offset.
+   * Used by the BTC 98c -> 99.9c strategy where the prices must be exact.
+   */
+  async placeExactGtcLimitOrder(params: {
+    tokenId: string;
+    side: Side;
+    price: number;
+    size: number;
+  }): Promise<{ status: string; orderId?: string; filledSize?: string; filledUsdc?: string }> {
+    const { tokenId, side, size } = params;
+
+    const meta = await this.getMarketMeta(tokenId);
+
+    if (!Number.isFinite(params.price) || params.price <= 0 || params.price >= 1) {
+      throw new Error(`Invalid limit price ${params.price}`);
+    }
+
+    const price = this.roundToTick(params.price, meta.tickSize, side);
+
+    if (size < meta.minOrderSize) {
+      throw new Error(
+        `Order size ${size} is below the market minimum ${meta.minOrderSize} — not submitted.`,
+      );
+    }
+
+    const resp = await this.client.createAndPostOrder(
+      {
+        tokenID: tokenId,
+        price,
+        size,
+        side,
+      },
+      {
+        tickSize: meta.tickSize as any,
+        negRisk: meta.negRisk,
+      },
+      OrderType.GTC,
+    );
+
+    this.logger.info("Exact GTC limit order submitted", {
+      tokenId,
+      side,
+      price,
+      size,
+      response: resp,
+    });
+
+    const respAny = resp as unknown as {
+      success?: boolean;
+      status?: string | number;
+      orderID?: string;
+      error?: string;
+      errorMsg?: string;
+      makingAmount?: string;
+      takingAmount?: string;
+    };
+
+    if (respAny.success !== true) {
+      const reason =
+        respAny.error ||
+        respAny.errorMsg ||
+        `CLOB rejected the order (status: ${respAny.status})`;
+      throw new Error(reason);
+    }
+
+    return {
+      status: String(respAny.status ?? "accepted"),
+      orderId: respAny.orderID,
+      filledSize: respAny.makingAmount,
+      filledUsdc: respAny.takingAmount,
+    };
+  }
+
   async getOrder(orderId: string) {
     return this.client.getOrder(orderId);
   }
