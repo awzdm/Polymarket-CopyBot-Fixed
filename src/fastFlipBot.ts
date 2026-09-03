@@ -7,16 +7,30 @@
  *  2. Как только цена любой стороны ВПЕРВЫЕ достигает ENTRY_PRICE (0.98) —
  *     сразу покупаем по этой цене (при условии дневного лимита). Ровно
  *     один раз на рынок — повторные касания того же рынка игнорируются.
- *  3. Как только покупка исполнилась — сразу ставим GTC-лимитку на
- *     ПРОДАЖУ по TP_PRICE (0.99) — это резервирует "первое касание 0.99"
- *     как momент продажи, кто бы ни купил у нас первым по этой цене.
+ *  3. Как только покупка исполнилась — сразу пытаемся поставить GTC-лимитку
+ *     на ПРОДАЖУ по TP_PRICE (0.99) — это резервирует "первое касание 0.99"
+ *     как момент продажи, кто бы ни купил у нас первым по этой цене.
+ *
+ *     ВАЖНО: сразу после исполнения покупки акции физически ЕЩЁ НЕ
+ *     дошли до кошелька (сеттлмент через relayer идёт с задержкой в
+ *     несколько секунд). Поэтому первая попытка поставить ордер на
+ *     продажу может упасть с ошибкой "not enough balance" — это
+ *     нормально, бот ретраит постановку тейка, пока баланс не
+ *     подтянется, либо пока не истечёт отведённое время.
+ *
+ *     Также: если к моменту постановки тейка цена рынка уже УШЛА ВЫШЕ
+ *     0.99 (например 0.999) — бот ставит тейк не по 0.99, а по текущей
+ *     цене, чтобы закрыть сделку как можно раньше, а не ждать отката.
  *  4. Если тейк-профит исполнился до закрытия — сделка закрыта, профит
- *     ~1% (0.98 -> 0.99), шлём итог в Telegram.
+ *     фиксируется, шлём итог в Telegram.
  *  5. Если тейк-профит НЕ исполнился до закрытия — бот НЕ ждёт резолва и
  *     не отслеживает исход дальше. Позиция просто остаётся висеть;
  *     отдельный фоновый redeemLoop() заберёт выигрыш, если он будет,
  *     когда рынок официально зарезолвится — этот бот сразу идёт искать
  *     следующие сделки.
+ *
+ *  Любая ошибка при выходе из позиции (постановка/проверка тейка,
+ *  ожидание исполнения и т.д.) шлётся в Telegram, а не только в консоль.
  *
  * НАСТРОЙКИ МЕНЯЮТСЯ ЧЕРЕЗ TELEGRAM НА ЛЕТУ (без передеплоя):
  *   лимит 25        — дневной лимит сделок
@@ -46,6 +60,14 @@ const MARKET_REFRESH_MS = 30 * 1000;
 const OBSERVE_WINDOW_MS = 6 * 60 * 1000;
 const FILL_CHECK_INTERVAL_MS = 5 * 1000;
 const REDEEM_POLL_MS = 60 * 1000;
+
+// Сколько времени даём на постановку тейк-профита, пока ретраим
+// ошибки "баланс ещё не подтянулся" (сеттлмент покупки идёт с задержкой).
+const TP_PLACEMENT_DEADLINE_MS = 45 * 1000;
+const TP_PLACEMENT_RETRY_MS = 3 * 1000;
+// Максимальная цена, выше которой TP уже не имеет смысла ставить
+// (страховка от кривых/аномальных апдейтов цены).
+const TP_PRICE_CAP = Number(process.env.FASTFLIP_TP_PRICE_CAP ?? "0.999");
 
 const TICKER_TO_COIN: Record<string, string> = {
   BTC: "Bitcoin",
@@ -94,6 +116,11 @@ class FastFlipBot {
   private entered = new Set<string>();
   private updateCount = 0;
 
+  // Последняя известная цена (bestBid ?? bestAsk) по каждому токену.
+  // Нужна, чтобы при постановке тейк-профита понимать, не ушла ли
+  // цена уже выше нашего целевого уровня.
+  private lastPrices = new Map<string, number>();
+
   private tradesToday = 0;
   private tradesTodayKey = todayKey();
 
@@ -110,12 +137,25 @@ class FastFlipBot {
     );
   }
 
+  /** Логирует ошибку в консоль И шлёт в Telegram. */
+  private async notifyError(context: string, err: unknown): Promise<void> {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`   ❌ [${context}]`, message);
+    if (this.telegram) {
+      try {
+        await this.telegram.send(`⚠️ Ошибка (${context}): ${message}`);
+      } catch (tgErr) {
+        console.error("   [telegram] не удалось отправить сообщение об ошибке:", (tgErr as Error).message);
+      }
+    }
+  }
+
   async refreshMarkets(): Promise<void> {
     let allMarkets: CryptoUpDownMarket[];
     try {
       allMarkets = await discoverCryptoUpDownMarkets([{ suffixes: ["up-or-down-5m"], minutes: 5 }]);
     } catch (err) {
-      console.error("[refresh] ошибка:", (err as Error).message);
+      await this.notifyError("обновление рынков", err);
       return;
     }
 
@@ -152,9 +192,14 @@ class FastFlipBot {
     if (!info) return;
     const { market, side } = info;
 
-    if (this.entered.has(market.eventSlug)) return;
-
     const price = update.bestBid ?? update.bestAsk;
+    if (price !== null) {
+      // Запоминаем последнюю цену по токену всегда — она нужна и после
+      // входа в позицию, чтобы правильно выставить тейк-профит.
+      this.lastPrices.set(update.tokenId, price);
+    }
+
+    if (this.entered.has(market.eventSlug)) return;
     if (price === null || price < settings.entryPrice) return;
 
     // Сброс дневного счётчика по UTC-суткам
@@ -206,11 +251,24 @@ class FastFlipBot {
       if (!result.orderId) return;
       buyOrderId = result.orderId;
     } catch (err) {
-      console.error(`   ❌ ОШИБКА ПОКУПКИ:`, (err as Error).message);
+      await this.notifyError(`покупка (${market.title})`, err);
       return;
     }
 
     this.managePosition(market, side, tokenId, buyOrderId, size, settings.entryPrice);
+  }
+
+  /**
+   * Определяет цену тейк-профита прямо сейчас: если рынок уже ушёл выше
+   * TP_PRICE — ставим по текущей цене, чтобы закрыться как можно раньше,
+   * а не ждать возврата к 0.99. Ограничено сверху TP_PRICE_CAP.
+   */
+  private resolveTpPrice(tokenId: string): number {
+    const current = this.lastPrices.get(tokenId);
+    if (current !== undefined && current > TP_PRICE) {
+      return Math.min(current, TP_PRICE_CAP);
+    }
+    return TP_PRICE;
   }
 
   private async managePosition(
@@ -238,7 +296,7 @@ class FastFlipBot {
           break;
         }
       } catch (err) {
-        console.error(`   [ожидание покупки] ошибка:`, (err as Error).message);
+        await this.notifyError(`ожидание покупки (${market.title})`, err);
       }
     }
 
@@ -247,24 +305,60 @@ class FastFlipBot {
       return;
     }
 
-    console.log(`   💰 ПОКУПКА ИСПОЛНЕНА: ${filledSize.toFixed(2)} акций. Ставим тейк-профит по ${TP_PRICE}...`);
+    console.log(`   💰 ПОКУПКА ИСПОЛНЕНА: ${filledSize.toFixed(2)} акций. Ставим тейк-профит...`);
 
+    // Шаг 2: ставим тейк-профит. Сразу после покупки токены могут ещё не
+    // дойти до кошелька (сеттлмент через relayer с задержкой) — биржа в
+    // этом случае отвечает "not enough balance". Это ожидаемо, поэтому
+    // ретраим постановку, пока не истечёт отведённое время. На каждой
+    // попытке пересчитываем цену тейка — если рынок за это время ушёл
+    // выше TP_PRICE, ставим по текущей цене, чтобы закрыться раньше.
     let tpOrderId: string | null = null;
-    try {
-      const tpResult = await this.clob.placeGtcLimitOrder({
-        tokenId,
-        side: Side.SELL,
-        price: TP_PRICE,
-        size: filledSize,
-        offsetPct: 0,
-      });
-      tpOrderId = tpResult.orderId ?? null;
-      console.log(`   ✅ ТЕЙК-ПРОФИТ: orderId=${tpOrderId ?? "?"} status=${tpResult.status}`);
-    } catch (err) {
-      console.error(`   ❌ ОШИБКА ТЕЙК-ПРОФИТА:`, (err as Error).message);
+    let tpPriceUsed = TP_PRICE;
+    const tpPlaceDeadline = Date.now() + TP_PLACEMENT_DEADLINE_MS;
+    let attempt = 0;
+
+    while (!tpOrderId && Date.now() < tpPlaceDeadline) {
+      attempt++;
+      const tpPrice = this.resolveTpPrice(tokenId);
+      try {
+        const tpResult = await this.clob.placeGtcLimitOrder({
+          tokenId,
+          side: Side.SELL,
+          price: tpPrice,
+          size: filledSize,
+          offsetPct: 0,
+        });
+        if (tpResult.orderId) {
+          tpOrderId = tpResult.orderId;
+          tpPriceUsed = tpPrice;
+          console.log(`   ✅ ТЕЙК-ПРОФИТ: orderId=${tpOrderId} price=${tpPrice} status=${tpResult.status}`);
+        } else {
+          console.log(`   ⏳ Тейк без orderId (попытка ${attempt}, цена ${tpPrice}), ждём и пробуем снова...`);
+          await new Promise((r) => setTimeout(r, TP_PLACEMENT_RETRY_MS));
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        if (message.includes("not enough balance")) {
+          // Ожидаемо сразу после покупки — акции ещё не дошли до кошелька.
+          console.log(`   ⏳ Баланс ещё не подтянулся (попытка ${attempt}, цена ${tpPrice}). Повтор через ${TP_PLACEMENT_RETRY_MS / 1000}с...`);
+          await new Promise((r) => setTimeout(r, TP_PLACEMENT_RETRY_MS));
+          continue;
+        }
+        // Любая другая ошибка — не похожа на "просто подожди", шлём в Telegram и прекращаем ретраить.
+        await this.notifyError(`постановка тейк-профита (${market.title})`, err);
+        break;
+      }
     }
 
-    // Шаг 2: ждём исполнения тейк-профита до закрытия рынка (+запас)
+    if (!tpOrderId) {
+      await this.notifyError(
+        `постановка тейк-профита (${market.title})`,
+        new Error(`не удалось поставить тейк за ${TP_PLACEMENT_DEADLINE_MS / 1000}с (попыток: ${attempt})`),
+      );
+    }
+
+    // Шаг 3: ждём исполнения тейк-профита до закрытия рынка (+запас)
     if (tpOrderId) {
       const tpDeadline = market.closeTimeMs + 30 * 1000;
       while (Date.now() < tpDeadline) {
@@ -275,12 +369,12 @@ class FastFlipBot {
             (order as any)?.size_matched ?? (order as any)?.sizeMatched ?? (order as any)?.filledSize ?? 0,
           );
           if (matched >= filledSize - 0.001) {
-            const profit = matched * (TP_PRICE - buyPrice);
+            const profit = matched * (tpPriceUsed - buyPrice);
             await this.notifyClose(market, side, "тейк-профит", profit);
             return;
           }
         } catch (err) {
-          console.error(`   [ожидание тейка] ошибка:`, (err as Error).message);
+          await this.notifyError(`ожидание исполнения тейка (${market.title})`, err);
         }
       }
     }
@@ -313,7 +407,7 @@ class FastFlipBot {
   }
 }
 
-async function redeemLoop(): Promise<void> {
+async function redeemLoop(telegram: ReturnType<typeof createTelegramNotifier>): Promise<void> {
   const rpcUrl = process.env.RPC_URL;
   const profileAddress = process.env.PROFILE_ADDRESS ?? process.env.FUNDER_ADDRESS;
   if (!rpcUrl || !profileAddress) {
@@ -355,7 +449,15 @@ async function redeemLoop(): Promise<void> {
         if (txHashes.length > 0) console.log(`[redeem] ✅ Заклеймлено: ${txHashes.length}`, txHashes);
       }
     } catch (err) {
-      console.error("[redeem] ошибка:", (err as Error).message);
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("[redeem] ошибка:", message);
+      if (telegram) {
+        try {
+          await telegram.send(`⚠️ Ошибка авто-клейма: ${message}`);
+        } catch {
+          // если и телеграм не отправился — просто идём дальше
+        }
+      }
     }
     await new Promise((r) => setTimeout(r, REDEEM_POLL_MS));
   }
@@ -418,7 +520,8 @@ async function pollTelegramCommands(
         }
       }
     } catch (err) {
-      console.error("[telegram poll] ошибка:", (err as Error).message);
+      const message = err instanceof Error ? err.message : String(err);
+      console.error("[telegram poll] ошибка:", message);
       await new Promise((r) => setTimeout(r, 5000));
     }
   }
@@ -463,11 +566,11 @@ async function main() {
   }
 
   if (!DRY_RUN && AUTO_REDEEM) {
-    redeemLoop();
+    redeemLoop(telegram);
   }
 }
 
-main().catch((err) => {
+main().catch(async (err) => {
   console.error("Фатальная ошибка:", err);
   process.exit(1);
 });
