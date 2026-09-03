@@ -406,8 +406,8 @@ async function pollTelegramCommands(
 
         const coinsMatch = text.match(/^монеты\s+([a-zа-я,\s]+)$/i);
         if (coinsMatch) {
-          const tickers = coinsMatch[1].split(",").map((s) => s.trim().toUpperCase());
-          const coins = tickers.filter((t) => TICKER_TO_COIN[t]).map((t) => TICKER_TO_COIN[t]);
+          const tickers = coinsMatch[1].split(",").map((s: string) => s.trim().toUpperCase());
+          const coins = tickers.filter((t: string) => TICKER_TO_COIN[t]).map((t: string) => TICKER_TO_COIN[t]);
           if (coins.length > 0) {
             settings.coins = coins;
             await telegram?.send(`Монеты установлены: ${tickers.join(", ")}`);
