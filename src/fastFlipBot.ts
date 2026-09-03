@@ -1,42 +1,19 @@
 /**
- * "Быстрый флип" — торговый бот, ПАРАЛЛЕЛЬНЫЙ старому sniperTrader.ts
- * (тот не запускаем, код не трогаем).
+ * Покупка победившей стороны 5-минутного Crypto Up/Down рынка за 5 секунд до закрытия.
+ * Работает отдельно от старого sniperTrader.ts.
  *
  * Логика на рынок:
- *  1. Следим за ценой с самого начала каждого 5-мин окна.
- *  2. Как только цена любой стороны ВПЕРВЫЕ достигает ENTRY_PRICE (0.98) —
- *     сразу покупаем по этой цене (при условии дневного лимита). Ровно
- *     один раз на рынок — повторные касания того же рынка игнорируются.
- *  3. Как только покупка исполнилась — сразу пытаемся поставить GTC-лимитку
- *     на ПРОДАЖУ по TP_PRICE (0.99) — это резервирует "первое касание 0.99"
- *     как момент продажи, кто бы ни купил у нас первым по этой цене.
- *
- *     ВАЖНО: сразу после исполнения покупки акции физически ЕЩЁ НЕ
- *     дошли до кошелька (сеттлмент через relayer идёт с задержкой в
- *     несколько секунд). Поэтому первая попытка поставить ордер на
- *     продажу может упасть с ошибкой "not enough balance" — это
- *     нормально, бот ретраит постановку тейка, пока баланс не
- *     подтянется, либо пока не истечёт отведённое время.
- *
- *     Также: если к моменту постановки тейка цена рынка уже УШЛА ВЫШЕ
- *     0.99 (например 0.999) — бот ставит тейк не по 0.99, а по текущей
- *     цене, чтобы закрыть сделку как можно раньше, а не ждать отката.
- *  4. Если тейк-профит исполнился до закрытия — сделка закрыта, профит
- *     фиксируется, шлём итог в Telegram.
- *  5. Если тейк-профит НЕ исполнился до закрытия — бот НЕ ждёт резолва и
- *     не отслеживает исход дальше. Позиция просто остаётся висеть;
- *     отдельный фоновый redeemLoop() заберёт выигрыш, если он будет,
- *     когда рынок официально зарезолвится — этот бот сразу идёт искать
- *     следующие сделки.
- *
- *  Любая ошибка при выходе из позиции (постановка/проверка тейка,
- *  ожидание исполнения и т.д.) шлётся в Telegram, а не только в консоль.
+ *  1. Следим за Up/Down цены через PriceWatcher.
+ *  2. Планируем отдельный таймер на closeTime - 5 секунд.
+ *  3. В этот момент выбираем сторону, которая ближе всего к 0.99.
+ *  4. Ставим GTC BUY ровно по 0.99.
+ *  5. Никакого TP/SELL: заявка остаётся активной через закрытие рынка.
  *
  * НАСТРОЙКИ МЕНЯЮТСЯ ЧЕРЕЗ TELEGRAM НА ЛЕТУ (без передеплоя):
- *   лимит 25        — дневной лимит сделок
+ *   лимит 25        — ограничить количество входов в сутки
  *   лимит нет       — снять лимит (без ограничения)
- *   цена 0.98       — цена входа
- *   монеты BTC,SOL,ETH,DOGE  — список монет для торговли
+ *   монеты BTC,SOL,ETH,DOGE  — ограничить торговлю выбранными монетами
+ *   монеты все       — снова торговать всеми найденными 5-минутными рынками
  *   статус          — текущие настройки + сколько сделок сегодня
  *
  * DRY_RUN=true по умолчанию (FASTFLIP_DRY_RUN=false для реальных денег).
@@ -55,19 +32,12 @@ import { createLogger } from "./logger.js";
 const DRY_RUN = (process.env.FASTFLIP_DRY_RUN ?? "true").toLowerCase() !== "false";
 const AUTO_REDEEM = (process.env.FASTFLIP_AUTO_REDEEM ?? "true").toLowerCase() !== "false";
 const TRADE_SIZE_USD = Number(process.env.FASTFLIP_TRADE_SIZE_USD ?? "5");
-const TP_PRICE = Number(process.env.FASTFLIP_TP_PRICE ?? "0.99");
 const MARKET_REFRESH_MS = 30 * 1000;
-const OBSERVE_WINDOW_MS = 6 * 60 * 1000;
-const FILL_CHECK_INTERVAL_MS = 5 * 1000;
+const OBSERVE_WINDOW_MS = 10 * 60 * 1000;
+const ENTRY_LEAD_MS = 5 * 1000;
+const ENTRY_PRICE = 0.99;
+const MIN_WINNING_PRICE = 0.98;
 const REDEEM_POLL_MS = 60 * 1000;
-
-// Сколько времени даём на постановку тейк-профита, пока ретраим
-// ошибки "баланс ещё не подтянулся" (сеттлмент покупки идёт с задержкой).
-const TP_PLACEMENT_DEADLINE_MS = 45 * 1000;
-const TP_PLACEMENT_RETRY_MS = 3 * 1000;
-// Максимальная цена, выше которой TP уже не имеет смысла ставить
-// (страховка от кривых/аномальных апдейтов цены).
-const TP_PRICE_CAP = Number(process.env.FASTFLIP_TP_PRICE_CAP ?? "0.999");
 
 const TICKER_TO_COIN: Record<string, string> = {
   BTC: "Bitcoin",
@@ -82,13 +52,20 @@ const COIN_TO_TICKER: Record<string, string> = Object.fromEntries(
 
 // ─── Настройки, которые можно менять на лету через Telegram ───
 const settings = {
-  dailyLimit: Number(process.env.FASTFLIP_DAILY_LIMIT ?? "25") as number | null,
-  entryPrice: Number(process.env.FASTFLIP_ENTRY_PRICE ?? "0.98"),
-  coins: (process.env.FASTFLIP_COINS ?? "BTC,SOL,ETH,DOGE")
-    .split(",")
-    .map((s) => s.trim().toUpperCase())
-    .filter((t) => TICKER_TO_COIN[t])
-    .map((t) => TICKER_TO_COIN[t]),
+  // По умолчанию торгуем ВСЕ рынки, которые вернул discovery.
+  // Если FASTFLIP_COINS задан, можно ограничить список.
+  dailyLimit:
+    process.env.FASTFLIP_DAILY_LIMIT === undefined || process.env.FASTFLIP_DAILY_LIMIT.trim() === ""
+      ? null
+      : Number(process.env.FASTFLIP_DAILY_LIMIT),
+  coins:
+    process.env.FASTFLIP_COINS === undefined || process.env.FASTFLIP_COINS.trim() === ""
+      ? null
+      : process.env.FASTFLIP_COINS
+          .split(",")
+          .map((s) => s.trim().toUpperCase())
+          .filter((t) => TICKER_TO_COIN[t])
+          .map((t) => TICKER_TO_COIN[t]),
 };
 
 interface TokenInfo {
@@ -113,13 +90,14 @@ class FastFlipBot {
   private watcher: PriceWatcher | null = null;
   private tokenIndex = new Map<string, TokenInfo>();
   private lastTokenIds: string[] = [];
-  private entered = new Set<string>();
+  private scheduled = new Set<string>();
+  private placed = new Set<string>();
   private updateCount = 0;
 
-  // Последняя известная цена (bestBid ?? bestAsk) по каждому токену.
-  // Нужна, чтобы при постановке тейк-профита понимать, не ушла ли
-  // цена уже выше нашего целевого уровня.
+  // Последняя известная цена по каждому токену из PriceWatcher.
+  // В момент T-5s именно эти цены используются для выбора стороны.
   private lastPrices = new Map<string, number>();
+  private closeTimers = new Map<string, NodeJS.Timeout>();
 
   private tradesToday = 0;
   private tradesTodayKey = todayKey();
@@ -131,9 +109,9 @@ class FastFlipBot {
 
   getStatus(): string {
     return (
+      `Режим: BUY @ 0.99 за 5с до закрытия | ` +
       `Лимит: ${settings.dailyLimit ?? "нет"} | Сделок сегодня: ${this.tradesToday}\n` +
-      `Цена входа: ${settings.entryPrice}\n` +
-      `Монеты: ${settings.coins.map((c) => COIN_TO_TICKER[c] ?? c).join(", ")}`
+      `Размер: $${TRADE_SIZE_USD} | Монеты: ${settings.coins === null ? "ВСЕ ДОСТУПНЫЕ" : settings.coins.map((c) => COIN_TO_TICKER[c] ?? c).join(", ")}`
     );
   }
 
@@ -160,49 +138,106 @@ class FastFlipBot {
     }
 
     const now = Date.now();
+
+    // Берём только ещё не закрывшиеся 5-минутные рынки.
+    // Окно в 10 минут даёт запас, чтобы успеть подписаться и поставить таймер.
     const markets = allMarkets.filter(
-      (m) => settings.coins.includes(m.coin) && m.closeTimeMs - now <= OBSERVE_WINDOW_MS,
+      (m) =>
+        (settings.coins === null || settings.coins.includes(m.coin)) &&
+        m.closeTimeMs > now &&
+        m.closeTimeMs - now <= OBSERVE_WINDOW_MS,
     );
 
     this.tokenIndex = buildTokenIndex(markets);
     const tokenIds = [...this.tokenIndex.keys()].sort();
 
     console.log(
-      `[refresh] рынков: ${markets.length} (${tokenIds.length} токенов), сделок сегодня: ${this.tradesToday}/${settings.dailyLimit ?? "∞"}`,
+      `[refresh] рынков: ${markets.length} (${tokenIds.length} токенов), ` +
+        `сделок сегодня: ${this.tradesToday}/${settings.dailyLimit ?? "∞"}`,
     );
 
+    // Подписка на цены нужна только для получения актуальных Up/Down цен.
     const sameAsLastTime =
       tokenIds.length === this.lastTokenIds.length &&
       tokenIds.every((id, i) => id === this.lastTokenIds[i]);
-    if (sameAsLastTime && this.watcher) return;
-    this.lastTokenIds = tokenIds;
 
-    this.watcher?.stop();
-    if (tokenIds.length === 0) {
-      this.watcher = null;
-      return;
+    if (!sameAsLastTime || !this.watcher) {
+      this.lastTokenIds = tokenIds;
+      this.watcher?.stop();
+
+      if (tokenIds.length === 0) {
+        this.watcher = null;
+      } else {
+        this.watcher = new PriceWatcher(tokenIds, (u) => this.onPriceUpdate(u));
+        this.watcher.start();
+      }
     }
-    this.watcher = new PriceWatcher(tokenIds, (u) => this.onPriceUpdate(u));
-    this.watcher.start();
+
+    // Главное изменение стратегии: для КАЖДОГО рынка ставим отдельный таймер
+    // ровно на closeTime - 5 секунд. Не зависим от 30-секундного refresh.
+    for (const market of markets) {
+      this.scheduleMarket(market);
+    }
+
+    // Чистим таймеры рынков, которые уже исчезли из discovery.
+    const activeSlugs = new Set(markets.map((m) => m.eventSlug));
+    for (const [slug, timer] of this.closeTimers) {
+      if (!activeSlugs.has(slug)) {
+        clearTimeout(timer);
+        this.closeTimers.delete(slug);
+      }
+    }
   }
 
   private onPriceUpdate(update: PriceUpdate): void {
     this.updateCount++;
     const info = this.tokenIndex.get(update.tokenId);
     if (!info) return;
-    const { market, side } = info;
 
     const price = update.bestBid ?? update.bestAsk;
     if (price !== null) {
-      // Запоминаем последнюю цену по токену всегда — она нужна и после
-      // входа в позицию, чтобы правильно выставить тейк-профит.
       this.lastPrices.set(update.tokenId, price);
     }
+  }
 
-    if (this.entered.has(market.eventSlug)) return;
-    if (price === null || price < settings.entryPrice) return;
+  private scheduleMarket(market: CryptoUpDownMarket): void {
+    if (this.scheduled.has(market.eventSlug) || this.placed.has(market.eventSlug)) return;
 
-    // Сброс дневного счётчика по UTC-суткам
+    const executeAt = market.closeTimeMs - ENTRY_LEAD_MS;
+    const delay = Math.max(0, executeAt - Date.now());
+
+    this.scheduled.add(market.eventSlug);
+    console.log(
+      `[schedule] ${market.coin} "${market.title}" -> BUY check in ${(delay / 1000).toFixed(1)}s ` +
+        `(T-5s)`,
+    );
+
+    const timer = setTimeout(() => {
+      this.closeTimers.delete(market.eventSlug);
+      void this.executeAtClose(market);
+    }, delay);
+
+    this.closeTimers.set(market.eventSlug, timer);
+  }
+
+  /**
+   * Ровно примерно за 5 секунд до closeTime:
+   * 1) берём последнюю цену Up и Down;
+   * 2) выбираем сторону, которая ближе всего к 0.99;
+   * 3) если она действительно "дорогая" (>= 0.98), ставим BUY GTC @ 0.99;
+   * 4) ордер НЕ продаём, НЕ заменяем и НЕ отменяем после закрытия рынка.
+   */
+  private async executeAtClose(market: CryptoUpDownMarket): Promise<void> {
+    if (this.placed.has(market.eventSlug)) return;
+
+    // Если из-за задержки Railway/event loop проснулись чуть раньше — ждём
+    // до нужного момента. Если позже — выполняем сразу.
+    const remaining = market.closeTimeMs - ENTRY_LEAD_MS - Date.now();
+    if (remaining > 0) {
+      await new Promise((resolve) => setTimeout(resolve, remaining));
+    }
+
+    // Сбрасываем дневной счётчик по UTC-суткам.
     const key = todayKey();
     if (key !== this.tradesTodayKey) {
       this.tradesTodayKey = key;
@@ -210,27 +245,60 @@ class FastFlipBot {
     }
 
     if (settings.dailyLimit !== null && this.tradesToday >= settings.dailyLimit) {
-      this.entered.add(market.eventSlug); // не пересматриваем этот рынок повторно
+      console.log(`   ⛔ Достигнут дневной лимит — ${market.eventSlug} пропущен.`);
       return;
     }
 
-    this.entered.add(market.eventSlug);
+    const upPrice = this.lastPrices.get(market.upTokenId) ?? null;
+    const downPrice = this.lastPrices.get(market.downTokenId) ?? null;
+
+    if (upPrice === null && downPrice === null) {
+      console.log(`   ⚠️ Нет цены Up/Down за T-5s: ${market.eventSlug}. Пропускаем.`);
+      return;
+    }
+
+    // Выбираем токен, чья цена ближе всего к 0.99.
+    // В нормальном бинарном рынке это и есть текущая "побеждающая" сторона.
+    const candidates: Array<{ side: "Up" | "Down"; tokenId: string; price: number }> = [];
+    if (upPrice !== null) candidates.push({ side: "Up", tokenId: market.upTokenId, price: upPrice });
+    if (downPrice !== null) candidates.push({ side: "Down", tokenId: market.downTokenId, price: downPrice });
+
+    candidates.sort((a, b) => Math.abs(b.price - 0.99) - Math.abs(a.price - 0.99));
+    const selected = candidates[candidates.length - 1];
+
+    // Не покупаем рынок, если ни одна сторона не находится около 0.99.
+    // Это защита от ситуации, когда websocket давно не обновлялся или рынок
+    // находится в необычном состоянии.
+    if (selected.price < MIN_WINNING_PRICE) {
+      console.log(
+        `   ⚠️ ${market.coin} ${market.eventSlug}: Up=${upPrice ?? "?"}, Down=${downPrice ?? "?"}. ` +
+          `Нет стороны >= ${MIN_WINNING_PRICE}. Пропускаем.`,
+      );
+      return;
+    }
+
+    this.placed.add(market.eventSlug);
     this.tradesToday++;
-    const tokenId = side === "Up" ? market.upTokenId : market.downTokenId;
-    this.executeFlip(market, side, tokenId, price);
+
+    await this.placeWinningSideOrder(market, selected.side, selected.tokenId, selected.price);
   }
 
-  private async executeFlip(
+  private async placeWinningSideOrder(
     market: CryptoUpDownMarket,
     side: "Up" | "Down",
     tokenId: string,
-    priceAtEntry: number,
+    observedPrice: number,
   ): Promise<void> {
-    const size = TRADE_SIZE_USD / settings.entryPrice;
+    const buyPrice = ENTRY_PRICE;
+    const size = TRADE_SIZE_USD / buyPrice;
 
     console.log(
-      `\n⚡ ВХОД: [${market.coin} / 5мин] "${market.title}"\n` +
-        `   Сторона: ${side} | Цена сейчас: ~${priceAtEntry} | Покупаем: ${size.toFixed(2)} акций по ${settings.entryPrice} (~$${TRADE_SIZE_USD})`,
+      `\n🎯 T-5С BUY: [${market.coin} / 5мин] "${market.title}"\n` +
+        `   Up=${this.lastPrices.get(market.upTokenId)?.toFixed(4) ?? "?"} | ` +
+        `Down=${this.lastPrices.get(market.downTokenId)?.toFixed(4) ?? "?"}\n` +
+        `   Выбрано: ${side} @ ${observedPrice.toFixed(4)} | ` +
+        `ставим GTC BUY @ ${buyPrice.toFixed(2)} | ${size.toFixed(2)} shares (~$${TRADE_SIZE_USD})\n` +
+        `   ⏳ Ордер оставляем висеть через резолв — TP/SELL отсутствует.`,
     );
 
     if (DRY_RUN || !this.clob) {
@@ -238,171 +306,39 @@ class FastFlipBot {
       return;
     }
 
-    let buyOrderId: string;
     try {
       const result = await this.clob.placeGtcLimitOrder({
         tokenId,
         side: Side.BUY,
-        price: settings.entryPrice,
+        price: buyPrice,
         size,
         offsetPct: 0,
       });
-      console.log(`   ✅ ЗАЯВКА НА ПОКУПКУ: orderId=${result.orderId ?? "?"} status=${result.status}`);
-      if (!result.orderId) return;
-      buyOrderId = result.orderId;
+
+      console.log(
+        `   ✅ GTC BUY выставлен: orderId=${result.orderId ?? "?"} status=${result.status} ` +
+          `price=${buyPrice} size=${size.toFixed(2)}`,
+      );
+
+      if (!result.orderId) {
+        await this.notifyError(
+          `покупка (${market.title})`,
+          new Error("CLOB вернул результат без orderId"),
+        );
+      }
     } catch (err) {
       await this.notifyError(`покупка (${market.title})`, err);
-      return;
     }
-
-    this.managePosition(market, side, tokenId, buyOrderId, size, settings.entryPrice);
-  }
-
-  /**
-   * Определяет цену тейк-профита прямо сейчас: если рынок уже ушёл выше
-   * TP_PRICE — ставим по текущей цене, чтобы закрыться как можно раньше,
-   * а не ждать возврата к 0.99. Ограничено сверху TP_PRICE_CAP.
-   */
-  private resolveTpPrice(tokenId: string): number {
-    const current = this.lastPrices.get(tokenId);
-    if (current !== undefined && current > TP_PRICE) {
-      return Math.min(current, TP_PRICE_CAP);
-    }
-    return TP_PRICE;
-  }
-
-  private async managePosition(
-    market: CryptoUpDownMarket,
-    side: "Up" | "Down",
-    tokenId: string,
-    buyOrderId: string,
-    requestedSize: number,
-    buyPrice: number,
-  ): Promise<void> {
-    if (!this.clob) return;
-
-    // Шаг 1: ждём исполнения покупки
-    const buyDeadline = market.closeTimeMs + 30 * 1000;
-    let filledSize = 0;
-    while (Date.now() < buyDeadline) {
-      await new Promise((r) => setTimeout(r, FILL_CHECK_INTERVAL_MS));
-      try {
-        const order = await this.clob.getOrder(buyOrderId);
-        const matched = Number(
-          (order as any)?.size_matched ?? (order as any)?.sizeMatched ?? (order as any)?.filledSize ?? 0,
-        );
-        if (matched > 0) {
-          filledSize = matched;
-          break;
-        }
-      } catch (err) {
-        await this.notifyError(`ожидание покупки (${market.title})`, err);
-      }
-    }
-
-    if (filledSize <= 0) {
-      console.log(`   ⏳ Покупка не исполнилась (eventSlug: ${market.eventSlug}).`);
-      return;
-    }
-
-    console.log(`   💰 ПОКУПКА ИСПОЛНЕНА: ${filledSize.toFixed(2)} акций. Ставим тейк-профит...`);
-
-    // Шаг 2: ставим тейк-профит. Сразу после покупки токены могут ещё не
-    // дойти до кошелька (сеттлмент через relayer с задержкой) — биржа в
-    // этом случае отвечает "not enough balance". Это ожидаемо, поэтому
-    // ретраим постановку, пока не истечёт отведённое время. На каждой
-    // попытке пересчитываем цену тейка — если рынок за это время ушёл
-    // выше TP_PRICE, ставим по текущей цене, чтобы закрыться раньше.
-    let tpOrderId: string | null = null;
-    let tpPriceUsed = TP_PRICE;
-    const tpPlaceDeadline = Date.now() + TP_PLACEMENT_DEADLINE_MS;
-    let attempt = 0;
-
-    while (!tpOrderId && Date.now() < tpPlaceDeadline) {
-      attempt++;
-      const tpPrice = this.resolveTpPrice(tokenId);
-      try {
-        const tpResult = await this.clob.placeGtcLimitOrder({
-          tokenId,
-          side: Side.SELL,
-          price: tpPrice,
-          size: filledSize,
-          offsetPct: 0,
-        });
-        if (tpResult.orderId) {
-          tpOrderId = tpResult.orderId;
-          tpPriceUsed = tpPrice;
-          console.log(`   ✅ ТЕЙК-ПРОФИТ: orderId=${tpOrderId} price=${tpPrice} status=${tpResult.status}`);
-        } else {
-          console.log(`   ⏳ Тейк без orderId (попытка ${attempt}, цена ${tpPrice}), ждём и пробуем снова...`);
-          await new Promise((r) => setTimeout(r, TP_PLACEMENT_RETRY_MS));
-        }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        if (message.includes("not enough balance")) {
-          // Ожидаемо сразу после покупки — акции ещё не дошли до кошелька.
-          console.log(`   ⏳ Баланс ещё не подтянулся (попытка ${attempt}, цена ${tpPrice}). Повтор через ${TP_PLACEMENT_RETRY_MS / 1000}с...`);
-          await new Promise((r) => setTimeout(r, TP_PLACEMENT_RETRY_MS));
-          continue;
-        }
-        // Любая другая ошибка — не похожа на "просто подожди", шлём в Telegram и прекращаем ретраить.
-        await this.notifyError(`постановка тейк-профита (${market.title})`, err);
-        break;
-      }
-    }
-
-    if (!tpOrderId) {
-      await this.notifyError(
-        `постановка тейк-профита (${market.title})`,
-        new Error(`не удалось поставить тейк за ${TP_PLACEMENT_DEADLINE_MS / 1000}с (попыток: ${attempt})`),
-      );
-    }
-
-    // Шаг 3: ждём исполнения тейк-профита до закрытия рынка (+запас)
-    if (tpOrderId) {
-      const tpDeadline = market.closeTimeMs + 30 * 1000;
-      while (Date.now() < tpDeadline) {
-        await new Promise((r) => setTimeout(r, FILL_CHECK_INTERVAL_MS));
-        try {
-          const order = await this.clob.getOrder(tpOrderId);
-          const matched = Number(
-            (order as any)?.size_matched ?? (order as any)?.sizeMatched ?? (order as any)?.filledSize ?? 0,
-          );
-          if (matched >= filledSize - 0.001) {
-            const profit = matched * (tpPriceUsed - buyPrice);
-            await this.notifyClose(market, side, "тейк-профит", profit);
-            return;
-          }
-        } catch (err) {
-          await this.notifyError(`ожидание исполнения тейка (${market.title})`, err);
-        }
-      }
-    }
-
-    // Тейк-профит не исполнился до закрытия окна — просто оставляем
-    // позицию висеть. Резолв и клейм при выигрыше сделает отдельный
-    // фоновый redeemLoop() — этот конкретный бот дальше не ждёт и не
-    // отслеживает исход, идёт искать следующие сделки.
-    console.log(`   ⏳ Тейк-профит не исполнился до закрытия — оставляем висеть (eventSlug: ${market.eventSlug}). Авто-клейм заберёт выигрыш отдельно, если сработает.`);
-  }
-
-  private async notifyClose(
-    market: CryptoUpDownMarket,
-    side: "Up" | "Down",
-    how: string,
-    profit: number,
-  ): Promise<void> {
-    const sign = profit >= 0 ? "✅" : "🔻";
-    const msg = `${sign} Сделка закрыта (${how})\n${market.title}\nСторона: ${side}\nПрофит: ${profit >= 0 ? "+" : ""}$${profit.toFixed(3)}`;
-    console.log(`\n${msg}\n`);
-    if (this.telegram) await this.telegram.send(msg);
   }
 
   start(): void {
-    this.refreshMarkets();
-    setInterval(() => this.refreshMarkets(), MARKET_REFRESH_MS);
+    void this.refreshMarkets();
+    setInterval(() => void this.refreshMarkets(), MARKET_REFRESH_MS);
     setInterval(() => {
-      console.log(`--- статус: апдейтов ${this.updateCount}, сделок сегодня ${this.tradesToday} ---`);
+      console.log(
+        `--- статус: апдейтов ${this.updateCount}, запланировано ${this.closeTimers.size}, ` +
+          `сделок сегодня ${this.tradesToday} ---`,
+      );
     }, 30 * 1000);
   }
 }
@@ -499,10 +435,11 @@ async function pollTelegramCommands(
           continue;
         }
 
-        const priceMatch = text.match(/^цена\s+([\d.]+)$/);
-        if (priceMatch) {
-          settings.entryPrice = Number(priceMatch[1]);
-          await telegram?.send(`Цена входа установлена: ${settings.entryPrice}`);
+
+        const allCoinsMatch = text.match(/^монеты\s+(все|all)$/i);
+        if (allCoinsMatch) {
+          settings.coins = null;
+          await telegram?.send("Монеты: ВСЕ ДОСТУПНЫЕ");
           continue;
         }
 
@@ -514,7 +451,7 @@ async function pollTelegramCommands(
             settings.coins = coins;
             await telegram?.send(`Монеты установлены: ${tickers.join(", ")}`);
           } else {
-            await telegram?.send(`Не распознал монеты. Используй тикеры: BTC, ETH, SOL, XRP, DOGE`);
+            await telegram?.send(`Не распознал монеты. Используй: BTC, ETH, SOL, XRP, DOGE или "монеты все"`);
           }
           continue;
         }
@@ -529,7 +466,7 @@ async function pollTelegramCommands(
 
 async function main() {
   console.log(`Режим: ${DRY_RUN ? "DRY_RUN (без реальных сделок)" : "⚠️  LIVE — РЕАЛЬНЫЕ ДЕНЬГИ"}`);
-  console.log(`Монеты: ${settings.coins.join(", ")} | Цена входа: ${settings.entryPrice} | Лимит: ${settings.dailyLimit ?? "нет"}`);
+  console.log(`Монеты: ${settings.coins === null ? "ВСЕ ДОСТУПНЫЕ" : settings.coins.join(", ")} | BUY цена: ${ENTRY_PRICE} | T-5s | Размер: $${TRADE_SIZE_USD} | Лимит: ${settings.dailyLimit ?? "нет"}`);
 
   let clob: ClobService | null = null;
   if (!DRY_RUN) {
@@ -561,7 +498,7 @@ async function main() {
   bot.start();
 
   if (telegram && process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
-    console.log("Telegram-команды включены: лимит N / лимит нет / цена X / монеты BTC,SOL,... / статус");
+    console.log("Telegram-команды включены: лимит N / лимит нет / монеты BTC,SOL,... / монеты все / статус");
     pollTelegramCommands(process.env.TELEGRAM_BOT_TOKEN, process.env.TELEGRAM_CHAT_ID, telegram, bot);
   }
 
