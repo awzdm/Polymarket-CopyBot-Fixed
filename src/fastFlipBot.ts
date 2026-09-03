@@ -348,7 +348,7 @@ async function redeemLoop(): Promise<void> {
   for (;;) {
     try {
       const positions = await dataApi.getPositions(profileAddress, true);
-      const eligible = positions.filter((p: any) => !attempted.has(p.conditionId));
+      const eligible = positions.filter((p) => !attempted.has(p.conditionId));
       if (eligible.length > 0) {
         const txHashes = await redeemService.redeemPositions(eligible);
         for (const p of eligible) attempted.add(p.conditionId);
@@ -379,8 +379,7 @@ async function pollTelegramCommands(
         continue;
       }
       const data = await resp.json();
-      const results = data.result as any[];
-      for (const update of results ?? []) {
+      for (const update of data.result ?? []) {
         offset = update.update_id + 1;
         const msg = update.message;
         if (!msg?.text || String(msg.chat?.id) !== String(chatId)) continue;
@@ -407,8 +406,10 @@ async function pollTelegramCommands(
 
         const coinsMatch = text.match(/^монеты\s+([a-zа-я,\s]+)$/i);
         if (coinsMatch) {
-          const tickers = coinsMatch[1].split(",").map((s) => s.trim().toUpperCase());
-          const coins = tickers.filter((t) => TICKER_TO_COIN[t]).map((t) => TICKER_TO_COIN[t]);
+          const tickers = coinsMatch[1].split(",").map((s: string) => s.trim().toUpperCase());
+          const coins = tickers
+  .filter((t: string) => TICKER_TO_COIN[t])
+  .map((t: string) => TICKER_TO_COIN[t]);
           if (coins.length > 0) {
             settings.coins = coins;
             await telegram?.send(`Монеты установлены: ${tickers.join(", ")}`);
