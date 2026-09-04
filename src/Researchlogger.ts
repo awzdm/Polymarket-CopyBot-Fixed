@@ -177,8 +177,13 @@ class ResearchLogger {
     if (!info) return;
     const { market, side } = info;
 
-    const price = update.bestBid ?? update.bestAsk;
-    if (price === null) return;
+    const prices = [update.bestBid, update.bestAsk].filter(
+  (p): p is number => p !== null
+);
+
+if (prices.length === 0) return;
+
+const price = Math.max(...prices);
 
     const key = `${market.eventSlug}:${side}`;
     const existing = this.trades.get(key);
