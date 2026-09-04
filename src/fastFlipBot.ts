@@ -41,7 +41,7 @@ import { createLogger } from "./logger.js";
 const DRY_RUN = (process.env.FASTFLIP_DRY_RUN ?? "true").toLowerCase() !== "false";
 const AUTO_REDEEM = (process.env.FASTFLIP_AUTO_REDEEM ?? "true").toLowerCase() !== "false";
 const TRADE_SIZE_USD = Number(process.env.FASTFLIP_TRADE_SIZE_USD ?? "5");
-const TP_PRICE = Number(process.env.FASTFLIP_TP_PRICE ?? "0.99");
+const TP_PRICE = Number(process.env.FASTFLIP_TP_PRICE ?? "0.999");
 const MARKET_REFRESH_MS = 30 * 1000;
 const OBSERVE_WINDOW_MS = 6 * 60 * 1000;
 const FILL_CHECK_INTERVAL_MS = 5 * 1000;

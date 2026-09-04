@@ -1,15 +1,20 @@
 /**
  * Исследовательский модуль (не торгует, только собирает статистику).
  *
- * Мониторит ВСЕ активные крипто up/down рынки (5-мин, 15-мин, час, 4 часа,
- * день) с самого их появления.
- * стороны каждого рынка отслеживает момент первого пересечения уровней
- * цены 0.99 / 0.98 / 0.97 / 0.96 / 0.95, и сколько секунд на тот момент
- * оставалось до закрытия окна.
+ * Отслеживает ТОЛЬКО BTC 5-минутные Up/Down рынки на Polymarket.
  *
- * После резолва рынка (через Gamma API) узнаём, какая сторона реально
- * победила, и помечаем каждое записанное пересечение: "held" (удержалось,
- * сторона победила) или "reversed" (развернулось, сторона проиграла).
+ * Логика "сделки":
+ *   1. Как только цена токена (Up или Down) впервые касается ENTRY_LEVEL
+ *      (0.98) — фиксируем это как точку входа ("вошли в сделку").
+ *   2. С этого момента и до итога следим за минимальной ценой, которую
+ *      показывал этот же токен — это и есть максимальная просадка сделки.
+ *   3. Сделка считается WIN, если:
+ *        а) токен ещё до официального резолва долетает до WIN_EARLY_LEVEL
+ *           (0.999) — считаем это победой без ожидания резолва, либо
+ *        б) рынок официально резолвится (через Gamma API), и наш токен
+ *           оказался победителем.
+ *   4. Сделка считается LOSS только по официальному резолву — если наш
+ *      токен проиграл. Досрочного лосса по низкому порогу нет.
  *
  * Раз в REPORT_INTERVAL_MS шлёт промежуточную сводку в Telegram (если
  * настроен), и финальную — при остановке (Ctrl+C).
@@ -19,21 +24,29 @@
  */
 
 import "dotenv/config";
-import { discoverCryptoUpDownMarkets, CryptoUpDownMarket, ALL_TIMEFRAMES } from "./cryptoMarketDiscovery.js";
+import { discoverCryptoUpDownMarkets, CryptoUpDownMarket } from "./cryptoMarketDiscovery.js";
 import { PriceWatcher, PriceUpdate } from "./priceWatcher.js";
 import { createTelegramNotifier } from "./telegram.js";
 import { createLogger } from "./logger.js";
 
-const LEVELS = [0.99, 0.98, 0.97, 0.96, 0.95];
+// Отслеживаем только BTC и только 5-минутные рынки.
+const TARGET_COIN = "BTC";
+const TARGET_WINDOW_MINUTES = 5;
+const TIMEFRAMES_TO_DISCOVER = [TARGET_WINDOW_MINUTES];
+
+// Уровень входа в сделку (касание этой цены = фиксируем точку входа).
+const ENTRY_LEVEL = 0.98;
+// Если цена долетает сюда ДО официального резолва — считаем сделку
+// выигранной досрочно, дальше не ждём резолва.
+const WIN_EARLY_LEVEL = 0.999;
+
 // Границы корзин по времени "сколько секунд оставалось до закрытия окна
-// в момент пересечения уровня". Последняя корзина — всё, что больше.
+// в момент входа в сделку". Последняя корзина — всё, что больше.
 const TIME_BUCKETS = [10, 30, 60, 120, 300];
+
 const MARKET_REFRESH_MS = 30 * 1000;
-// В отличие от торгового бота (3 мин), тут наблюдаем ВЕСЬ активный
-// 5-минутный рынок с момента его появления — окно берём с запасом чуть
-// больше длины самого рынка.
-// Наблюдаем каждый рынок с самого его начала — окно наблюдения зависит от
-// длины самого рынка (5-минутке хватит 6 мин запаса, дневному — почти сутки).
+// Наблюдаем каждый рынок с самого его начала — окно наблюдения чуть
+// больше длины самого рынка (5-минутке хватит 6 мин запаса).
 function observeWindowMs(windowMinutes: number): number {
   return (windowMinutes + 1) * 60 * 1000;
 }
@@ -44,18 +57,22 @@ const RESOLVE_CHECK_DELAY_SEC = 180;
 // достаточно чтобы сообщение СОДЕРЖАЛО любую из этих строк).
 const REPORT_TRIGGER_PHRASES = ["крипта итог", "crypto report", "/report"];
 
+// 🔥 НОВОЕ: интервал автоматической отправки отчётов (1 час)
+const AUTO_REPORT_INTERVAL_MS = 60 * 60 * 1000;
+
 const GAMMA_HOST = "https://gamma-api.polymarket.com";
 
-interface CrossingEvent {
-  coin: string;
+interface TradeEvent {
   eventSlug: string;
-  windowMinutes: number;
   side: "Up" | "Down";
-  level: number;
-  secToCloseAtCross: number;
-  timestamp: number;
-  resolved: boolean;
-  won: boolean | null; // null пока не узнали исход
+  entryTimestamp: number;
+  secToCloseAtEntry: number;
+  // Минимальная цена, которую видели у ЭТОГО токена с момента входа
+  // и до момента, пока сделка не определена как win/loss.
+  minPriceSinceEntry: number;
+  determined: boolean;
+  won: boolean | null;
+  wonEarly: boolean; // true, если победа зафиксирована по 0.999, а не по резолву
 }
 
 interface TokenInfo {
@@ -82,42 +99,67 @@ function timeBucketLabel(secToClose: number): string {
   return `>${TIME_BUCKETS[TIME_BUCKETS.length - 1]}с`;
 }
 
+function drawdownOf(t: TradeEvent): number {
+  // Насколько ниже уровня входа (0.98) падала цена в худший момент.
+  // 0 значит, что цена вообще не опускалась ниже точки входа.
+  return Math.max(0, ENTRY_LEVEL - t.minPriceSinceEntry);
+}
+
+function drawdownBucket(dd: number): string {
+  if (dd <= 0) return "0 (без просадки)";
+  if (dd <= 0.02) return "0-0.02";
+  if (dd <= 0.05) return "0.02-0.05";
+  if (dd <= 0.1) return "0.05-0.10";
+  if (dd <= 0.2) return "0.10-0.20";
+  return ">0.20";
+}
+const DRAWDOWN_BUCKET_ORDER = ["0 (без просадки)", "0-0.02", "0.02-0.05", "0.05-0.10", "0.10-0.20", ">0.20"];
+
 class ResearchLogger {
   private watcher: PriceWatcher | null = null;
   private tokenIndex = new Map<string, TokenInfo>();
   private lastTokenIds: string[] = [];
-  // eventSlug:side:level -> уже записано (не дублируем)
-  private seenCrossings = new Set<string>();
-  private crossings: CrossingEvent[] = [];
-  // markets awaiting resolution check: eventSlug -> {closeTimeMs, coin}
-  private pendingResolution = new Map<string, { closeTimeMs: number; coin: string }>();
+  // eventSlug:side -> сделка (если уже была зафиксирована точка входа)
+  private trades = new Map<string, TradeEvent>();
+  private tradesList: TradeEvent[] = [];
+  // markets awaiting resolution check: eventSlug -> {closeTimeMs}
+  private pendingResolution = new Map<string, { closeTimeMs: number }>();
   private updateCount = 0;
+  private telegramNotifier: ReturnType<typeof createTelegramNotifier> | null = null;
+
+  // 🔥 НОВОЕ: устанавливаем Telegram-нотификатор для отправки авто-отчётов
+  setTelegramNotifier(notifier: ReturnType<typeof createTelegramNotifier> | null): void {
+    this.telegramNotifier = notifier;
+  }
 
   async refreshMarkets(): Promise<void> {
     let allMarkets: CryptoUpDownMarket[];
     try {
-      allMarkets = await discoverCryptoUpDownMarkets(ALL_TIMEFRAMES);
+      allMarkets = await discoverCryptoUpDownMarkets(TIMEFRAMES_TO_DISCOVER);
     } catch (err) {
       console.error("[refresh] ошибка:", (err as Error).message);
       return;
     }
 
-    // Наблюдаем ВСЕ таймфреймы (5м/15м/час/4ч/день), каждый со своим
-    // окном наблюдения от начала своего же периода.
     const now = Date.now();
-    const markets = allMarkets.filter((m) => m.closeTimeMs - now <= observeWindowMs(m.windowMinutes));
+    const markets = allMarkets.filter(
+      (m) =>
+        m.coin.toUpperCase() === TARGET_COIN &&
+        m.windowMinutes === TARGET_WINDOW_MINUTES &&
+        m.closeTimeMs - now <= observeWindowMs(m.windowMinutes),
+    );
 
     this.tokenIndex = buildTokenIndex(markets);
     const tokenIds = [...this.tokenIndex.keys()].sort();
 
     for (const m of markets) {
       if (!this.pendingResolution.has(m.eventSlug)) {
-        this.pendingResolution.set(m.eventSlug, { closeTimeMs: m.closeTimeMs, coin: m.coin });
+        this.pendingResolution.set(m.eventSlug, { closeTimeMs: m.closeTimeMs });
       }
     }
 
     console.log(
-      `[refresh] наблюдаем рынков: ${markets.length} (${tokenIds.length} токенов), пересечений записано: ${this.crossings.length}, ждём резолва: ${this.pendingResolution.size}`,
+      `[refresh] наблюдаем BTC 5-мин рынков: ${markets.length} (${tokenIds.length} токенов), сделок открыто: ${this.tradesList.length}, ждём резолва: ${this.pendingResolution.size}`,
     );
 
     const sameAsLastTime =
@@ -144,26 +186,39 @@ class ResearchLogger {
     const price = update.bestBid ?? update.bestAsk;
     if (price === null) return;
 
-    const secToClose = (market.closeTimeMs - Date.now()) / 1000;
+    const key = `${market.eventSlug}:${side}`;
+    const existing = this.trades.get(key);
 
-    for (const level of LEVELS) {
-      if (price < level) continue;
-      const key = `${market.eventSlug}:${side}:${level}`;
-      if (this.seenCrossings.has(key)) continue;
-      this.seenCrossings.add(key);
-
-      this.crossings.push({
-        coin: market.coin,
-        eventSlug: market.eventSlug,
-        windowMinutes: market.windowMinutes,
-        side,
-        level,
-        secToCloseAtCross: secToClose,
-        timestamp: Date.now(),
-        resolved: false,
-        won: null,
-      });
+    if (existing) {
+      if (existing.determined) return; // итог уже известен, больше не следим
+      if (price < existing.minPriceSinceEntry) {
+        existing.minPriceSinceEntry = price;
+      }
+      if (price >= WIN_EARLY_LEVEL) {
+        existing.determined = true;
+        existing.won = true;
+        existing.wonEarly = true;
+      }
+      return;
     }
+
+    // Сделки по этому токену ещё нет — проверяем, не коснулась ли цена
+    // уровня входа.
+    if (price < ENTRY_LEVEL) return;
+
+    const secToClose = (market.closeTimeMs - Date.now()) / 1000;
+    const trade: TradeEvent = {
+      eventSlug: market.eventSlug,
+      side,
+      entryTimestamp: Date.now(),
+      secToCloseAtEntry: secToClose,
+      minPriceSinceEntry: price,
+      determined: false,
+      won: null,
+      wonEarly: false,
+    };
+    this.trades.set(key, trade);
+    this.tradesList.push(trade);
   }
 
   /** Периодически проверяем финальный исход рынков, у которых уже прошло достаточно времени после закрытия. */
@@ -184,8 +239,6 @@ class ResearchLogger {
         const market = (event.markets ?? [])[0];
         if (!market) continue;
 
-        // outcomePrices обычно ["1", "0"] или ["0", "1"] после резолва —
-        // порядок соответствует outcomes (["Up","Down"]).
         let outcomes: string[];
         let outcomePrices: string[];
         try {
@@ -208,10 +261,12 @@ class ResearchLogger {
 
         const winner: "Up" | "Down" = upPrice > downPrice ? "Up" : "Down";
 
-        for (const c of this.crossings) {
-          if (c.eventSlug === slug && !c.resolved) {
-            c.resolved = true;
-            c.won = c.side === winner;
+        for (const side of ["Up", "Down"] as const) {
+          const t = this.trades.get(`${slug}:${side}`);
+          if (t && !t.determined) {
+            t.determined = true;
+            t.won = side === winner;
+            t.wonEarly = false;
           }
         }
 
@@ -223,81 +278,78 @@ class ResearchLogger {
   }
 
   buildReport(): string {
-    const resolved = this.crossings.filter((c) => c.resolved);
-    const pending = this.crossings.length - resolved.length;
-
-    type Key = string; // "windowMinutes|level|bucket"
-    const stats = new Map<Key, { held: number; reversed: number }>();
-
-    for (const c of resolved) {
-      const bucket = timeBucketLabel(c.secToCloseAtCross);
-      const key = `${c.windowMinutes}|${c.level}|${bucket}`;
-      const s = stats.get(key) ?? { held: 0, reversed: 0 };
-      if (c.won) s.held++;
-      else s.reversed++;
-      stats.set(key, s);
-    }
-
-    const timeframeLabel = (m: number) =>
-      m === 5 ? "5 минут" : m === 15 ? "15 минут" : m === 60 ? "1 час" : m === 240 ? "4 часа" : m === 1440 ? "1 день" : `${m} мин`;
-
-    const timeframesPresent = [...new Set(resolved.map((c) => c.windowMinutes))].sort((a, b) => a - b);
+    const determined = this.tradesList.filter((t) => t.determined);
+    const pending = this.tradesList.length - determined.length;
+    const wins = determined.filter((t) => t.won);
+    const losses = determined.filter((t) => !t.won);
 
     const lines: string[] = [];
-    lines.push(`<b>📊 Отчёт по уровням входа (крипто рынки, все таймфреймы)</b>`);
-    lines.push(`Всего пересечений записано: ${this.crossings.length} (резолвнуто: ${resolved.length}, ждём: ${pending})`);
+    lines.push(`<b>📊 Отчёт BTC 5-мин (вход на ${ENTRY_LEVEL})</b>`);
+    lines.push(`Всего сделок: ${this.tradesList.length} (резолвнуто: ${determined.length}, ждём: ${pending})`);
+
+    if (determined.length > 0) {
+      const winRate = ((wins.length / determined.length) * 100).toFixed(1);
+      const earlyWins = wins.filter((t) => t.wonEarly).length;
+      lines.push(`Win rate: ${wins.length}/${determined.length} (${winRate}%), из них ранних по ${WIN_EARLY_LEVEL}: ${earlyWins}`);
+    }
     lines.push("");
 
-    // Сравнение монет — по всем данным сразу (все таймфреймы/уровни/бакеты
-    // вместе), чтобы сразу видеть, какая монета в среднем надёжнее.
-    const coinStats = new Map<string, { held: number; total: number }>();
-    for (const c of resolved) {
-      const s = coinStats.get(c.coin) ?? { held: 0, total: 0 };
-      s.total++;
-      if (c.won) s.held++;
-      coinStats.set(c.coin, s);
-    }
-    if (coinStats.size > 0) {
-      lines.push(`<b>Сравнение монет (по всем данным)</b>`);
-      const ranked = [...coinStats.entries()].sort((a, b) => b[1].held / b[1].total - a[1].held / a[1].total);
-      for (const [coin, s] of ranked) {
-        const pct = ((s.held / s.total) * 100).toFixed(1);
-        lines.push(`  ${coin}: ${s.held}/${s.total} удержалось (${pct}%)`);
+    const drawdownReport = (label: string, list: TradeEvent[]) => {
+      if (list.length === 0) return;
+      const dds = list.map(drawdownOf);
+      const avg = dds.reduce((a, b) => a + b, 0) / dds.length;
+      const worst = Math.max(...dds);
+      lines.push(`<b>Просадка — ${label} (${list.length} сделок)</b>`);
+      lines.push(`  средняя: ${avg.toFixed(4)}, максимальная: ${worst.toFixed(4)}`);
+      const buckets = new Map<string, number>();
+      for (const dd of dds) {
+        const b = drawdownBucket(dd);
+        buckets.set(b, (buckets.get(b) ?? 0) + 1);
+      }
+      for (const b of DRAWDOWN_BUCKET_ORDER) {
+        const c = buckets.get(b);
+        if (!c) continue;
+        const pct = ((c / list.length) * 100).toFixed(0);
+        lines.push(`    ${b}: ${c} (${pct}%)`);
       }
       lines.push("");
-    }
+    };
 
-    if (timeframesPresent.length === 0) {
-      lines.push("Пока нет резолвнутых данных.");
-      return lines.join("\n");
-    }
+    drawdownReport("выигрышные сделки", wins);
+    drawdownReport("проигрышные сделки", losses);
 
-    for (const windowMinutes of timeframesPresent) {
-      lines.push(`<b>═══ ${timeframeLabel(windowMinutes)} ═══</b>`);
-      for (const level of LEVELS) {
-        let anyForLevel = false;
-        const levelLines: string[] = [];
-        for (let i = 0; i <= TIME_BUCKETS.length; i++) {
-          const bucket =
-            i < TIME_BUCKETS.length
-              ? `${i === 0 ? 0 : TIME_BUCKETS[i - 1]}-${TIME_BUCKETS[i]}с`
-              : `>${TIME_BUCKETS[TIME_BUCKETS.length - 1]}с`;
-          const s = stats.get(`${windowMinutes}|${level}|${bucket}`);
-          if (!s || s.held + s.reversed === 0) continue;
-          anyForLevel = true;
-          const total = s.held + s.reversed;
-          const pct = ((s.held / total) * 100).toFixed(0);
-          levelLines.push(`    ${bucket} до закрытия: ${s.held}/${total} удержалось (${pct}%)`);
-        }
-        if (anyForLevel) {
-          lines.push(`  Уровень ${level}`);
-          lines.push(...levelLines);
-        }
+    if (determined.length > 0) {
+      lines.push(`<b>Win rate по времени до закрытия на входе</b>`);
+      const byBucket = new Map<string, { win: number; total: number }>();
+      for (const t of determined) {
+        const b = timeBucketLabel(t.secToCloseAtEntry);
+        const s = byBucket.get(b) ?? { win: 0, total: 0 };
+        s.total++;
+        if (t.won) s.win++;
+        byBucket.set(b, s);
       }
-      lines.push("");
+      for (const [b, s] of [...byBucket.entries()].sort()) {
+        const pct = ((s.win / s.total) * 100).toFixed(0);
+        lines.push(`  ${b} до закрытия: ${s.win}/${s.total} (${pct}%)`);
+      }
     }
 
     return lines.join("\n");
+  }
+
+  // 🔥 НОВОЕ: метод для отправки автоматического отчёта
+  async sendAutoReport(): Promise<void> {
+    if (!this.telegramNotifier) {
+      console.log("[auto-report] Telegram не настроен, пропускаем");
+      return;
+    }
+    try {
+      const report = this.buildReport();
+      await this.telegramNotifier.send(`⏰ <b>Автоматический отчёт (каждый час)</b>\n\n${report}`);
+      console.log("[auto-report] Отчёт отправлен в Telegram");
+    } catch (err) {
+      console.error("[auto-report] Ошибка отправки:", (err as Error).message);
+    }
   }
 
   start(): void {
@@ -306,13 +358,19 @@ class ResearchLogger {
     setInterval(() => this.checkResolutions(), 30 * 1000);
     setInterval(() => {
       console.log(
-        `--- статус: апдейтов цены ${this.updateCount}, пересечений ${this.crossings.length} ---`,
+        `--- статус: апдейтов цены ${this.updateCount}, сделок ${this.tradesList.length} ---`,
       );
     }, 60 * 1000);
-  }
 
-  getCrossingsCount(): number {
-    return this.crossings.length;
+    // 🔥 НОВОЕ: запускаем автоматическую отправку отчётов каждый час
+    setInterval(() => {
+      this.sendAutoReport();
+    }, AUTO_REPORT_INTERVAL_MS);
+
+    // 🔥 НОВОЕ: отправляем первый отчёт через 10 секунд после запуска
+    setTimeout(() => {
+      this.sendAutoReport();
+    }, 10 * 1000);
   }
 }
 
@@ -357,7 +415,8 @@ async function pollTelegramCommands(
 }
 
 async function main() {
-  console.log("Исследовательский логгер запущен (без торговли, только сбор статистики).");
+  console.log("Исследовательский логгер запущен (BTC 5-мин, без торговли, только сбор статистики).");
+  console.log(`🔄 Автоматические отчёты будут отправляться каждые ${AUTO_REPORT_INTERVAL_MS / 60000} минут`);
 
   const logger = createLogger(false);
   const telegram = createTelegramNotifier(
@@ -367,18 +426,22 @@ async function main() {
   );
 
   const research = new ResearchLogger();
+  research.setTelegramNotifier(telegram);
   research.start();
 
   if (telegram && process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
     console.log(
       `Telegram включён — напиши боту "${REPORT_TRIGGER_PHRASES[0]}" в любой момент, чтобы получить сводку за всё время работы.`,
     );
+    // Запускаем polling в отдельном Promise без await, чтобы не блокировать main
     pollTelegramCommands(
       process.env.TELEGRAM_BOT_TOKEN,
       process.env.TELEGRAM_CHAT_ID,
       telegram,
       research,
-    );
+    ).catch((err) => {
+      console.error("[telegram poll] фатальная ошибка:", err);
+    });
   } else {
     console.log("Telegram не настроен (нет TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID в .env) — отчёт будет только в консоли.");
   }
