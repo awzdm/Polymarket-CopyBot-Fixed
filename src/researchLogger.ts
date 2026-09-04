@@ -57,9 +57,6 @@ const RESOLVE_CHECK_DELAY_SEC = 180;
 // достаточно чтобы сообщение СОДЕРЖАЛО любую из этих строк).
 const REPORT_TRIGGER_PHRASES = ["крипта итог", "crypto report", "/report"];
 
-// 🔥 НОВОЕ: интервал автоматической отправки отчётов (1 час)
-const AUTO_REPORT_INTERVAL_MS = 60 * 60 * 1000;
-
 const GAMMA_HOST = "https://gamma-api.polymarket.com";
 
 interface TradeEvent {
@@ -125,12 +122,6 @@ class ResearchLogger {
   // markets awaiting resolution check: eventSlug -> {closeTimeMs}
   private pendingResolution = new Map<string, { closeTimeMs: number }>();
   private updateCount = 0;
-  private telegramNotifier: ReturnType<typeof createTelegramNotifier> | null = null;
-
-  // 🔥 НОВОЕ: устанавливаем Telegram-нотификатор для отправки авто-отчётов
-  setTelegramNotifier(notifier: ReturnType<typeof createTelegramNotifier> | null): void {
-    this.telegramNotifier = notifier;
-  }
 
   async refreshMarkets(): Promise<void> {
     let allMarkets: CryptoUpDownMarket[];
@@ -337,21 +328,6 @@ class ResearchLogger {
     return lines.join("\n");
   }
 
-  // 🔥 НОВОЕ: метод для отправки автоматического отчёта
-  async sendAutoReport(): Promise<void> {
-    if (!this.telegramNotifier) {
-      console.log("[auto-report] Telegram не настроен, пропускаем");
-      return;
-    }
-    try {
-      const report = this.buildReport();
-      await this.telegramNotifier.send(`⏰ <b>Автоматический отчёт (каждый час)</b>\n\n${report}`);
-      console.log("[auto-report] Отчёт отправлен в Telegram");
-    } catch (err) {
-      console.error("[auto-report] Ошибка отправки:", (err as Error).message);
-    }
-  }
-
   start(): void {
     this.refreshMarkets();
     setInterval(() => this.refreshMarkets(), MARKET_REFRESH_MS);
@@ -361,16 +337,6 @@ class ResearchLogger {
         `--- статус: апдейтов цены ${this.updateCount}, сделок ${this.tradesList.length} ---`,
       );
     }, 60 * 1000);
-
-    // 🔥 НОВОЕ: запускаем автоматическую отправку отчётов каждый час
-    setInterval(() => {
-      this.sendAutoReport();
-    }, AUTO_REPORT_INTERVAL_MS);
-
-    // 🔥 НОВОЕ: отправляем первый отчёт через 10 секунд после запуска
-    setTimeout(() => {
-      this.sendAutoReport();
-    }, 10 * 1000);
   }
 }
 
@@ -416,7 +382,6 @@ async function pollTelegramCommands(
 
 async function main() {
   console.log("Исследовательский логгер запущен (BTC 5-мин, без торговли, только сбор статистики).");
-  console.log(`🔄 Автоматические отчёты будут отправляться каждые ${AUTO_REPORT_INTERVAL_MS / 60000} минут`);
 
   const logger = createLogger(false);
   const telegram = createTelegramNotifier(
@@ -426,22 +391,18 @@ async function main() {
   );
 
   const research = new ResearchLogger();
-  research.setTelegramNotifier(telegram);
   research.start();
 
   if (telegram && process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
     console.log(
       `Telegram включён — напиши боту "${REPORT_TRIGGER_PHRASES[0]}" в любой момент, чтобы получить сводку за всё время работы.`,
     );
-    // Запускаем polling в отдельном Promise без await, чтобы не блокировать main
     pollTelegramCommands(
       process.env.TELEGRAM_BOT_TOKEN,
       process.env.TELEGRAM_CHAT_ID,
       telegram,
       research,
-    ).catch((err) => {
-      console.error("[telegram poll] фатальная ошибка:", err);
-    });
+    );
   } else {
     console.log("Telegram не настроен (нет TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID в .env) — отчёт будет только в консоли.");
   }
