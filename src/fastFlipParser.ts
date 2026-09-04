@@ -7,7 +7,12 @@
  *  2. Первый токен (Up или Down), который коснулся TOUCH_PRICE — фиксируем
  *     как "касание" (второй токен того же рынка игнорируем).
  *  3. После касания следим за минимальной ценой вплоть до закрытия рынка.
- *  4. На закрытии: finalPrice >= 0.999 -> WIN, иначе -> LOSS.
+ *  4. Исход (WIN/LOSS) определяем НЕ по снапшоту стакана после закрытия
+ *     (он может быть мёртвым/неточным), а по официальному резолву через
+ *     Gamma API — так же, как это делает исследовательский логгер и
+ *     фактически ведёт себя боевой бот (резолв, а не мгновенная цена).
+ *     Опрашиваем с задержкой и ретраями, пока outcomePrices не устаканится
+ *     около 0/1.
  *  5. Каждая запись пишется в data/fastflip-parser-log.jsonl (копится вечно).
  *  6. Раз в SUMMARY_INTERVAL_MS шлём сводку в Telegram.
  */
@@ -24,9 +29,14 @@ const COIN = "Bitcoin";
 const TOUCH_PRICE = Number(process.env.PARSER_TOUCH_PRICE ?? "0.98");
 const MARKET_REFRESH_MS = 30 * 1000;
 const OBSERVE_WINDOW_MS = 6 * 60 * 1000;
-const CLOSE_GRACE_MS = 15 * 1000; // ждём чуть после закрытия чтобы поймать финальную цену
 const SUMMARY_INTERVAL_MS = 2 * 60 * 60 * 1000; // каждые 2 часа
 const DATA_FILE = path.join(process.cwd(), "data", "fastflip-parser-log.jsonl");
+
+// Резолв через Gamma API — так же, как в исследовательском логгере.
+const GAMMA_HOST = "https://gamma-api.polymarket.com";
+const RESOLVE_CHECK_DELAY_SEC = 180; // не спрашиваем раньше этого времени после закрытия
+const RESOLVE_RETRY_MS = 30 * 1000; // как часто повторяем попытку, если ещё не резолвнулось
+const RESOLVE_GIVE_UP_MS = 30 * 60 * 1000; // если за столько не резолвнулось — помечаем UNKNOWN и бросаем
 
 interface TokenInfo {
   market: CryptoUpDownMarket;
@@ -42,7 +52,6 @@ interface TouchRecord {
   touchTimeMs: number;
   touchSecFromStart: number;
   minPriceAfterTouch: number;
-  finalPrice: number | null;
   outcome: "WIN" | "LOSS" | "UNKNOWN";
   createdAt: string;
 }
@@ -59,7 +68,6 @@ function appendRecord(rec: TouchRecord) {
 
 class TrackedTouch {
   minPriceAfterTouch: number;
-  finalPrice: number | null = null;
 
   constructor(
     public market: CryptoUpDownMarket,
@@ -71,6 +79,42 @@ class TrackedTouch {
   }
 }
 
+/** Ждёт официального резолва рынка через Gamma API. Возвращает победившую сторону или null, если не дождались. */
+async function resolveWinner(eventSlug: string): Promise<"Up" | "Down" | null> {
+  try {
+    const resp = await fetch(`${GAMMA_HOST}/events/slug/${eventSlug}`);
+    if (!resp.ok) return null;
+    const event = await resp.json();
+    const market = (event.markets ?? [])[0];
+    if (!market) return null;
+
+    let outcomes: string[];
+    let outcomePrices: string[];
+    try {
+      outcomes = JSON.parse(market.outcomes ?? "[]");
+      outcomePrices = JSON.parse(market.outcomePrices ?? "[]");
+    } catch {
+      return null;
+    }
+    if (outcomes.length !== 2 || outcomePrices.length !== 2) return null;
+
+    const upIdx = outcomes.findIndex((o) => /^up$/i.test(o.trim()));
+    const downIdx = outcomes.findIndex((o) => /^down$/i.test(o.trim()));
+    if (upIdx === -1 || downIdx === -1) return null;
+
+    const upPrice = Number(outcomePrices[upIdx]);
+    const downPrice = Number(outcomePrices[downIdx]);
+
+    // Ещё не устаканилось на 0/1 — резолва фактически нет, пробуем позже.
+    if (upPrice > 0.05 && upPrice < 0.95) return null;
+
+    return upPrice > downPrice ? "Up" : "Down";
+  } catch (err) {
+    console.error(`[parser][resolve] ошибка ${eventSlug}:`, (err as Error).message);
+    return null;
+  }
+}
+
 class FastFlipParser {
   private watcher: PriceWatcher | null = null;
   private tokenIndex = new Map<string, TokenInfo>();
@@ -78,6 +122,11 @@ class FastFlipParser {
 
   private touchedMarkets = new Set<string>(); // eventSlug -> уже кто-то коснулся 0.98
   private tracked = new Map<string, TrackedTouch>(); // tokenId -> отслеживание до закрытия
+
+  // Ждут закрытия рынка, чтобы начать спрашивать резолв.
+  private awaitingClose: TrackedTouch[] = [];
+  // Уже можно спрашивать резолв, но пока не дождались (для ретраев).
+  private awaitingResolve: { touch: TrackedTouch; firstTriedAt: number }[] = [];
 
   private sessionRecords: TouchRecord[] = []; // копится между сводками, потом чистится
 
@@ -109,7 +158,9 @@ class FastFlipParser {
       tokenIds.length === this.lastTokenIds.length &&
       tokenIds.every((id, i) => id === this.lastTokenIds[i]);
 
-    console.log(`[parser][refresh] рынков BTC: ${markets.length}, отслеживается касаний: ${this.tracked.size}`);
+    console.log(
+      `[parser][refresh] рынков BTC: ${markets.length}, отслеживается касаний: ${this.tracked.size}, ждут резолва: ${this.awaitingResolve.length}`,
+    );
 
     if (sameAsLastTime && this.watcher) return;
     this.lastTokenIds = tokenIds;
@@ -133,7 +184,6 @@ class FastFlipParser {
     const tracked = this.tracked.get(update.tokenId);
     if (tracked) {
       if (price < tracked.minPriceAfterTouch) tracked.minPriceAfterTouch = price;
-      tracked.finalPrice = price;
       return;
     }
 
@@ -143,7 +193,6 @@ class FastFlipParser {
     this.touchedMarkets.add(market.eventSlug);
     const windowStartMs = market.closeTimeMs - 5 * 60 * 1000;
     const t = new TrackedTouch(market, side, Date.now(), price);
-    t.finalPrice = price;
     this.tracked.set(update.tokenId, t);
 
     console.log(
@@ -151,45 +200,79 @@ class FastFlipParser {
     );
   }
 
-  private finalizeClosedMarkets(): void {
+  /** Переносим завершившиеся (по времени) окна из tracked в очередь ожидания резолва. */
+  private moveClosedToAwaitingResolve(): void {
     const now = Date.now();
     for (const [tokenId, t] of this.tracked) {
-      if (now < t.market.closeTimeMs + CLOSE_GRACE_MS) continue;
-
-      const windowStartMs = t.market.closeTimeMs - 5 * 60 * 1000;
-      const finalPrice = t.finalPrice;
-      const outcome: TouchRecord["outcome"] =
-        finalPrice === null ? "UNKNOWN" : finalPrice >= 0.999 ? "WIN" : "LOSS";
-
-      const rec: TouchRecord = {
-        eventSlug: t.market.eventSlug,
-        coin: t.market.coin,
-        side: t.side,
-        windowStartMs,
-        closeTimeMs: t.market.closeTimeMs,
-        touchTimeMs: t.touchTimeMs,
-        touchSecFromStart: Math.round((t.touchTimeMs - windowStartMs) / 1000),
-        minPriceAfterTouch: Number(t.minPriceAfterTouch.toFixed(4)),
-        finalPrice: finalPrice === null ? null : Number(finalPrice.toFixed(4)),
-        outcome,
-        createdAt: new Date().toISOString(),
-      };
-
-      appendRecord(rec);
-      this.sessionRecords.push(rec);
+      if (now < t.market.closeTimeMs) continue;
       this.tracked.delete(tokenId);
-
-      console.log(
-        `[parser] ✅ Записано: ${rec.eventSlug} ${rec.side} touch@${rec.touchSecFromStart}с min=${rec.minPriceAfterTouch} final=${rec.finalPrice} -> ${rec.outcome}`,
-      );
+      this.awaitingResolve.push({ touch: t, firstTriedAt: 0 });
     }
   }
 
+  /** Опрашивает Gamma API по всем ожидающим резолва, финализирует готовые. */
+  private async processResolutions(): Promise<void> {
+    const now = Date.now();
+    const stillWaiting: { touch: TrackedTouch; firstTriedAt: number }[] = [];
+
+    for (const item of this.awaitingResolve) {
+      const { touch } = item;
+      const readySince = touch.market.closeTimeMs + RESOLVE_CHECK_DELAY_SEC * 1000;
+      if (now < readySince) {
+        stillWaiting.push(item);
+        continue;
+      }
+
+      const firstTriedAt = item.firstTriedAt || now;
+
+      const winner = await resolveWinner(touch.market.eventSlug);
+
+      if (winner === null) {
+        if (now - firstTriedAt >= RESOLVE_GIVE_UP_MS) {
+          this.finalizeRecord(touch, "UNKNOWN");
+        } else {
+          stillWaiting.push({ touch, firstTriedAt });
+        }
+        continue;
+      }
+
+      const outcome: TouchRecord["outcome"] = winner === touch.side ? "WIN" : "LOSS";
+      this.finalizeRecord(touch, outcome);
+    }
+
+    this.awaitingResolve = stillWaiting;
+  }
+
+  private finalizeRecord(t: TrackedTouch, outcome: TouchRecord["outcome"]): void {
+    const windowStartMs = t.market.closeTimeMs - 5 * 60 * 1000;
+
+    const rec: TouchRecord = {
+      eventSlug: t.market.eventSlug,
+      coin: t.market.coin,
+      side: t.side,
+      windowStartMs,
+      closeTimeMs: t.market.closeTimeMs,
+      touchTimeMs: t.touchTimeMs,
+      touchSecFromStart: Math.round((t.touchTimeMs - windowStartMs) / 1000),
+      minPriceAfterTouch: Number(t.minPriceAfterTouch.toFixed(4)),
+      outcome,
+      createdAt: new Date().toISOString(),
+    };
+
+    appendRecord(rec);
+    this.sessionRecords.push(rec);
+
+    console.log(
+      `[parser] ✅ Резолв: ${rec.eventSlug} ${rec.side} touch@${rec.touchSecFromStart}с min=${rec.minPriceAfterTouch} -> ${rec.outcome}`,
+    );
+  }
+
   private buildSummary(records: TouchRecord[]): string {
-    if (records.length === 0) return "📊 За этот период новых касаний 0.98 не было.";
+    if (records.length === 0) return "📊 За этот период новых резолвнутых касаний 0.98 не было.";
 
     const wins = records.filter((r) => r.outcome === "WIN");
     const losses = records.filter((r) => r.outcome === "LOSS");
+    const unknown = records.filter((r) => r.outcome === "UNKNOWN");
     const winRate = ((wins.length / records.length) * 100).toFixed(1);
 
     const avgMinWin =
@@ -212,7 +295,7 @@ class FastFlipParser {
 
     return (
       `📊 Статистика FastFlip Parser (BTC)\n` +
-      `Всего касаний 0.98: ${records.length}\n` +
+      `Всего резолвнутых касаний 0.98: ${records.length}${unknown.length ? ` (+${unknown.length} UNKNOWN)` : ""}\n` +
       `WIN: ${wins.length} | LOSS: ${losses.length} | Винрейт: ${winRate}%\n` +
       `Среднее время касания от старта окна: ${avgTouchSec}с\n\n` +
       `Среди победивших сделок:\n` +
@@ -232,14 +315,15 @@ class FastFlipParser {
   start(): void {
     this.refreshMarkets();
     setInterval(() => this.refreshMarkets(), MARKET_REFRESH_MS);
-    setInterval(() => this.finalizeClosedMarkets(), 5 * 1000);
+    setInterval(() => this.moveClosedToAwaitingResolve(), 5 * 1000);
+    setInterval(() => this.processResolutions(), RESOLVE_RETRY_MS);
     setInterval(() => this.sendPeriodicSummary(), SUMMARY_INTERVAL_MS);
   }
 }
 
 async function main() {
   console.log("Режим: PARSER (сбор статистики, без реальных сделок)");
-  console.log(`Актив: BTC only | Порог касания: ${TOUCH_PRICE}`);
+  console.log(`Актив: BTC only | Порог касания: ${TOUCH_PRICE} | Резолв: Gamma API`);
 
   const logger = createLogger(false);
   const telegram = createTelegramNotifier(process.env.TELEGRAM_BOT_TOKEN, process.env.TELEGRAM_CHAT_ID, logger);
@@ -248,7 +332,7 @@ async function main() {
   parser.start();
 
   if (telegram) {
-    await telegram.send("🟢 FastFlip Parser запущен. Собираю статистику по BTC (без сделок).");
+    await telegram.send("🟢 FastFlip Parser запущен (v2, резолв через Gamma API). Собираю статистику по BTC (без сделок).");
   }
 }
 
