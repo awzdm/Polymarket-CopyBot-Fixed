@@ -32,7 +32,10 @@ import { createLogger } from "./logger.js";
 // Отслеживаем только BTC и только 5-минутные рынки.
 const TARGET_COIN = "BTC";
 const TARGET_WINDOW_MINUTES = 5;
-const TIMEFRAMES_TO_DISCOVER = [TARGET_WINDOW_MINUTES];
+
+const TIMEFRAMES_TO_DISCOVER = [
+  { suffixes: ["up-or-down-5m"], minutes: TARGET_WINDOW_MINUTES },
+];
 
 // Уровень входа в сделку (касание этой цены = фиксируем точку входа).
 const ENTRY_LEVEL = 0.98;
