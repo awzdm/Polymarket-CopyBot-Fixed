@@ -30,7 +30,10 @@ import { createTelegramNotifier } from "./telegram.js";
 import { createLogger } from "./logger.js";
 
 // Отслеживаем только BTC и только 5-минутные рынки.
-const TARGET_COIN = "BTC";
+// ВАЖНО: cryptoMarketDiscovery.ts кладёт в поле `coin` название,
+// распарсенное из заголовка события (например "Bitcoin Up or Down..."),
+// а не тикер — поэтому сравниваем с "Bitcoin", а не с "BTC".
+const TARGET_COIN = "Bitcoin";
 const TARGET_WINDOW_MINUTES = 5;
 
 const TIMEFRAMES_TO_DISCOVER = [
@@ -138,7 +141,7 @@ class ResearchLogger {
     const now = Date.now();
     const markets = allMarkets.filter(
       (m) =>
-        m.coin.toUpperCase() === TARGET_COIN &&
+        m.coin.toUpperCase() === TARGET_COIN.toUpperCase() &&
         m.windowMinutes === TARGET_WINDOW_MINUTES &&
         m.closeTimeMs - now <= observeWindowMs(m.windowMinutes),
     );
@@ -178,12 +181,12 @@ class ResearchLogger {
     const { market, side } = info;
 
     const prices = [update.bestBid, update.bestAsk].filter(
-  (p): p is number => p !== null
-);
+      (p): p is number => p !== null
+    );
 
-if (prices.length === 0) return;
+    if (prices.length === 0) return;
 
-const price = Math.max(...prices);
+    const price = Math.max(...prices);
 
     const key = `${market.eventSlug}:${side}`;
     const existing = this.trades.get(key);
