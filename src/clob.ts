@@ -188,7 +188,8 @@ export class ClobService {
    * Two hard rules, exactly as requested:
    *   1. Get it filled — price off what's really available right now, not
    *      a number that might already be gone.
-   *   2. Never pay above 0.999 (or sell below 0.001) no matter what.
+   *   2. Never pay above the market's max valid price (or sell below its
+   *      min valid price) no matter what.
    *
    * It's still a FAK (fill-and-kill) order: it fills as much as it can
    * immediately and kills the rest — nothing is left resting on the book,
@@ -216,11 +217,16 @@ export class ClobService {
         ? liveRef * (1 + bufferPct / 100)
         : liveRef * (1 - bufferPct / 100);
 
-    // Hard ceiling/floor — Polymarket's actual valid price range. This is
-    // the absolute rule: never above 0.999, never below 0.001, no matter
-    // what the live book or buffer says.
+    // Ceiling/floor based on THIS market's tick size (see same fix in
+    // placeGtcLimitOrder below) — not a fixed 0.001/0.999 for every
+    // market. A market with tickSize 0.01 has valid range 0.01–0.99, not
+    // 0.001–0.999 — using the wrong bound rounds into an invalid price
+    // and gets rejected by the CLOB.
+    const tick = Number(book.tickSize);
+    const minPrice = Number.isFinite(tick) && tick > 0 ? tick : 0.001;
+    const maxPrice = Number.isFinite(tick) && tick > 0 ? 1 - tick : 0.999;
     const cappedPrice = this.roundToTick(
-      Math.min(0.999, Math.max(0.001, rawCap)),
+      Math.min(maxPrice, Math.max(minPrice, rawCap)),
       book.tickSize,
       side,
     );
@@ -342,9 +348,15 @@ export class ClobService {
         ? params.price * (1 + offsetPct / 100)
         : params.price * (1 - offsetPct / 100);
 
-    // Keep inside Polymarket's valid price range (0.001–0.999) — see the
-    // same note in placeLimitOrder() above.
-    const boundedPrice = Math.min(0.999, Math.max(0.001, rawOffsetPrice));
+    // Valid price range depends on THIS market's tick size, not a fixed
+    // 0.001–0.999 — e.g. tickSize 0.01 means valid range is 0.01–0.99.
+    // Using the wrong bound rounds into an invalid price and gets
+    // rejected by the CLOB (this was the bug: 0.999 rounded up to 1.00
+    // on a 0.01-tick market, which is outside the valid range).
+    const tick = Number(meta.tickSize);
+    const minPrice = Number.isFinite(tick) && tick > 0 ? tick : 0.001;
+    const maxPrice = Number.isFinite(tick) && tick > 0 ? 1 - tick : 0.999;
+    const boundedPrice = Math.min(maxPrice, Math.max(minPrice, rawOffsetPrice));
     const price = this.roundToTick(boundedPrice, meta.tickSize, side);
 
     if (size < meta.minOrderSize) {

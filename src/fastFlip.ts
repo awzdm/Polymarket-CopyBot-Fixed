@@ -20,6 +20,10 @@
  *  7. Каждое закрытие сделки (тейк / стоп / резолв) — сообщение в Telegram
  *     с чётким WIN/LOSS.
  *
+ * НАДЁЖНОСТЬ ПРИ РЕСТАРТЕ: факт "уже была сделка в этом часе" пишется на
+ * диск (data/fastflip-hour-state.json), чтобы рестарт контейнера (Railway)
+ * посреди часа не привёл к повторной покупке в том же часе.
+ *
  * НАСТРОЙКИ МЕНЯЮТСЯ ЧЕРЕЗ TELEGRAM НА ЛЕТУ (без передеплоя):
  *   цена 0.98    — цена входа
  *   тейк 0.999   — цена тейк-профита
@@ -30,6 +34,8 @@
  */
 
 import "dotenv/config";
+import fs from "fs";
+import path from "path";
 import { Side } from "@polymarket/clob-client-v2";
 import { discoverCryptoUpDownMarkets, CryptoUpDownMarket } from "./cryptoMarketDiscovery.js";
 import { PriceWatcher, PriceUpdate } from "./priceWatcher.js";
@@ -63,6 +69,30 @@ const RESOLVE_GIVE_UP_MS = 30 * 60 * 1000;
 
 const REDEEM_POLL_MS = 60 * 1000;
 const GAMMA_HOST = "https://gamma-api.polymarket.com";
+
+// Переживает рестарт контейнера: помечаем на диске, что в этом часе уже
+// была сделка, чтобы при рестарте Railway бот не купил повторно.
+const STATE_FILE = path.join(process.cwd(), "data", "fastflip-hour-state.json");
+
+function loadTradedHourKey(): number | null {
+  try {
+    const raw = fs.readFileSync(STATE_FILE, "utf-8");
+    const data = JSON.parse(raw);
+    return typeof data.tradedHourKey === "number" ? data.tradedHourKey : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveTradedHourKey(hourKey: number): void {
+  try {
+    const dir = path.dirname(STATE_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(STATE_FILE, JSON.stringify({ tradedHourKey: hourKey }));
+  } catch (err) {
+    console.error("[state] не удалось сохранить состояние часа:", (err as Error).message);
+  }
+}
 
 // ─── Настройки, которые можно менять на лету через Telegram ───
 const settings = {
@@ -183,10 +213,13 @@ class FastFlipBot {
     const hourKey = Math.floor(now / HOUR_MS);
     if (hourKey !== this.currentHourKey) {
       this.currentHourKey = hourKey;
-      this.hasTradedThisHour = false;
+      // Переживает рестарт: если на диске уже помечено, что в этом часе
+      // была сделка (например, бот рестартнул после покупки) — не торгуем
+      // повторно.
+      this.hasTradedThisHour = loadTradedHourKey() === hourKey;
       this.currentTarget = pickHourlyTarget();
       const msg = this.currentTarget
-        ? `🎲 Новый час. Цель: пятиминутка ${new Date(this.currentTarget.slotStartMs).toISOString()} - ${new Date(this.currentTarget.slotCloseMs).toISOString()}`
+        ? `🎲 Новый час. Цель: пятиминутка ${new Date(this.currentTarget.slotStartMs).toISOString()} - ${new Date(this.currentTarget.slotCloseMs).toISOString()}${this.hasTradedThisHour ? " (уже торговали в этом часе до рестарта)" : ""}`
         : `🎲 Новый час, но не удалось выбрать пятиминутку.`;
       console.log(msg);
     }
@@ -271,6 +304,7 @@ class FastFlipBot {
 
     if (this.hasTradedThisHour) return;
     this.hasTradedThisHour = true;
+    if (this.currentHourKey !== null) saveTradedHourKey(this.currentHourKey);
 
     const tokenId = side === "Up" ? market.upTokenId : market.downTokenId;
     this.executeFlip(market, side, tokenId, price);
