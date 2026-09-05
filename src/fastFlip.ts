@@ -255,6 +255,7 @@ class FastFlipBot {
 
     const now = Date.now();
     const target = this.currentTarget;
+    if (!target) return;
     const markets = allMarkets.filter(
       (m) =>
         m.coin === COIN &&
