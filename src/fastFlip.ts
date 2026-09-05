@@ -20,6 +20,12 @@
  *  7. Каждое закрытие сделки (тейк / стоп / резолв) — сообщение в Telegram
  *     с чётким WIN/LOSS.
  *
+ * ВАЖНО: во всех трёх путях закрытия (тейк / стоп / резолв) обязательно
+ * обнуляем this.openPosition — иначе refreshMarkets() навсегда думает,
+ * что позиция ещё открыта, и никогда не начинает искать сделку в
+ * следующих часах (это был баг: после закрытия через резолв openPosition
+ * не сбрасывался, и бот замолкал навсегда после первой же такой сделки).
+ *
  * НАСТРОЙКИ МЕНЯЮТСЯ ЧЕРЕЗ TELEGRAM НА ЛЕТУ (без передеплоя):
  *   цена 0.98    — цена входа
  *   тейк 0.999   — цена тейк-профита
@@ -420,7 +426,7 @@ class FastFlipBot {
             pos.closed = true;
             const profit = matched * (settings.tpPrice - buyPrice);
             await this.notifyClose(market, side, "тейк-профит", "WIN", profit);
-            this.openPosition = null;
+            if (this.openPosition === pos) this.openPosition = null;
             return;
           }
         } catch (err) {
@@ -430,7 +436,7 @@ class FastFlipBot {
     }
 
     if (pos.closed) {
-      this.openPosition = null;
+      if (this.openPosition === pos) this.openPosition = null;
       return;
     }
 
@@ -468,6 +474,7 @@ class FastFlipBot {
         pos.closed = true;
         await this.notifyClose(pos.market, pos.side, "стоп-лосс", "LOSS", profit);
         console.log(`   ✅ Продано по стопу: exit≈${avgExitPrice.toFixed(3)} профит=$${profit.toFixed(3)}`);
+        if (this.openPosition === pos) this.openPosition = null;
         return;
       } catch (err) {
         console.error(`   ❌ ОШИБКА ПРОДАЖИ ПО СТОПУ, повторяем:`, (err as Error).message);
@@ -500,6 +507,7 @@ class FastFlipBot {
             );
           }
           pos.closed = true;
+          if (this.openPosition === pos) this.openPosition = null;
           return;
         }
         setTimeout(check, RESOLVE_RETRY_MS);
@@ -512,6 +520,7 @@ class FastFlipBot {
           ? pos.filledSize * (1 - pos.buyPrice)
           : -pos.filledSize * pos.buyPrice;
       await this.notifyClose(pos.market, pos.side, "резолв рынка", outcome, profit);
+      if (this.openPosition === pos) this.openPosition = null;
     };
     setTimeout(check, RESOLVE_RETRY_MS);
   }
