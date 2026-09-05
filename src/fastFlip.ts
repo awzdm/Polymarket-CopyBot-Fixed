@@ -4,33 +4,40 @@
  *
  * Логика:
  *  1. Торгуем ТОЛЬКО BTC, ТОЛЬКО 5-минутные Up/Down рынки.
- *  2. РОВНО 1 сделка в час: в начале каждого часа рандомно выбираем одну
- *     из 12 пятиминуток этого часа и следим только за ней. Остальные
- *     11 пятиминуток в этом часе полностью игнорируются.
+ *  2. За час бот должен совершить TRADES_PER_HOUR сделок (переменная
+ *     FASTFLIP_TRADES_PER_HOUR, по умолчанию 1). В начале часа случайно
+ *     выбирается одна из ещё не испробованных пятиминуток этого часа.
  *  3. Как цена выбранного рынка (Up или Down) впервые касается ENTRY_PRICE
- *     (0.98) — покупаем.
- *  4. Как покупка исполнилась — сразу пытаемся выставить лимитку на
+ *     (0.98) — пытаемся купить ЛИМИТКОЙ (GTC) по этой цене.
+ *  4. Если заявка на покупку так и не исполнилась до закрытия окна —
+ *     отменяем её и сразу берём СЛЕДУЮЩУЮ ещё не испробованную пятиминутку
+ *     в этом же часе (не ждём следующего часа). Это НЕ считается
+ *     совершённой сделкой — квота часа не уменьшается.
+ *  5. Если покупка исполнилась — сразу пытаемся выставить лимитку на
  *     продажу по TP_PRICE (0.999). Если выставление не удалось — ПРОДОЛЖАЕМ
  *     пытаться выставить её же, вплоть до закрытия окна.
- *  5. Параллельно следим за живой ценой. Если цена падает до STOP_PRICE
+ *  6. Параллельно следим за живой ценой. Если цена падает до STOP_PRICE
  *     (0.60 по умолчанию) — отменяем тейк-лимитку и ПЫТАЕМСЯ продать
  *     по рынку (FAK), повторяя попытки, пока не продастся.
- *  6. Если ни тейк, ни стоп не сработали до закрытия — ждём официального
- *     резолва через Gamma API (с ретраями) и всё равно шлём итог.
- *  7. Каждое закрытие сделки (тейк / стоп / резолв) — сообщение в Telegram
+ *  7. Если ни тейк, ни стоп не сработали до закрытия — ждём официального
+ *     резолва через Gamma API (с ретраями) и всё равно шлём итог. Это
+ *     ЗАСЧИТЫВАЕТСЯ как совершённая сделка (квота часа уменьшается), и
+ *     если квота ещё не выполнена — сразу выбираем следующую пятиминутку.
+ *  8. Каждое закрытие сделки (тейк / стоп / резолв) — сообщение в Telegram
  *     с чётким WIN/LOSS.
  *
  * ВАЖНО: во всех трёх путях закрытия (тейк / стоп / резолв) обязательно
- * обнуляем this.openPosition — иначе refreshMarkets() навсегда думает,
- * что позиция ещё открыта, и никогда не начинает искать сделку в
- * следующих часах (это был баг: после закрытия через резолв openPosition
- * не сбрасывался, и бот замолкал навсегда после первой же такой сделки).
+ * обнуляем this.openPosition — иначе бот навсегда думает, что позиция ещё
+ * открыта, и не начинает искать сделку дальше.
  *
  * НАСТРОЙКИ МЕНЯЮТСЯ ЧЕРЕЗ TELEGRAM НА ЛЕТУ (без передеплоя):
  *   цена 0.98    — цена входа
  *   тейк 0.999   — цена тейк-профита
  *   стоп 0.6     — цена стоп-лосса
  *   статус       — текущие настройки + что происходит сейчас
+ *
+ * НАСТРОЙКА ЧЕРЕЗ ENV (нужен передеплой):
+ *   FASTFLIP_TRADES_PER_HOUR — сколько сделок в час (по умолчанию 1)
  *
  * DRY_RUN=true по умолчанию (FASTFLIP_DRY_RUN=false для реальных денег).
  */
@@ -48,6 +55,7 @@ import { createLogger } from "./logger.js";
 const DRY_RUN = (process.env.FASTFLIP_DRY_RUN ?? "true").toLowerCase() !== "false";
 const AUTO_REDEEM = (process.env.FASTFLIP_AUTO_REDEEM ?? "true").toLowerCase() !== "false";
 const TRADE_SIZE_USD = Number(process.env.FASTFLIP_TRADE_SIZE_USD ?? "5");
+const TRADES_PER_HOUR = Math.max(1, Number(process.env.FASTFLIP_TRADES_PER_HOUR ?? "1"));
 
 const COIN = "Bitcoin";
 const HOUR_MS = 60 * 60 * 1000;
@@ -107,13 +115,15 @@ function buildTokenIndex(markets: CryptoUpDownMarket[]): Map<string, TokenInfo> 
   return idx;
 }
 
-function pickHourlyTarget(): HourlyTarget | null {
+/** Выбирает случайную ещё не испробованную пятиминутку текущего часа. */
+function pickTarget(excludeSlotStarts: Set<number>): HourlyTarget | null {
   const now = Date.now();
   const hourStart = Math.floor(now / HOUR_MS) * HOUR_MS;
   const candidates: HourlyTarget[] = [];
   for (let k = 0; k < SLOTS_PER_HOUR; k++) {
     const slotStartMs = hourStart + k * SLOT_MS;
     const slotCloseMs = slotStartMs + SLOT_MS;
+    if (excludeSlotStarts.has(slotStartMs)) continue;
     // Не берём пятиминутку, которая уже закрылась или закрывается прямо сейчас
     if (slotCloseMs > now + 5000) candidates.push({ slotStartMs, slotCloseMs });
   }
@@ -162,7 +172,9 @@ class FastFlipBot {
 
   private currentHourKey: number | null = null;
   private currentTarget: HourlyTarget | null = null;
-  private hasTradedThisHour = false;
+  private triedSlotsThisHour = new Set<number>();
+  private tradesThisHour = 0;
+  private attemptInProgress = false;
 
   private openPosition: OpenPosition | null = null;
   private updateCount = 0;
@@ -178,8 +190,9 @@ class FastFlipBot {
       : "не выбрана";
     return (
       `Цена входа: ${settings.entryPrice} | Тейк: ${settings.tpPrice} | Стоп: ${settings.stopPrice}\n` +
-      `Цель этого часа: ${target}\n` +
-      `Сделка в этом часе: ${this.hasTradedThisHour ? "уже была" : "ещё нет"}\n` +
+      `План сделок в час: ${TRADES_PER_HOUR}\n` +
+      `Цель сейчас: ${target}\n` +
+      `Сделок в этом часе: ${this.tradesThisHour}/${TRADES_PER_HOUR} (испробовано пятиминуток: ${this.triedSlotsThisHour.size})\n` +
       `Открытая позиция: ${this.openPosition ? `${this.openPosition.market.title} (${this.openPosition.side})` : "нет"}`
     );
   }
@@ -189,20 +202,41 @@ class FastFlipBot {
     const hourKey = Math.floor(now / HOUR_MS);
     if (hourKey !== this.currentHourKey) {
       this.currentHourKey = hourKey;
-      this.hasTradedThisHour = false;
-      this.currentTarget = pickHourlyTarget();
+      this.triedSlotsThisHour = new Set();
+      this.tradesThisHour = 0;
+      this.attemptInProgress = false;
+      this.currentTarget = pickTarget(this.triedSlotsThisHour);
       const msg = this.currentTarget
-        ? `🎲 Новый час. Цель: пятиминутка ${new Date(this.currentTarget.slotStartMs).toISOString()} - ${new Date(this.currentTarget.slotCloseMs).toISOString()}`
+        ? `🎲 Новый час (план: ${TRADES_PER_HOUR} сделок). Цель: пятиминутка ${new Date(this.currentTarget.slotStartMs).toISOString()} - ${new Date(this.currentTarget.slotCloseMs).toISOString()}`
         : `🎲 Новый час, но не удалось выбрать пятиминутку.`;
       console.log(msg);
     }
   }
 
+  /** Переходит к следующей ещё не испробованной пятиминутке в этом же часе. */
+  private moveToNextTarget(): void {
+    this.currentTarget = pickTarget(this.triedSlotsThisHour);
+    if (this.currentTarget) {
+      console.log(
+        `🎯 Следующая цель в этом часе: ${new Date(this.currentTarget.slotStartMs).toISOString()} - ${new Date(this.currentTarget.slotCloseMs).toISOString()} (сделок пока ${this.tradesThisHour}/${TRADES_PER_HOUR})`,
+      );
+    } else {
+      console.log(`ℹ️ Пятиминутки в этом часе закончились (испробовано ${this.triedSlotsThisHour.size}), сделок совершено ${this.tradesThisHour}/${TRADES_PER_HOUR}.`);
+    }
+    this.refreshMarkets().catch((err) => console.error("[refresh] ошибка:", (err as Error).message));
+  }
+
   async refreshMarkets(): Promise<void> {
     this.maybeReselectTarget();
 
-    if (this.hasTradedThisHour || !this.currentTarget || this.openPosition) {
-      if (!this.openPosition) {
+    const shouldPause =
+      this.tradesThisHour >= TRADES_PER_HOUR ||
+      !this.currentTarget ||
+      this.openPosition ||
+      this.attemptInProgress;
+
+    if (shouldPause) {
+      if (!this.openPosition && !this.attemptInProgress) {
         this.watcher?.stop();
         this.watcher = null;
         this.tokenIndex = new Map();
@@ -232,7 +266,7 @@ class FastFlipBot {
     const tokenIds = [...this.tokenIndex.keys()].sort();
 
     console.log(
-      `[refresh] цель часа: рынков найдено ${markets.length} (${tokenIds.length} токенов)`,
+      `[refresh] цель: рынков найдено ${markets.length} (${tokenIds.length} токенов)`,
     );
 
     const sameAsLastTime =
@@ -266,6 +300,8 @@ class FastFlipBot {
       return;
     }
     if (pos) return; // позиция открыта — не ищем новых входов
+    if (this.attemptInProgress) return; // уже пытаемся войти — не дублируем попытку
+    if (this.tradesThisHour >= TRADES_PER_HOUR) return; // квота часа выполнена
 
     // ── Поиск входа ──
     const info = this.tokenIndex.get(update.tokenId);
@@ -275,8 +311,10 @@ class FastFlipBot {
     const price = update.bestBid ?? update.bestAsk;
     if (price === null || price < settings.entryPrice) return;
 
-    if (this.hasTradedThisHour) return;
-    this.hasTradedThisHour = true;
+    if (!this.currentTarget || Math.abs(market.closeTimeMs - this.currentTarget.slotCloseMs) > SLOT_MATCH_TOLERANCE_MS) return;
+
+    this.attemptInProgress = true;
+    this.triedSlotsThisHour.add(this.currentTarget.slotStartMs);
 
     const tokenId = side === "Up" ? market.upTokenId : market.downTokenId;
     this.executeFlip(market, side, tokenId, price);
@@ -292,7 +330,7 @@ class FastFlipBot {
 
     console.log(
       `\n⚡ ВХОД: [BTC / 5мин] "${market.title}"\n` +
-        `   Сторона: ${side} | Цена сейчас: ~${priceAtEntry} | Покупаем: ${size.toFixed(2)} акций по ${settings.entryPrice} (~$${TRADE_SIZE_USD})`,
+        `   Сторона: ${side} | Цена сейчас: ~${priceAtEntry} | Покупаем: ${size.toFixed(2)} акций по ${settings.entryPrice} (~$${TRADE_SIZE_USD}) | лимитка`,
     );
 
     if (DRY_RUN || !this.clob) {
@@ -302,6 +340,10 @@ class FastFlipBot {
           `⚡ [DRY RUN] Вход: ${market.title}\nСторона: ${side}\nЦена: ${settings.entryPrice}`,
         );
       }
+      // В DRY_RUN считаем попытку "успешной" условно, чтобы можно было
+      // наблюдать переход к следующей цели по тому же принципу.
+      this.attemptInProgress = false;
+      if (this.tradesThisHour < TRADES_PER_HOUR) this.moveToNextTarget();
       return;
     }
 
@@ -328,7 +370,9 @@ class FastFlipBot {
     }
 
     if (!buyOrderId) {
-      console.log(`   ⏳ Не удалось выставить покупку до закрытия (eventSlug: ${market.eventSlug}).`);
+      console.log(`   ⏳ Не удалось выставить покупку до закрытия (eventSlug: ${market.eventSlug}). Перехожу к следующей пятиминутке.`);
+      this.attemptInProgress = false;
+      this.moveToNextTarget();
       return;
     }
 
@@ -364,7 +408,14 @@ class FastFlipBot {
     }
 
     if (filledSize <= 0) {
-      console.log(`   ⏳ Покупка не исполнилась (eventSlug: ${market.eventSlug}).`);
+      console.log(`   ⏳ Покупка не исполнилась (eventSlug: ${market.eventSlug}). Отменяю заявку и перехожу к следующей пятиминутке.`);
+      try {
+        await this.clob.cancelOrders([buyOrderId]);
+      } catch (err) {
+        console.error(`   ⚠️ Не удалось отменить неисполненную заявку на покупку:`, (err as Error).message);
+      }
+      this.attemptInProgress = false;
+      this.moveToNextTarget();
       return;
     }
 
@@ -426,7 +477,7 @@ class FastFlipBot {
             pos.closed = true;
             const profit = matched * (settings.tpPrice - buyPrice);
             await this.notifyClose(market, side, "тейк-профит", "WIN", profit);
-            if (this.openPosition === pos) this.openPosition = null;
+            this.finishTrade(pos);
             return;
           }
         } catch (err) {
@@ -436,7 +487,7 @@ class FastFlipBot {
     }
 
     if (pos.closed) {
-      if (this.openPosition === pos) this.openPosition = null;
+      this.finishTrade(pos);
       return;
     }
 
@@ -474,7 +525,7 @@ class FastFlipBot {
         pos.closed = true;
         await this.notifyClose(pos.market, pos.side, "стоп-лосс", "LOSS", profit);
         console.log(`   ✅ Продано по стопу: exit≈${avgExitPrice.toFixed(3)} профит=$${profit.toFixed(3)}`);
-        if (this.openPosition === pos) this.openPosition = null;
+        this.finishTrade(pos);
         return;
       } catch (err) {
         console.error(`   ❌ ОШИБКА ПРОДАЖИ ПО СТОПУ, повторяем:`, (err as Error).message);
@@ -507,7 +558,7 @@ class FastFlipBot {
             );
           }
           pos.closed = true;
-          if (this.openPosition === pos) this.openPosition = null;
+          this.finishTrade(pos);
           return;
         }
         setTimeout(check, RESOLVE_RETRY_MS);
@@ -520,9 +571,23 @@ class FastFlipBot {
           ? pos.filledSize * (1 - pos.buyPrice)
           : -pos.filledSize * pos.buyPrice;
       await this.notifyClose(pos.market, pos.side, "резолв рынка", outcome, profit);
-      if (this.openPosition === pos) this.openPosition = null;
+      this.finishTrade(pos);
     };
     setTimeout(check, RESOLVE_RETRY_MS);
+  }
+
+  /** Вызывается после любого способа закрытия сделки — обнуляет позицию, засчитывает сделку в квоту часа и переходит к следующей цели, если квота ещё не выполнена. */
+  private finishTrade(pos: OpenPosition): void {
+    if (this.openPosition === pos) this.openPosition = null;
+    this.attemptInProgress = false;
+    this.tradesThisHour++;
+    if (this.tradesThisHour < TRADES_PER_HOUR) {
+      this.moveToNextTarget();
+    } else {
+      console.log(`✅ Квота сделок на этот час выполнена (${this.tradesThisHour}/${TRADES_PER_HOUR}).`);
+      this.watcher?.stop();
+      this.watcher = null;
+    }
   }
 
   private async notifyClose(
@@ -547,7 +612,7 @@ class FastFlipBot {
     this.refreshMarkets();
     setInterval(() => this.refreshMarkets(), MARKET_REFRESH_MS);
     setInterval(() => {
-      console.log(`--- статус: апдейтов ${this.updateCount}, сделка в этом часе: ${this.hasTradedThisHour} ---`);
+      console.log(`--- статус: апдейтов ${this.updateCount}, сделок в часе: ${this.tradesThisHour}/${TRADES_PER_HOUR} ---`);
     }, 30 * 1000);
   }
 }
@@ -659,7 +724,7 @@ async function pollTelegramCommands(
 
 async function main() {
   console.log(`Режим: ${DRY_RUN ? "DRY_RUN (без реальных сделок)" : "⚠️  LIVE — РЕАЛЬНЫЕ ДЕНЬГИ"}`);
-  console.log(`Актив: BTC only | 1 сделка/час | Вход: ${settings.entryPrice} | Тейк: ${settings.tpPrice} | Стоп: ${settings.stopPrice}`);
+  console.log(`Актив: BTC only | ${TRADES_PER_HOUR} сделок/час | Вход: ${settings.entryPrice} | Тейк: ${settings.tpPrice} | Стоп: ${settings.stopPrice}`);
 
   let clob: ClobService | null = null;
   if (!DRY_RUN) {
