@@ -38,6 +38,8 @@
  */
 
 import "dotenv/config";
+import * as fs from "fs";
+import * as path from "path";
 import {
   discoverCryptoUpDownMarkets,
   CryptoUpDownMarket,
@@ -45,6 +47,17 @@ import {
 import { PriceWatcher, PriceUpdate } from "./priceWatcher.js";
 import { createTelegramNotifier } from "./telegram.js";
 import { createLogger } from "./logger.js";
+
+// Файл, в который сохраняется вся собранная статистика.
+// Переживает рестарты процесса (например, при передеплое на Railway).
+const STATE_FILE = path.resolve(
+  process.cwd(),
+  "research-state.json",
+);
+
+// Как часто сохранять состояние на диск (помимо сохранения при
+// каждом резолве сделки и при остановке процесса).
+const AUTOSAVE_INTERVAL_MS = 60 * 1000;
 
 const TARGET_COIN = "Bitcoin";
 const TARGET_WINDOW_MINUTES = 5;
@@ -82,6 +95,9 @@ const STRATEGIES: StrategySpec[] = [
 const TIME_BUCKETS = [10, 30, 60, 120, 300];
 
 const MARKET_REFRESH_MS = 30 * 1000;
+
+// Раз в столько отправляем отчёт в Telegram САМИ, без запроса пользователя.
+const AUTO_REPORT_INTERVAL_MS = 30 * 60 * 1000;
 
 function observeWindowMs(windowMinutes: number): number {
   return (windowMinutes + 1) * 60 * 1000;
@@ -208,6 +224,106 @@ class ResearchLogger {
   >();
 
   private updateCount = 0;
+
+  /**
+   * Сохраняет всю накопленную статистику на диск в JSON.
+   * Вызывается: раз в AUTOSAVE_INTERVAL_MS, сразу после каждого
+   * резолва сделки, и один раз перед остановкой процесса.
+   */
+  saveState(): void {
+    try {
+      const data = {
+        savedAt: Date.now(),
+        tradesList: this.tradesList,
+        pendingResolution: [
+          ...this.pendingResolution.entries(),
+        ],
+        updateCount: this.updateCount,
+      };
+
+      // Пишем сначала во временный файл, потом переименовываем —
+      // так при обрыве процесса посреди записи старый файл не
+      // повредится (атомарная замена).
+      const tmpFile = `${STATE_FILE}.tmp`;
+
+      fs.writeFileSync(
+        tmpFile,
+        JSON.stringify(data),
+        "utf-8",
+      );
+
+      fs.renameSync(tmpFile, STATE_FILE);
+    } catch (err) {
+      console.error(
+        "[saveState] ошибка сохранения:",
+        (err as Error).message,
+      );
+    }
+  }
+
+  /**
+   * Загружает статистику с диска при старте (если файл есть).
+   * Восстанавливает tradesList, индекс trades (по ключу
+   * strategy:eventSlug:side) и pendingResolution.
+   */
+  loadState(): void {
+    if (!fs.existsSync(STATE_FILE)) {
+      console.log(
+        "[loadState] файл состояния не найден — " +
+          "начинаем сбор данных с нуля.",
+      );
+
+      return;
+    }
+
+    try {
+      const raw = fs.readFileSync(
+        STATE_FILE,
+        "utf-8",
+      );
+
+      const data = JSON.parse(raw);
+
+      const loadedTrades: TradeEvent[] =
+        data.tradesList ?? [];
+
+      this.tradesList = loadedTrades;
+
+      this.trades = new Map();
+
+      for (const t of loadedTrades) {
+        const key =
+          `${t.strategy}:${t.eventSlug}:${t.side}`;
+
+        this.trades.set(key, t);
+      }
+
+      this.pendingResolution = new Map(
+        data.pendingResolution ?? [],
+      );
+
+      this.updateCount =
+        data.updateCount ?? 0;
+
+      const savedAgoSec = data.savedAt
+        ? Math.round(
+            (Date.now() - data.savedAt) / 1000,
+          )
+        : "?";
+
+      console.log(
+        `[loadState] восстановлено сделок: ${this.tradesList.length}, ` +
+          `ждут резолва: ${this.pendingResolution.size} ` +
+          `(файл сохранён ${savedAgoSec}с назад).`,
+      );
+    } catch (err) {
+      console.error(
+        "[loadState] ошибка загрузки, " +
+          "начинаем с нуля:",
+        (err as Error).message,
+      );
+    }
+  }
 
   async refreshMarkets(): Promise<void> {
     let allMarkets: CryptoUpDownMarket[];
@@ -519,6 +635,11 @@ class ResearchLogger {
         }
 
         this.pendingResolution.delete(slug);
+
+        // Сохраняем сразу после каждого резолва — так свежий
+        // результат не потеряется, даже если рестарт случится
+        // через секунду после этого.
+        this.saveState();
       } catch (err) {
         console.error(
           `[resolve] ошибка проверки ${slug}:`,
@@ -927,6 +1048,9 @@ class ResearchLogger {
   }
 
   start(): void {
+    // Сначала пытаемся восстановить прошлую статистику с диска.
+    this.loadState();
+
     this.refreshMarkets();
 
     setInterval(
@@ -947,6 +1071,13 @@ class ResearchLogger {
         );
       },
       60 * 1000,
+    );
+
+    // Автосохранение на диск раз в минуту (плюс сохранение
+    // сразу после каждого резолва — см. checkResolutions).
+    setInterval(
+      () => this.saveState(),
+      AUTOSAVE_INTERVAL_MS,
     );
   }
 }
@@ -1076,6 +1207,25 @@ async function main() {
       telegram,
       research,
     );
+
+    console.log(
+      `Автоотчёт включён — сводка будет прилетать в Telegram ` +
+        `каждые ${AUTO_REPORT_INTERVAL_MS / 60000} минут.`,
+    );
+
+    setInterval(async () => {
+      try {
+        await telegram.send(
+          "⏰ Автоотчёт (каждые 30 мин):\n\n" +
+            research.buildReport(),
+        );
+      } catch (err) {
+        console.error(
+          "[autoReport] ошибка отправки:",
+          (err as Error).message,
+        );
+      }
+    }, AUTO_REPORT_INTERVAL_MS);
   } else {
     console.log(
       "Telegram не настроен — отчёт будет только в консоли.",
@@ -1086,6 +1236,10 @@ async function main() {
     console.log(
       "\n" + research.buildReport(),
     );
+
+    // Сохраняем на диск перед выходом — если это рестарт
+    // (Railway шлёт SIGTERM), статистика не потеряется.
+    research.saveState();
 
     if (telegram) {
       await telegram.send(
