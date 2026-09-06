@@ -5,17 +5,21 @@
  * ВАЖНО: у websocket-соединений бывает "тихая смерть" — сеть/прокси между
  * нами и биржей может оборвать сокет без штатного события "close" (например
  * NAT/прокси-таймаут на простое). Формально сокет выглядит открытым, но
- * сообщения больше не приходят. Раньше это маскировалось частой сменой
- * набора токенов (при смене список пересоздавался, что попутно чинило
- * зависшее соединение). Теперь, когда список токенов может не меняться
- * подолгу (например, целый час), нужен явный watchdog по времени
- * последнего полученного сообщения.
+ * сообщения больше не приходят.
+ *
+ * КРИТИЧЕСКИ ВАЖНО: watchdog отслеживает ТОЛЬКО реальные рыночные
+ * сообщения (message), а НЕ pong-ответы на наш ping. Раньше pong тоже
+ * обновлял метку "последней активности", из-за чего watchdog никогда не
+ * замечал зависание: сокет технически отвечал на пинги (TCP-сессия
+ * жива), но реальные обновления цены не приходили 20+ минут — это
+ * маскировалось как "всё в порядке". pong доказывает только, что сокет
+ * жив, а не то, что данные реально идут.
  */
 
 import WebSocket from "ws";
 
 const WS_URL = "wss://ws-subscriptions-clob.polymarket.com/ws/market";
-const STALE_TIMEOUT_MS = 45 * 1000; // если так долго нет сообщений — считаем сокет мёртвым
+const STALE_TIMEOUT_MS = 45 * 1000; // если так долго нет РЕАЛЬНЫХ рыночных сообщений — считаем зависшим
 const WATCHDOG_CHECK_MS = 10 * 1000;
 const PING_INTERVAL_MS = 20 * 1000;
 
@@ -31,7 +35,9 @@ export class PriceWatcher {
   private tokenIds: string[];
   private onUpdate: (update: PriceUpdate) => void;
   private stopped = false;
-  private lastMessageAt = Date.now();
+  // Только реальные рыночные сообщения (message) обновляют эту метку.
+  // pong НЕ обновляет — см. комментарий в начале файла.
+  private lastDataMessageAt = Date.now();
   private watchdogTimer: NodeJS.Timeout | null = null;
   private pingTimer: NodeJS.Timeout | null = null;
 
@@ -48,23 +54,25 @@ export class PriceWatcher {
   private connect(backoffMs: number): void {
     if (this.stopped) return;
 
-    this.lastMessageAt = Date.now(); // не считаем зависшим сразу после (пере)подключения
+    this.lastDataMessageAt = Date.now(); // не считаем зависшим сразу после (пере)подключения
     this.ws = new WebSocket(WS_URL);
 
     this.ws.on("open", () => {
       console.log(`[priceWatcher] подключено, подписка на ${this.tokenIds.length} токенов`);
-      this.lastMessageAt = Date.now();
+      this.lastDataMessageAt = Date.now();
       this.ws!.send(JSON.stringify({ type: "market", assets_ids: this.tokenIds }));
       this.startPing();
     });
 
     this.ws.on("message", (raw: Buffer) => {
-      this.lastMessageAt = Date.now();
+      this.lastDataMessageAt = Date.now();
       this.handleMessage(raw.toString());
     });
 
+    // ВАЖНО: pong НЕ обновляет lastDataMessageAt. Смотри комментарий в
+    // начале файла — иначе watchdog никогда не заметит зависание.
     this.ws.on("pong", () => {
-      this.lastMessageAt = Date.now();
+      // намеренно ничего не делаем
     });
 
     this.ws.on("close", () => {
@@ -100,20 +108,20 @@ export class PriceWatcher {
     }
   }
 
-  /** Следит за тем, что сообщения (или pong) реально приходят. Если тишина слишком долго — считаем сокет мёртвым и форсируем переподключение. */
+  /** Следит за тем, что РЕАЛЬНЫЕ рыночные сообщения приходят. Если тишина слишком долго — считаем сокет мёртвым/зависшим и форсируем переподключение. */
   private startWatchdog(): void {
     this.watchdogTimer = setInterval(() => {
       if (this.stopped) return;
-      const idleMs = Date.now() - this.lastMessageAt;
+      const idleMs = Date.now() - this.lastDataMessageAt;
       if (idleMs > STALE_TIMEOUT_MS) {
-        console.log(`[priceWatcher] ⚠️ Нет сообщений ${Math.round(idleMs / 1000)}с — соединение считаем мёртвым, форсируем переподключение.`);
+        console.log(`[priceWatcher] ⚠️ Нет рыночных сообщений ${Math.round(idleMs / 1000)}с — форсируем переподключение.`);
         this.forceReconnect();
       }
     }, WATCHDOG_CHECK_MS);
   }
 
   private forceReconnect(): void {
-    this.lastMessageAt = Date.now(); // сброс, чтобы не спамить форс-реконнектом пока идёт переподключение
+    this.lastDataMessageAt = Date.now(); // сброс, чтобы не спамить форс-реконнектом пока идёт переподключение
     this.stopPing();
     try {
       this.ws?.removeAllListeners();
