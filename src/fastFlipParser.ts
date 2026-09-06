@@ -4,7 +4,7 @@
  * Отслеживает ТОЛЬКО BTC 5-минутные Up/Down рынки на Polymarket.
  *
  * Одновременно симулирует НЕСКОЛЬКО стратегий на одних и тех же живых
- * данных (см. STRATEGIES ниже) — теперь включая более ранние точки входа
+ * данных (см. STRATEGIES ниже) — включая более ранние точки входа
  * (0.90, 0.92, 0.95), не только 0.97/0.98.
  *
  * Логика "сделки" для стратегии с winEarlyLevel:
@@ -64,11 +64,19 @@ interface StrategySpec {
 
 const STRATEGIES: StrategySpec[] = [
   { name: "0.98→резолв", entryLevel: 0.98, winEarlyLevel: null },
-  { name: "0.97→0.99", entryLevel: 0.97, winEarlyLevel: 0.99 },
-  { name: "0.98→0.99", entryLevel: 0.98, winEarlyLevel: 0.99 },
+
+  { name: "0.90→0.92", entryLevel: 0.9, winEarlyLevel: 0.92 },
   { name: "0.90→0.97", entryLevel: 0.9, winEarlyLevel: 0.97 },
+
   { name: "0.92→0.97", entryLevel: 0.92, winEarlyLevel: 0.97 },
+
+  { name: "0.95→0.97", entryLevel: 0.95, winEarlyLevel: 0.97 },
   { name: "0.95→0.98", entryLevel: 0.95, winEarlyLevel: 0.98 },
+
+  { name: "0.97→0.98", entryLevel: 0.97, winEarlyLevel: 0.98 },
+  { name: "0.97→0.99", entryLevel: 0.97, winEarlyLevel: 0.99 },
+
+  { name: "0.98→0.99", entryLevel: 0.98, winEarlyLevel: 0.99 },
 ];
 
 const TIME_BUCKETS = [10, 30, 60, 120, 300];
@@ -1027,7 +1035,7 @@ async function pollTelegramCommands(
 async function main() {
   console.log(
     "Исследовательский логгер запущен " +
-      "(BTC 5-мин, 6 стратегий + микроструктура, " +
+      "(BTC 5-мин, 9 стратегий + микроструктура, " +
       "только сбор статистики).",
   );
 
