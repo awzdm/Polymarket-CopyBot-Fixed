@@ -1,5 +1,5 @@
 /**
- * "Быстрый флип" v2 — торговый бот, ПАРАЛЛЕЛЬНЫЙ старому sniperTrader.ts
+ * "Быстрый флип" v3 — торговый бот, ПАРАЛЛЕЛЬНЫЙ старому sniperTrader.ts
  * (тот не запускаем, код не трогаем).
  *
  * Логика:
@@ -8,32 +8,39 @@
  *     FASTFLIP_TRADES_PER_HOUR, по умолчанию 1). В начале часа случайно
  *     выбирается одна из ещё не испробованных пятиминуток этого часа.
  *  3. Как цена выбранного рынка (Up или Down) впервые касается ENTRY_PRICE
- *     (0.98) — пытаемся купить ЛИМИТКОЙ (GTC) по этой цене.
+ *     (0.98 по умолчанию) — пытаемся купить ЛИМИТКОЙ (GTC) по этой цене.
  *  4. Если заявка на покупку так и не исполнилась до закрытия окна —
  *     отменяем её и сразу берём СЛЕДУЮЩУЮ ещё не испробованную пятиминутку
- *     в этом же часе (не ждём следующего часа). Это НЕ считается
- *     совершённой сделкой — квота часа не уменьшается.
- *  5. Если покупка исполнилась — сразу пытаемся выставить лимитку на
- *     продажу по TP_PRICE (0.999). Если выставление не удалось — ПРОДОЛЖАЕМ
- *     пытаться выставить её же, вплоть до закрытия окна.
- *  6. Параллельно следим за живой ценой. Если цена падает до STOP_PRICE
- *     (0.60 по умолчанию) — отменяем тейк-лимитку и ПЫТАЕМСЯ продать
- *     по рынку (FAK), повторяя попытки, пока не продастся.
- *  7. Если ни тейк, ни стоп не сработали до закрытия — ждём официального
- *     резолва через Gamma API (с ретраями) и всё равно шлём итог. Это
+ *     в этом же часе. Это НЕ считается совершённой сделкой — квота часа
+ *     не уменьшается.
+ *  5. Если выбранная пятиминутка целиком закрылась, а цена так и не
+ *     тронула уровень входа (сделки не было вообще) — тоже сразу
+ *     переключаемся на следующую случайную пятиминутку в этом же часе,
+ *     не дожидаясь конца часа. Тоже не считается сделкой.
+ *  6. Если покупка исполнилась — сразу пытаемся выставить лимитку на
+ *     продажу по TP_PRICE (0.99 по умолчанию). Если выставление не
+ *     удалось — ПРОДОЛЖАЕМ пытаться выставить её же, вплоть до закрытия
+ *     окна.
+ *  7. СТОП-ЛОСС УБРАН: статистика на 750+ сделках показала, что глубина
+ *     просадки не отличает временный откат от настоящего разворота —
+ *     и здоровые, и убыточные сделки проваливаются в одну и ту же зону
+ *     (вплоть до 0.05-0.06 цены), поэтому любой ценовой стоп либо ничего
+ *     не ловит, либо регулярно режет здоровую прибыль. Позиция держится
+ *     до тейка или до официального резолва.
+ *  8. Если тейк не сработал до закрытия — ждём официального резолва
+ *     через Gamma API (с ретраями) и всё равно шлём итог. Это
  *     ЗАСЧИТЫВАЕТСЯ как совершённая сделка (квота часа уменьшается), и
  *     если квота ещё не выполнена — сразу выбираем следующую пятиминутку.
- *  8. Каждое закрытие сделки (тейк / стоп / резолв) — сообщение в Telegram
+ *  9. Каждое закрытие сделки (тейк / резолв) — сообщение в Telegram
  *     с чётким WIN/LOSS.
  *
- * ВАЖНО: во всех трёх путях закрытия (тейк / стоп / резолв) обязательно
- * обнуляем this.openPosition — иначе бот навсегда думает, что позиция ещё
- * открыта, и не начинает искать сделку дальше.
+ * ВАЖНО: во всех путях закрытия обязательно обнуляем this.openPosition —
+ * иначе бот навсегда думает, что позиция ещё открыта, и не начинает
+ * искать сделку дальше.
  *
  * НАСТРОЙКИ МЕНЯЮТСЯ ЧЕРЕЗ TELEGRAM НА ЛЕТУ (без передеплоя):
  *   цена 0.98    — цена входа
- *   тейк 0.999   — цена тейк-профита
- *   стоп 0.6     — цена стоп-лосса
+ *   тейк 0.99    — цена тейк-профита
  *   статус       — текущие настройки + что происходит сейчас
  *
  * НАСТРОЙКА ЧЕРЕЗ ENV (нужен передеплой):
@@ -68,8 +75,6 @@ const SLOT_MATCH_TOLERANCE_MS = 60 * 1000;
 
 const FILL_CHECK_INTERVAL_MS = 5 * 1000;
 const ORDER_RETRY_DELAY_MS = 3 * 1000;
-const STOP_SELL_RETRY_DELAY_MS = 3 * 1000;
-const STOP_SELL_GIVEUP_AFTER_MS = 90 * 1000; // после закрытия окна ещё пытаемся столько
 
 const RESOLVE_CHECK_DELAY_SEC = 180;
 const RESOLVE_RETRY_MS = 30 * 1000;
@@ -81,8 +86,7 @@ const GAMMA_HOST = "https://gamma-api.polymarket.com";
 // ─── Настройки, которые можно менять на лету через Telegram ───
 const settings = {
   entryPrice: Number(process.env.FASTFLIP_ENTRY_PRICE ?? "0.98"),
-  tpPrice: Number(process.env.FASTFLIP_TP_PRICE ?? "0.999"),
-  stopPrice: Number(process.env.FASTFLIP_STOP_PRICE ?? "0.60"),
+  tpPrice: Number(process.env.FASTFLIP_TP_PRICE ?? "0.99"),
 };
 
 interface TokenInfo {
@@ -97,7 +101,6 @@ interface OpenPosition {
   buyPrice: number;
   filledSize: number;
   tpOrderId: string | null;
-  stopTriggered: boolean;
   closed: boolean;
 }
 
@@ -131,7 +134,7 @@ function pickTarget(excludeSlotStarts: Set<number>): HourlyTarget | null {
   return candidates[Math.floor(Math.random() * candidates.length)];
 }
 
-/** Официальный резолв рынка через Gamma API (для редкого fallback-кейса). */
+/** Официальный резолв рынка через Gamma API (для fallback-кейса, когда тейк не сработал). */
 async function resolveWinner(eventSlug: string): Promise<"Up" | "Down" | null> {
   try {
     const resp = await fetch(`${GAMMA_HOST}/events/slug/${eventSlug}`);
@@ -189,7 +192,7 @@ class FastFlipBot {
       ? `${new Date(this.currentTarget.slotStartMs).toISOString()} → ${new Date(this.currentTarget.slotCloseMs).toISOString()}`
       : "не выбрана";
     return (
-      `Цена входа: ${settings.entryPrice} | Тейк: ${settings.tpPrice} | Стоп: ${settings.stopPrice}\n` +
+      `Цена входа: ${settings.entryPrice} | Тейк: ${settings.tpPrice}\n` +
       `План сделок в час: ${TRADES_PER_HOUR}\n` +
       `Цель сейчас: ${target}\n` +
       `Сделок в этом часе: ${this.tradesThisHour}/${TRADES_PER_HOUR} (испробовано пятиминуток: ${this.triedSlotsThisHour.size})\n` +
@@ -210,6 +213,34 @@ class FastFlipBot {
         ? `🎲 Новый час (план: ${TRADES_PER_HOUR} сделок). Цель: пятиминутка ${new Date(this.currentTarget.slotStartMs).toISOString()} - ${new Date(this.currentTarget.slotCloseMs).toISOString()}`
         : `🎲 Новый час, но не удалось выбрать пятиминутку.`;
       console.log(msg);
+      return;
+    }
+
+    // Если текущая цель уже закрылась, а мы даже не начали в неё входить
+    // (attemptInProgress=false, позиции нет) — цена так и не тронула
+    // уровень входа за это время. Не застреваем на ней — считаем
+    // испробованной и берём следующую случайную пятиминутку в этом часе,
+    // если квота сделок ещё не выполнена. Без этой проверки бот мог
+    // навсегда "смотреть" на уже закрывшийся рынок до конца часа.
+    if (
+      this.currentTarget &&
+      now >= this.currentTarget.slotCloseMs &&
+      !this.attemptInProgress &&
+      !this.openPosition &&
+      this.tradesThisHour < TRADES_PER_HOUR
+    ) {
+      console.log(
+        `⏭️ Пятиминутка ${new Date(this.currentTarget.slotStartMs).toISOString()} закрылась без касания цены входа — перехожу к следующей.`,
+      );
+      this.triedSlotsThisHour.add(this.currentTarget.slotStartMs);
+      this.currentTarget = pickTarget(this.triedSlotsThisHour);
+      if (this.currentTarget) {
+        console.log(
+          `🎯 Следующая цель: ${new Date(this.currentTarget.slotStartMs).toISOString()} - ${new Date(this.currentTarget.slotCloseMs).toISOString()} (сделок пока ${this.tradesThisHour}/${TRADES_PER_HOUR})`,
+        );
+      } else {
+        console.log(`ℹ️ Пятиминутки в этом часе закончились, сделок совершено ${this.tradesThisHour}/${TRADES_PER_HOUR}.`);
+      }
     }
   }
 
@@ -288,19 +319,7 @@ class FastFlipBot {
   private onPriceUpdate(update: PriceUpdate): void {
     this.updateCount++;
 
-    // ── Если есть открытая позиция — проверяем стоп-лосс ──
-    const pos = this.openPosition;
-    if (pos && update.tokenId === pos.tokenId && !pos.closed && !pos.stopTriggered) {
-      const price = update.bestBid ?? update.bestAsk;
-      if (price !== null && price <= settings.stopPrice) {
-        pos.stopTriggered = true;
-        this.triggerStopLoss(pos).catch((err) =>
-          console.error("[stop] необработанная ошибка:", (err as Error).message),
-        );
-      }
-      return;
-    }
-    if (pos) return; // позиция открыта — не ищем новых входов
+    if (this.openPosition) return; // позиция открыта — не ищем новых входов
     if (this.attemptInProgress) return; // уже пытаемся войти — не дублируем попытку
     if (this.tradesThisHour >= TRADES_PER_HOUR) return; // квота часа выполнена
 
@@ -429,19 +448,18 @@ class FastFlipBot {
       buyPrice,
       filledSize,
       tpOrderId: null,
-      stopTriggered: false,
       closed: false,
     };
     this.openPosition = pos;
 
     if (this.telegram) {
       await this.telegram.send(
-        `💰 Куплено: ${market.title}\nСторона: ${side}\nЦена: ${buyPrice} | Размер: ${filledSize.toFixed(2)}\nСтавлю тейк ${settings.tpPrice} и слежу за стопом ${settings.stopPrice}...`,
+        `💰 Куплено: ${market.title}\nСторона: ${side}\nЦена: ${buyPrice} | Размер: ${filledSize.toFixed(2)}\nСтавлю тейк ${settings.tpPrice}...`,
       );
     }
 
     // Шаг 2: пытаемся выставить тейк-профит, повторяем пока не получится
-    // или сделка не закроется (по стопу) или не закроется окно.
+    // или не закроется окно.
     const tpDeadline = market.closeTimeMs + 30 * 1000;
     while (Date.now() < tpDeadline && !pos.tpOrderId && !pos.closed) {
       try {
@@ -462,8 +480,7 @@ class FastFlipBot {
       if (!pos.tpOrderId && !pos.closed) await new Promise((r) => setTimeout(r, ORDER_RETRY_DELAY_MS));
     }
 
-    // Шаг 3: ждём исполнения тейка до закрытия рынка (стоп обрабатывается
-    // асинхронно в onPriceUpdate/triggerStopLoss параллельно с этим циклом).
+    // Шаг 3: ждём исполнения тейка до закрытия рынка.
     if (pos.tpOrderId) {
       const fillDeadline = market.closeTimeMs + 30 * 1000;
       while (Date.now() < fillDeadline && !pos.closed) {
@@ -492,52 +509,8 @@ class FastFlipBot {
       return;
     }
 
-    console.log(`   ⏳ Ни тейк, ни стоп не сработали до закрытия — жду официальный резолв (eventSlug: ${market.eventSlug}).`);
+    console.log(`   ⏳ Тейк не сработал до закрытия — жду официальный резолв (eventSlug: ${market.eventSlug}).`);
     this.scheduleResolveFallback(pos);
-  }
-
-  private async triggerStopLoss(pos: OpenPosition): Promise<void> {
-    if (!this.clob) return;
-    console.log(`   🛑 СТОП-ЛОСС СРАБОТАЛ (цена ≤ ${settings.stopPrice}): ${pos.market.title}`);
-
-    if (pos.tpOrderId) {
-      try {
-        await this.clob.cancelOrders([pos.tpOrderId]);
-        console.log(`   Тейк-лимитка отменена.`);
-      } catch (err) {
-        console.error(`   ⚠️ Не удалось отменить тейк-лимитку:`, (err as Error).message);
-      }
-    }
-
-    const giveUpAt = pos.market.closeTimeMs + STOP_SELL_GIVEUP_AFTER_MS;
-    while (Date.now() < giveUpAt && !pos.closed) {
-      try {
-        const result = await this.clob.placeLimitOrder({
-          tokenId: pos.tokenId,
-          side: Side.SELL,
-          price: settings.stopPrice,
-          size: pos.filledSize,
-        });
-        const soldSize = Number(result.filledSize ?? pos.filledSize);
-        const soldUsdc = Number(result.filledUsdc ?? soldSize * settings.stopPrice);
-        const avgExitPrice = soldSize > 0 ? soldUsdc / soldSize : settings.stopPrice;
-        const profit = soldSize * avgExitPrice - soldSize * pos.buyPrice;
-
-        pos.closed = true;
-        await this.notifyClose(pos.market, pos.side, "стоп-лосс", "LOSS", profit);
-        console.log(`   ✅ Продано по стопу: exit≈${avgExitPrice.toFixed(3)} профит=$${profit.toFixed(3)}`);
-        this.finishTrade(pos);
-        return;
-      } catch (err) {
-        console.error(`   ❌ ОШИБКА ПРОДАЖИ ПО СТОПУ, повторяем:`, (err as Error).message);
-        await new Promise((r) => setTimeout(r, STOP_SELL_RETRY_DELAY_MS));
-      }
-    }
-
-    if (!pos.closed) {
-      console.log(`   ⚠️ Не удалось продать по стопу до дедлайна — оставляем висеть, дождёмся резолва.`);
-      this.scheduleResolveFallback(pos);
-    }
   }
 
   private scheduleResolveFallback(pos: OpenPosition): void {
@@ -708,13 +681,6 @@ async function pollTelegramCommands(
           await telegram?.send(`Тейк-профит установлен: ${settings.tpPrice}`);
           continue;
         }
-
-        const stopMatch = text.match(/^стоп\s+([\d.]+)$/);
-        if (stopMatch) {
-          settings.stopPrice = Number(stopMatch[1]);
-          await telegram?.send(`Стоп-лосс установлен: ${settings.stopPrice}`);
-          continue;
-        }
       }
     } catch (err) {
       console.error("[telegram poll] ошибка:", (err as Error).message);
@@ -725,7 +691,7 @@ async function pollTelegramCommands(
 
 async function main() {
   console.log(`Режим: ${DRY_RUN ? "DRY_RUN (без реальных сделок)" : "⚠️  LIVE — РЕАЛЬНЫЕ ДЕНЬГИ"}`);
-  console.log(`Актив: BTC only | ${TRADES_PER_HOUR} сделок/час | Вход: ${settings.entryPrice} | Тейк: ${settings.tpPrice} | Стоп: ${settings.stopPrice}`);
+  console.log(`Актив: BTC only | ${TRADES_PER_HOUR} сделок/час | Вход: ${settings.entryPrice} | Тейк: ${settings.tpPrice} | Стоп: убран`);
 
   let clob: ClobService | null = null;
   if (!DRY_RUN) {
@@ -757,7 +723,7 @@ async function main() {
   bot.start();
 
   if (telegram && process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
-    console.log("Telegram-команды включены: цена X / тейк X / стоп X / статус");
+    console.log("Telegram-команды включены: цена X / тейк X / статус");
     pollTelegramCommands(process.env.TELEGRAM_BOT_TOKEN, process.env.TELEGRAM_CHAT_ID, telegram, bot);
   }
 
