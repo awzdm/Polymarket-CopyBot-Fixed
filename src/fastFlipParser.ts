@@ -4,10 +4,8 @@
  * Отслеживает ТОЛЬКО BTC 5-минутные Up/Down рынки на Polymarket.
  *
  * Одновременно симулирует НЕСКОЛЬКО стратегий на одних и тех же живых
- * данных (см. STRATEGIES ниже) — включая узкие пары вход/выход вокруг
- * 0.90-0.95, чтобы проверить, даёт ли более широкая премия (при чуть
- * более низком винрейте) лучшее матожидание, чем вход почти в конце
- * (0.97-0.98).
+ * данных (см. STRATEGIES ниже) — теперь включая более ранние точки входа
+ * (0.90, 0.92, 0.95), не только 0.97/0.98.
  *
  * Логика "сделки" для стратегии с winEarlyLevel:
  *   1. Как только цена токена впервые касается entryLevel — фиксируем
@@ -71,10 +69,6 @@ const STRATEGIES: StrategySpec[] = [
   { name: "0.90→0.97", entryLevel: 0.9, winEarlyLevel: 0.97 },
   { name: "0.92→0.97", entryLevel: 0.92, winEarlyLevel: 0.97 },
   { name: "0.95→0.98", entryLevel: 0.95, winEarlyLevel: 0.98 },
-  // ── новые узкие пары вокруг 0.90-0.95 ──
-  { name: "0.90→0.91", entryLevel: 0.9, winEarlyLevel: 0.91 },
-  { name: "0.90→0.92", entryLevel: 0.9, winEarlyLevel: 0.92 },
-  { name: "0.94→0.95", entryLevel: 0.94, winEarlyLevel: 0.95 },
 ];
 
 const TIME_BUCKETS = [10, 30, 60, 120, 300];
@@ -198,7 +192,7 @@ class ResearchLogger {
 
   private tradesList: TradeEvent[] = [];
 
-  private pendingResolution = new Map
+  private pendingResolution = new Map<
     string,
     {
       closeTimeMs: number;
@@ -578,22 +572,6 @@ class ResearchLogger {
         `Win rate: ${wins.length}/${determined.length} ` +
           `(${winRate.toFixed(1)}%)${earlyNote}`,
       );
-
-      // ── матожидание на сделку (EV) ──
-      // Профит на победе: (winEarlyLevel - entryLevel) / entryLevel, или
-      // для "→резолв" (1 - entryLevel) / entryLevel.
-      // Убыток на поражении: считаем полной потерей ставки (-1), это
-      // консервативная, но по факту наблюдаемая оценка (лоси проваливаются
-      // почти в 0).
-      const exitLevel = spec.winEarlyLevel ?? 1;
-      const winReturn = (exitLevel - spec.entryLevel) / spec.entryLevel;
-      const lossReturn = -1;
-      const winRateFraction = wins.length / determined.length;
-      const ev = winRateFraction * winReturn + (1 - winRateFraction) * lossReturn;
-      lines.push(
-        `EV/сделку (убыток=-100%): ${(ev * 100).toFixed(2)}% ` +
-          `(профит на победе: +${(winReturn * 100).toFixed(2)}%)`,
-      );
     }
 
     lines.push("");
@@ -808,7 +786,7 @@ class ResearchLogger {
       );
 
       const byBucket =
-        new Map
+        new Map<
           string,
           {
             win: number;
@@ -861,7 +839,7 @@ class ResearchLogger {
       );
 
       const byHour =
-        new Map
+        new Map<
           string,
           {
             win: number;
@@ -922,7 +900,7 @@ class ResearchLogger {
     const lines: string[] = [];
 
     lines.push(
-      `<b>📊 Отчёт BTC 5-мин — сравнение стратегий (v3, узкие пары + EV)</b>`,
+      `<b>📊 Отчёт BTC 5-мин — сравнение стратегий (v2, микроструктура)</b>`,
     );
 
     lines.push(
@@ -968,7 +946,7 @@ class ResearchLogger {
 async function pollTelegramCommands(
   botToken: string,
   chatId: string,
-  telegram: ReturnType
+  telegram: ReturnType<
     typeof createTelegramNotifier
   >,
   research: ResearchLogger,
@@ -1049,7 +1027,7 @@ async function pollTelegramCommands(
 async function main() {
   console.log(
     "Исследовательский логгер запущен " +
-      "(BTC 5-мин, 9 стратегий + микроструктура + EV, " +
+      "(BTC 5-мин, 6 стратегий + микроструктура, " +
       "только сбор статистики).",
   );
 
