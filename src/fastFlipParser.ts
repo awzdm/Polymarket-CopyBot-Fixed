@@ -1082,6 +1082,82 @@ class ResearchLogger {
   }
 }
 
+// Telegram не принимает сообщения длиннее ~4096 символов.
+// Берём с запасом, чтобы не упереться в лимит с учётом HTML-тегов.
+const TELEGRAM_MAX_CHUNK = 3500;
+
+/**
+ * Режет длинный отчёт на части по границам строк (не разрывая
+ * строку/тег посередине — каждая строка отчёта содержит
+ * самодостаточные <b>...</b> пары, так что резать между строками
+ * безопасно для HTML-разметки).
+ */
+function splitReportIntoChunks(
+  report: string,
+  maxLen: number = TELEGRAM_MAX_CHUNK,
+): string[] {
+  const lines = report.split("\n");
+
+  const chunks: string[] = [];
+
+  let current = "";
+
+  for (const line of lines) {
+    const candidate = current
+      ? `${current}\n${line}`
+      : line;
+
+    if (candidate.length > maxLen && current) {
+      chunks.push(current);
+      current = line;
+    } else {
+      current = candidate;
+    }
+  }
+
+  if (current) {
+    chunks.push(current);
+  }
+
+  return chunks.length > 0 ? chunks : [""];
+}
+
+/**
+ * Отправляет отчёт в Telegram, разбивая его на несколько сообщений,
+ * если он не влезает в один. header добавляется только к первой части.
+ */
+async function sendReportToTelegram(
+  telegram: ReturnType<
+    typeof createTelegramNotifier
+  >,
+  header: string,
+  report: string,
+): Promise<void> {
+  const chunks = splitReportIntoChunks(report);
+
+  for (let i = 0; i < chunks.length; i++) {
+    const partLabel =
+      chunks.length > 1
+        ? ` (часть ${i + 1}/${chunks.length})`
+        : "";
+
+    const text =
+      i === 0
+        ? `${header}${partLabel}\n\n${chunks[i]}`
+        : `<b>...продолжение${partLabel}</b>\n\n${chunks[i]}`;
+
+    try {
+      await telegram?.send(text);
+    } catch (err) {
+      console.error(
+        "[sendReportToTelegram] ошибка отправки части " +
+          `${i + 1}/${chunks.length}:`,
+        (err as Error).message,
+      );
+    }
+  }
+}
+
 async function pollTelegramCommands(
   botToken: string,
   chatId: string,
@@ -1145,7 +1221,9 @@ async function pollTelegramCommands(
             `[telegram] Запрос отчёта получен: "${msg.text}"`,
           );
 
-          await telegram?.send(
+          await sendReportToTelegram(
+            telegram,
+            "<b>📊 Отчёт по запросу</b>",
             research.buildReport(),
           );
         }
@@ -1215,9 +1293,10 @@ async function main() {
 
     setInterval(async () => {
       try {
-        await telegram.send(
-          "⏰ Автоотчёт (каждые 30 мин):\n\n" +
-            research.buildReport(),
+        await sendReportToTelegram(
+          telegram,
+          "<b>⏰ Автоотчёт (каждые 30 мин)</b>",
+          research.buildReport(),
         );
       } catch (err) {
         console.error(
@@ -1242,9 +1321,10 @@ async function main() {
     research.saveState();
 
     if (telegram) {
-      await telegram.send(
-        "🌙 Финальный отчёт за ночь:\n\n" +
-          research.buildReport(),
+      await sendReportToTelegram(
+        telegram,
+        "<b>🌙 Финальный отчёт за ночь</b>",
+        research.buildReport(),
       );
     }
 
