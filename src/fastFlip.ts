@@ -220,7 +220,7 @@ class FastFlipBot {
       this.tradesThisHour = 0;
       this.attemptInProgress = false;
       this.targetIndex = 0;
-      this.hourlyTargets = pickHourlyTargets(TRADES_PER_HOUR);
+            this.hourlyTargets = pickHourlyTargets(TRADES_PER_HOUR).sort((a, b) => a.slotStartMs - b.slotStartMs);
       if (this.hourlyTargets.length > 0) {
         const list = this.hourlyTargets
           .map((t) => `${new Date(t.slotStartMs).toISOString()} - ${new Date(t.slotCloseMs).toISOString()}`)
