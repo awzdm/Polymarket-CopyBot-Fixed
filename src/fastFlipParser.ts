@@ -1,7 +1,8 @@
 /**
  * Исследовательский модуль (не торгует, только собирает статистику).
  *
- * Отслеживает ТОЛЬКО BTC 5-минутные Up/Down рынки на Polymarket.
+ * Отслеживает ВСЕ 5-минутные Up/Down крипто-рынки на Polymarket,
+ * КРОМЕ Bitcoin (см. EXCLUDED_COINS ниже).
  *
  * Одновременно симулирует НЕСКОЛЬКО стратегий на одних и тех же живых
  * данных (см. STRATEGIES ниже) — включая более ранние точки входа
@@ -29,12 +30,17 @@
  *                         когда цена упала минимум вдвое от уровня входа.
  *   - bounceCount       — сколько раз после входа цена уходила ниже
  *                         entryLevel и затем возвращалась обратно ≥ entryLevel.
+ *   - coin              — какая именно монета (BTC исключён, но остальные
+ *                         могут быть разными — ETH, SOL, XRP и т.д.),
+ *                         поэтому в отчёте появляется разбивка по монетам.
  *
  * Раз в REPORT_INTERVAL_MS шлёт промежуточную сводку в Telegram (если
  * настроен), и финальную — при остановке (Ctrl+C).
  *
- * Работает НЕЗАВИСИМО от sniperTrader.ts / fastFlip.ts — запускается
- * отдельным процессом, ничего не покупает, только смотрит.
+ * Работает НЕЗАВИСИМО от sniperTrader.ts / fastFlip.ts / оригинального
+ * BTC-исследователя — запускается отдельным процессом, ничего не
+ * покупает, только смотрит. Использует свой собственный файл состояния
+ * (research-state-altcoins.json), чтобы не конфликтовать с BTC-версией.
  */
 
 import "dotenv/config";
@@ -50,16 +56,20 @@ import { createLogger } from "./logger.js";
 
 // Файл, в который сохраняется вся собранная статистика.
 // Переживает рестарты процесса (например, при передеплое на Railway).
+// Отдельный от BTC-версии файл, чтобы состояния не перезаписывали друг друга.
 const STATE_FILE = path.resolve(
   process.cwd(),
-  "research-state.json",
+  "research-state-altcoins.json",
 );
 
 // Как часто сохранять состояние на диск (помимо сохранения при
 // каждом резолве сделки и при остановке процесса).
 const AUTOSAVE_INTERVAL_MS = 60 * 1000;
 
-const TARGET_COIN = "Bitcoin";
+// Монеты, которые НЕ отслеживаем в этой версии (базово — только BTC).
+// Сравнение регистронезависимое, см. isExcludedCoin().
+const EXCLUDED_COINS = ["Bitcoin", "BTC"];
+
 const TARGET_WINDOW_MINUTES = 5;
 
 const TIMEFRAMES_TO_DISCOVER = [
@@ -68,6 +78,14 @@ const TIMEFRAMES_TO_DISCOVER = [
     minutes: TARGET_WINDOW_MINUTES,
   },
 ];
+
+function isExcludedCoin(coin: string): boolean {
+  const upper = coin.toUpperCase();
+
+  return EXCLUDED_COINS.some(
+    (c) => c.toUpperCase() === upper,
+  );
+}
 
 interface StrategySpec {
   name: string;
@@ -117,6 +135,7 @@ interface TradeEvent {
   strategy: string;
   entryLevel: number;
   eventSlug: string;
+  coin: string;
   side: "Up" | "Down";
   entryTimestamp: number;
   secToCloseAtEntry: number;
@@ -345,7 +364,7 @@ class ResearchLogger {
 
     const markets = allMarkets.filter(
       (m) =>
-        m.coin.toUpperCase() === TARGET_COIN.toUpperCase() &&
+        !isExcludedCoin(m.coin) &&
         m.windowMinutes === TARGET_WINDOW_MINUTES &&
         m.closeTimeMs - now <= observeWindowMs(m.windowMinutes),
     );
@@ -362,9 +381,13 @@ class ResearchLogger {
       }
     }
 
+    const coinsSeen = [
+      ...new Set(markets.map((m) => m.coin)),
+    ].sort();
+
     console.log(
-      `[refresh] наблюдаем BTC 5-мин рынков: ${markets.length} ` +
-        `(${tokenIds.length} токенов), ` +
+      `[refresh] наблюдаем НЕ-BTC 5-мин рынков: ${markets.length} ` +
+        `(${tokenIds.length} токенов, монеты: ${coinsSeen.join(", ") || "нет"}), ` +
         `сделок открыто: ${this.tradesList.length}, ` +
         `ждём резолва: ${this.pendingResolution.size}`,
     );
@@ -488,6 +511,7 @@ class ResearchLogger {
         strategy: spec.name,
         entryLevel: spec.entryLevel,
         eventSlug: market.eventSlug,
+        coin: market.coin,
         side,
 
         entryTimestamp: now,
@@ -701,6 +725,45 @@ class ResearchLogger {
         `Win rate: ${wins.length}/${determined.length} ` +
           `(${winRate.toFixed(1)}%)${earlyNote}`,
       );
+    }
+
+    // Разбивка по монетам — актуально только для этой версии,
+    // т.к. рынков теперь несколько (ETH, SOL, XRP и т.д.).
+    if (determined.length > 0) {
+      lines.push(
+        `  <b>Win rate по монете</b>`,
+      );
+
+      const byCoin = new Map<
+        string,
+        { win: number; total: number }
+      >();
+
+      for (const t of determined) {
+        const s =
+          byCoin.get(t.coin) ??
+          { win: 0, total: 0 };
+
+        s.total++;
+
+        if (t.won) s.win++;
+
+        byCoin.set(t.coin, s);
+      }
+
+      for (
+        const [coin, s] of [
+          ...byCoin.entries(),
+        ].sort((a, b) => b[1].total - a[1].total)
+      ) {
+        const pct =
+          (s.win / s.total) * 100;
+
+        lines.push(
+          `    ${coin}: ${s.win}/${s.total} ` +
+            `(${pct.toFixed(0)}%)`,
+        );
+      }
     }
 
     lines.push("");
@@ -1029,7 +1092,7 @@ class ResearchLogger {
     const lines: string[] = [];
 
     lines.push(
-      `<b>📊 Отчёт BTC 5-мин — сравнение стратегий (v2, микроструктура)</b>`,
+      `<b>📊 Отчёт НЕ-BTC 5-мин — сравнение стратегий (v2, микроструктура)</b>`,
     );
 
     lines.push(
@@ -1244,8 +1307,13 @@ async function pollTelegramCommands(
 async function main() {
   console.log(
     "Исследовательский логгер запущен " +
-      "(BTC 5-мин, 9 стратегий + микроструктура, " +
+      "(ВСЕ монеты кроме BTC, 5-мин, 9 стратегий + микроструктура, " +
       "только сбор статистики).",
+  );
+
+  console.log(
+    "Исключённые монеты:",
+    EXCLUDED_COINS.join(", "),
   );
 
   console.log(
