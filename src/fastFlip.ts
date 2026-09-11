@@ -100,6 +100,18 @@ function observeWindowMs(windowMinutes: number): number {
 // при продаже, с жёстким потолком/полом 0.999/0.001 в любом случае.
 const MARKET_ORDER_SLIPPAGE_PCT = Number(process.env.FASTFLIP_SLIPPAGE_PCT ?? "0.5");
 
+// Минимальный запас прибыли (в долях цены), без которого выход НЕ
+// имеет смысла. Пример проблемы, которую это чинит: если цена уже
+// улетела с 0.98 до 0.99 ПОКА ордер летел до биржи (проскальзывание),
+// мы купим по 0.99 — а условие выхода "цена ≥ 0.99" сработает
+// МГНОВЕННО на следующем тике, продав по той же цене, что купили.
+// Ноль прибыли, просто отдали спред туда-обратно. Поэтому реальная
+// цель выхода — это МАКСИМУМ из (номинальный тейк, цена покупки +
+// этот запас) — если покупка уже съела весь запас проскальзыванием,
+// просто держим позицию до официального резолва вместо бессмысленного
+// мгновенного выхода в ноль.
+const MIN_PROFIT_MARGIN = Number(process.env.FASTFLIP_MIN_PROFIT_MARGIN ?? "0.003");
+
 // После закрытия окна ждём чуть-чуть (на случай гонки с последним тиком
 // цены), и если тейк так и не сработал — идём резолвить через Gamma API.
 const CLOSE_FALLBACK_BUFFER_MS = 5 * 1000;
@@ -299,7 +311,15 @@ class FastFlipMarketBot {
     if (pos.closed || pos.exitAttemptInProgress) return;
     // Тик пришёл не по тому рынку, где у нас открыта позиция — игнор.
     if (market.eventSlug !== pos.market.eventSlug) return;
-    if (price < settings.tpPrice) return;
+
+    // Реальная цель выхода: не просто "цена дошла до номинального
+    // тейка", а "цена дошла до тейка И это даёт реальную прибыль сверх
+    // того, что мы заплатили при покупке". Если проскальзывание на
+    // входе уже съело весь запас (купили по цене ≥ тейка) — ждём
+    // резолва вместо бессмысленного выхода в ноль/убыток.
+    const effectiveExitPrice = Math.max(settings.tpPrice, pos.buyPrice + MIN_PROFIT_MARGIN);
+
+    if (price < effectiveExitPrice) return;
 
     pos.exitAttemptInProgress = true;
     this.executeMarketExit(pos, price);
@@ -385,9 +405,19 @@ class FastFlipMarketBot {
     };
     this.openPosition = pos;
 
+    // Если проскальзывание на входе уже съело весь запас прибыли —
+    // предупреждаем прямо сейчас, чтобы было видно в моменте, а не
+    // только постфактум по цифрам в истории Polymarket.
+    const effectiveExitPrice = Math.max(settings.tpPrice, pos.buyPrice + MIN_PROFIT_MARGIN);
+    const slippageAteMargin = effectiveExitPrice > settings.tpPrice + 0.0001;
+
     if (this.telegram) {
+      const warning = slippageAteMargin
+        ? `\n⚠️ Проскальзывание съело запас прибыли (купили по ${result.avgPrice.toFixed(3)}, номинальный тейк ${settings.tpPrice}) — мгновенный выход отменён, жду реального роста цены или резолва.`
+        : `\nЖду тейк ${settings.tpPrice} по рынку, либо закрытия окна...`;
+
       await this.telegram.send(
-        `💰 Куплено по рынку: ${market.title}\nСторона: ${side}\nЦена: ${result.avgPrice.toFixed(3)} | Размер: ${result.filledSize.toFixed(2)}\nЖду тейк ${settings.tpPrice} по рынку, либо закрытия окна...`,
+        `💰 Куплено по рынку: ${market.title}\nСторона: ${side}\nЦена: ${result.avgPrice.toFixed(3)} | Размер: ${result.filledSize.toFixed(2)}${warning}`,
       );
     }
 
