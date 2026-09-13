@@ -1,47 +1,55 @@
 /**
- * "Быстрый флип" v5.2 — РЫНОЧНЫЕ ордера, вход только в последние секунды
+ * "Быстрый флип" v5.1 — РЫНОЧНЫЕ ордера, вход только в последние секунды
  * перед закрытием, С квотой сделок в час, БЕЗ заранее выбранной цели.
- * ПАРАЛЛЕЛЬНЫЙ старым sniperTrader.ts, fastFlip.ts и fastFlipMarketBot.v5.1.ts
- * (их не трогаем, не запускаем).
+ * ПАРАЛЛЕЛЬНЫЙ старым sniperTrader.ts и fastFlip.ts (их не трогаем, не
+ * запускаем).
  *
- * ЧТО НОВОГО В v5.2 (относительно v5.1):
+ * Это восстановленная версия BTC-бота (та, что работала несколько дней
+ * без квоты), с двумя добавками:
  *
- *   1. ЧЕСТНАЯ МАКСИМАЛЬНАЯ ПРОСАДКА. В v5.1 просадка считалась по
- *      ЛЮБОЙ доступной цене (bestBid ?? bestAsk), из-за чего в последние
- *      секунды перед закрытием окна, когда маркет-мейкеры убирают
- *      ликвидность и в стакане остаётся один "мусорный" огрызок
- *      (например, забытый лимитник по 0.01), бот записывал это как
- *      "цена упала на 99%" — хотя по факту никто по такой цене не
- *      торговал и реального движения не было.
+ *   1. КВОТА СДЕЛОК В ЧАС — команда "квота N" в Telegram. Как только за
+ *      текущий час набрано N сделок — новые входы не ищутся до начала
+ *      следующего часа. По умолчанию не ограничивает (большое число),
+ *      если явно не задано через env/команду.
  *
- *      Теперь просадка обновляется ТОЛЬКО когда:
- *        а) в стакане одновременно есть И бид, И аск (значит рынок
- *           живой, двусторонний, а не пустой хвост), И
- *        б) до закрытия текущего окна осталось больше
- *           DRAWDOWN_IGNORE_LAST_SEC секунд (по умолчанию 10) — в
- *           последний момент перед резолвом ликвидность почти всегда
- *           исчезает, и туда лезть незачем.
+ *   2. МАКСИМАЛЬНАЯ ПРОСАДКА СДЕЛКИ В ОТЧЁТЕ — теперь при закрытии
+ *      каждой сделки (тейк или резолв) в Telegram-сообщении помимо
+ *      прибыли/убытка указывается, насколько сильно цена проваливалась
+ *      вниз от цены покупки за время, пока позиция была открыта.
  *
- *   2. ДВИЖЕНИЕ ЦЕНЫ BTC ОТ НАЧАЛА ОКНА ДО МОМЕНТА ВХОДА. При входе в
- *      сделку бот теперь параллельно с ордером запрашивает текущую цену
- *      BTC/USD через Chainlink price feed на Polygon (тот же RPC_URL,
- *      что уже используется для редима — никаких новых ключей/api не
- *      нужно). Цену на МОМЕНТ ОТКРЫТИЯ КАЖДОГО 5-минутного окна бот
- *      запоминает заранее — таймером, выставленным точно на время
- *      открытия окна (closeTimeMs - windowMinutes). В момент входа
- *      считается % изменения цены BTC от начала окна до входа, и эта
- *      цифра добавляется в итоговый отчёт по сделке в Telegram
- *      ("во время входа цена BTC от начала была +0.42%").
+ * КАК ЭТО РАБОТАЕТ (не изменилось с v5):
  *
- *      Если по какой-то причине Chainlink-цену не удалось получить
- *      (нет RPC_URL, RPC недоступен и т.п.) — строка в отчёте просто не
- *      добавляется, вся остальная логика бота при этом не блокируется
- *      и не замедляется (цена BTC запрашивается НЕ последовательно
- *      перед ордером, а параллельно с ним).
+ *  Бот НЕ выбирает заранее, в какую пятиминутку он войдёт, и НЕ бросает
+ *  кубик в начале часа. Вместо этого он ОДНОВРЕМЕННО смотрит на ВСЕ
+ *  сейчас активные BTC 5-минутные Up/Down рынки. Каждую секунду через
+ *  все эти рынки летят обновления цен, и на КАЖДОЕ обновление бот
+ *  проверяет: "а не сложился ли для этого конкретного токена наш
+ *  сетап прямо сейчас?"
  *
- * ВСЁ ОСТАЛЬНОЕ (сетап входа, квота в час, рыночные ордера через
- * ClobService.placeLimitOrder, отсутствие стоп-лосса, резолв через
- * Gamma API, Telegram-команды) — без изменений, см. комментарии внутри.
+ *  Сетап — это:
+ *    1. Цена коснулась entryPrice (0.98 по умолчанию), И
+ *    2. До закрытия ИМЕННО ЭТОЙ пятиминутки осталось не больше
+ *       entryWindowSec секунд (30 по умолчанию), И
+ *    3. Квота сделок на этот час ещё не исчерпана.
+ *
+ *  ВХОД И ВЫХОД — РЫНОЧНЫМИ ОРДЕРАМИ через `ClobService.placeLimitOrder`
+ *  (несмотря на название метода — по факту это FAK market-ордер):
+ *    - Метод сам берёт СВЕЖИЙ стакан прямо в момент вызова и целится в
+ *      реальную лучшую цену продажи/покупки (+небольшой буфер).
+ *    - Жёсткий потолок/пол 0.999 / 0.001.
+ *    - FAK (fill-and-kill): исполняется сразу, что может, остальное
+ *      снимается — ничего не висит в стакане.
+ *
+ *  Стоп-лосс отсутствует — позиция держится до тейка (рыночным ордером,
+ *  как только цена дошла до 0.99) или до официального резолва через
+ *  Gamma API, если тейк не успел сработать до закрытия окна.
+ *
+ * ✅ ПОДТВЕРЖДЕНО НА ЖИВОЙ СДЕЛКЕ: making/taking семантика биржи — это
+ *   "сколько ОТДАЛИ" / "сколько ПОЛУЧИЛИ". При ПОКУПКЕ поля
+ *   resp.filledSize/resp.filledUsdc содержат доллары/акции В ОБРАТНОМ
+ *   порядке относительно своих названий. Для ПРОДАЖИ порядок совпадает
+ *   с названиями полей. Код ниже (placeMarketOrder) меняет их местами
+ *   именно для BUY.
  *
  * НАСТРОЙКИ НА ЛЕТУ ЧЕРЕЗ TELEGRAM (без передеплоя):
  *   цена 0.98     — цена входа
@@ -51,6 +59,9 @@
  *   статус        — текущие настройки + что происходит сейчас
  *
  * DRY_RUN=true по умолчанию (FASTFLIP_DRY_RUN=false для реальных денег).
+ * В DRY_RUN бот полностью симулирует сделку (вход → ожидание тейка или
+ * резолва → выход), чтобы логику можно было проверить перед реальными
+ * деньгами.
  */
 
 import "dotenv/config";
@@ -111,18 +122,6 @@ const RESOLVE_GIVE_UP_MS = 30 * 60 * 1000;
 const REDEEM_POLL_MS = 60 * 1000;
 const GAMMA_HOST = "https://gamma-api.polymarket.com";
 
-// ─── v5.2: честная просадка ───
-// Сколько секунд ДО закрытия окна перестаём учитывать цену для
-// просадки — в этот момент ликвидность почти всегда уже исчезла, и
-// любая цена там — мусор, а не реальный рынок.
-const DRAWDOWN_IGNORE_LAST_SEC = Number(process.env.FASTFLIP_DRAWDOWN_IGNORE_LAST_SEC ?? "10");
-
-// ─── v5.2: цена BTC через Chainlink (Polygon) ───
-// Адрес официального Chainlink BTC/USD price feed на Polygon mainnet.
-// Проверено по PolygonScan и data.chain.link/polygon/mainnet/crypto-usd/btc-usd.
-// Можно переопределить через env, если Chainlink сменит контракт.
-const CHAINLINK_BTC_USD_FEED = process.env.CHAINLINK_BTC_USD_FEED ?? "0xc907E116054Ad103354f2D350FD2514433D57F6f";
-
 // ─── Настройки, которые можно менять на лету через Telegram ───
 const settings = {
   entryPrice: Number(process.env.FASTFLIP_ENTRY_PRICE ?? "0.98"),
@@ -148,25 +147,11 @@ interface OpenPosition {
   closed: boolean;
   // Минимальная цена, зафиксированная с момента входа — нужна для
   // расчёта максимальной просадки сделки, которую пришлём в отчёте.
-  // v5.2: обновляется только по "честным" тикам, см. maybeTriggerExit.
   minPriceSinceEntry: number;
   // Таймер, который резолвит сделку через Gamma API, если тейк не
   // успел сработать до закрытия окна. Отменяем его, если тейк всё же
   // сработал раньше.
   resolveFallbackTimer: NodeJS.Timeout | null;
-  // v5.2: цена BTC (Chainlink) на момент открытия окна и на момент
-  // входа в сделку + % изменения между ними. null, если по какой-то
-  // причине цену получить не удалось (тогда строка в отчёте не
-  // добавляется).
-  btcStartPrice: number | null;
-  btcEntryPrice: number | null;
-  btcChangePct: number | null;
-}
-
-// v5.2: снимок цены BTC на момент открытия конкретного 5-минутного окна.
-interface BtcStartSnapshot {
-  startPrice: number | null;
-  closeTimeMs: number;
 }
 
 function buildTokenIndex(markets: CryptoUpDownMarket[]): Map<string, TokenInfo> {
@@ -212,123 +197,6 @@ async function resolveWinner(eventSlug: string): Promise<"Up" | "Down" | null> {
   }
 }
 
-// ─── v5.2.2: получение цены BTC/USD через Chainlink price feed (Polygon) ───
-// Без сторонних библиотек — обычный JSON-RPC eth_call. Специально
-// НЕ завязано жёстко на один RPC_URL — если он временно недоступен или
-// у провайдера истёк ключ, бот пробует по очереди СПИСОК бесплатных
-// публичных Polygon RPC, пока один из них не ответит. Порядок:
-//   1) FASTFLIP_CHAINLINK_RPC_URLS — список через запятую, если задан явно;
-//   2) иначе FASTFLIP_CHAINLINK_RPC_URL / RPC_URL, если заданы, ПЛЮС
-//      несколько известных бесплатных публичных нод как подстраховка.
-const CHAINLINK_RPC_URLS: string[] = (() => {
-  const explicit = process.env.FASTFLIP_CHAINLINK_RPC_URLS;
-  if (explicit) {
-    return explicit
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-  }
-
-  const primary = process.env.FASTFLIP_CHAINLINK_RPC_URL ?? process.env.RPC_URL;
-  const fallbacks = [
-    "https://polygon-rpc.com",
-    "https://rpc.ankr.com/polygon",
-    "https://polygon.llamarpc.com",
-    "https://polygon-bor-rpc.publicnode.com",
-  ];
-
-  const list = primary ? [primary, ...fallbacks] : fallbacks;
-  // Убираем дубликаты, сохраняя порядок.
-  return [...new Set(list)];
-})();
-
-let chainlinkDecimalsCache: number | null = null;
-
-async function ethCall(rpcUrl: string, to: string, data: string): Promise<string> {
-  const resp = await fetch(rpcUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "eth_call",
-      params: [{ to, data }, "latest"],
-    }),
-  });
-
-  // v5.2.1: если RPC вернул не-200 (провайдер режет запрос, лимит, требует
-  // ключ в URL и т.п.) — показываем статус и тело ответа целиком, а не
-  // падаем на непонятном "Unexpected token" из resp.json().
-  if (!resp.ok) {
-    const bodyText = await resp.text().catch(() => "<не удалось прочитать тело>");
-    throw new Error(`RPC ответил ${resp.status} ${resp.statusText}: ${bodyText.slice(0, 300)}`);
-  }
-
-  const json = await resp.json();
-
-  if (json.error) {
-    // Разные провайдеры кладут ошибку по-разному: { error: { message } },
-    // { error: "строка" }, иногда без message вообще — логируем весь
-    // объект целиком, чтобы не терять реальную причину.
-    const detail = typeof json.error === "string" ? json.error : JSON.stringify(json.error);
-    throw new Error(`RPC вернул error: ${detail}`);
-  }
-
-  if (typeof json.result !== "string") {
-    throw new Error(`RPC вернул неожиданный ответ без result: ${JSON.stringify(json).slice(0, 300)}`);
-  }
-
-  return json.result;
-}
-
-/** decimals() — сколько знаков после запятой зашито в ответах фида (обычно 8 для BTC/USD). Кэшируем — не меняется. */
-async function getChainlinkDecimals(rpcUrl: string): Promise<number> {
-  if (chainlinkDecimalsCache !== null) return chainlinkDecimalsCache;
-  const result = await ethCall(rpcUrl, CHAINLINK_BTC_USD_FEED, "0x313ce567"); // selector decimals()
-  chainlinkDecimalsCache = parseInt(result, 16);
-  return chainlinkDecimalsCache;
-}
-
-/**
- * Текущая цена BTC/USD по Chainlink на Polygon. Перебирает
- * CHAINLINK_RPC_URLS по очереди, пока один из них не ответит успешно.
- * Возвращает null, только если ВСЕ эндпоинты из списка не сработали —
- * вызывающий код должен просто пропустить добавление % в отчёт в этом
- * случае, а не падать.
- */
-async function getBtcPriceChainlink(): Promise<number | null> {
-  for (const rpcUrl of CHAINLINK_RPC_URLS) {
-    try {
-      const [decimals, roundData] = await Promise.all([
-        getChainlinkDecimals(rpcUrl),
-        ethCall(rpcUrl, CHAINLINK_BTC_USD_FEED, "0xfeaf968c"), // selector latestRoundData()
-      ]);
-
-      // latestRoundData() возвращает 5 слов по 32 байта:
-      // (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
-      // Нас интересует только второе слово — answer.
-      const hex = roundData.slice(2);
-      const answerHex = hex.slice(64, 128);
-      let answer = BigInt(`0x${answerHex}`);
-
-      // На случай отрицательного значения (для цен фидов не встречается,
-      // но на всякий случай корректно раскодируем two's complement).
-      const MAX_INT256 = BigInt(2) ** BigInt(255);
-      if (answer >= MAX_INT256) {
-        answer -= BigInt(2) ** BigInt(256);
-      }
-
-      return Number(answer) / 10 ** decimals;
-    } catch (err) {
-      console.error(`[chainlink] эндпоинт ${rpcUrl} не сработал:`, err);
-      // Пробуем следующий эндпоинт из списка.
-    }
-  }
-
-  console.error("[chainlink] все RPC-эндпоинты для получения цены BTC не сработали — пропускаю % в этом отчёте.");
-  return null;
-}
-
 /** Результат попытки рыночного (FOK) ордера. filledSize=0 значит "не исполнился". */
 interface MarketOrderResult {
   orderId: string | null;
@@ -352,10 +220,6 @@ class FastFlipMarketBot {
   // Квота в час.
   private currentHourKey: number | null = null;
   private tradesThisHour = 0;
-
-  // v5.2: цена BTC на момент открытия каждого 5-минутного окна,
-  // ключ — eventSlug. Заполняется таймером в scheduleBtcStartSnapshot.
-  private btcStartPrices = new Map<string, BtcStartSnapshot>();
 
   constructor(
     private clob: ClobService | null,
@@ -385,39 +249,6 @@ class FastFlipMarketBot {
   }
 
   /**
-   * v5.2: планирует захват цены BTC ровно на момент открытия окна
-   * (closeTimeMs - windowMinutes). Если окно уже открылось к моменту
-   * обнаружения (например, бот только что перезапустился) — берём цену
-   * немедленно, это лучше, чем ничего.
-   */
-  private scheduleBtcStartSnapshot(market: CryptoUpDownMarket): void {
-    if (this.btcStartPrices.has(market.eventSlug)) return;
-
-    const closeTimeMs = market.closeTimeMs;
-    this.btcStartPrices.set(market.eventSlug, { startPrice: null, closeTimeMs });
-
-    const openTimeMs = closeTimeMs - market.windowMinutes * 60 * 1000;
-    const delay = Math.max(0, openTimeMs - Date.now());
-
-    setTimeout(async () => {
-      const price = await getBtcPriceChainlink();
-      const snap = this.btcStartPrices.get(market.eventSlug);
-      if (snap) snap.startPrice = price;
-      console.log(
-        `[btc-price] стартовая цена окна "${market.title}" (${market.eventSlug}): ${price !== null ? price.toFixed(2) : "н/д"}`,
-      );
-    }, delay);
-  }
-
-  /** v5.2: чистим снимки старых окон, чтобы Map не рос бесконечно. */
-  private pruneBtcStartPrices(): void {
-    const cutoff = Date.now() - HOUR_MS;
-    for (const [slug, snap] of this.btcStartPrices) {
-      if (snap.closeTimeMs < cutoff) this.btcStartPrices.delete(slug);
-    }
-  }
-
-  /**
    * Пересканирует список активных BTC 5-минутных рынков и обновляет
    * подписку PriceWatcher. Пока открыта позиция или идёт попытка входа —
    * НЕ трогаем существующую подписку (там уже есть нужный токен, ему
@@ -441,15 +272,6 @@ class FastFlipMarketBot {
         m.windowMinutes === TARGET_WINDOW_MINUTES &&
         m.closeTimeMs - now <= observeWindowMs(m.windowMinutes),
     );
-
-    // v5.2: как только видим рынок — сразу планируем захват стартовой
-    // цены BTC на момент открытия его окна (даже если позиция сейчас
-    // не откроется на нём — снимок дешёвый и понадобится, если сетап
-    // сложится именно здесь).
-    for (const m of markets) {
-      this.scheduleBtcStartSnapshot(m);
-    }
-    this.pruneBtcStartPrices();
 
     this.tokenIndex = buildTokenIndex(markets);
     const tokenIds = [...this.tokenIndex.keys()].sort();
@@ -483,10 +305,9 @@ class FastFlipMarketBot {
     if (price === null) return;
 
     // ── Позиция уже открыта — обновляем минимум цены (для просадки в
-    // отчёте, только по "честным" тикам — см. maybeTriggerExit) и
-    // проверяем не пора ли выходить по тейку ──
+    // отчёте) и проверяем не пора ли выходить по тейку ──
     if (this.openPosition) {
-      this.maybeTriggerExit(this.openPosition, market, price, update);
+      this.maybeTriggerExit(this.openPosition, market, price);
       return;
     }
 
@@ -511,22 +332,13 @@ class FastFlipMarketBot {
     this.executeMarketEntry(market, side, tokenId, price, secToClose);
   }
 
-  private maybeTriggerExit(pos: OpenPosition, market: CryptoUpDownMarket, price: number, update: PriceUpdate): void {
+  private maybeTriggerExit(pos: OpenPosition, market: CryptoUpDownMarket, price: number): void {
     // Тик пришёл не по тому рынку, где у нас открыта позиция — игнор.
     if (market.eventSlug !== pos.market.eventSlug) return;
 
-    // ── v5.2: честное обновление минимума для просадки ──
-    // Обновляем minPriceSinceEntry ТОЛЬКО если:
-    //   а) в стакане одновременно есть и бид, и аск (рынок живой,
-    //      двусторонний, а не пустой хвост из одной мусорной заявки), И
-    //   б) до закрытия окна ещё есть время (не последние
-    //      DRAWDOWN_IGNORE_LAST_SEC секунд, когда ликвидность почти
-    //      гарантированно исчезает).
-    const bothSidesPresent = update.bestBid !== null && update.bestAsk !== null;
-    const secToClose = (market.closeTimeMs - Date.now()) / 1000;
-    const withinIgnoreWindow = secToClose <= DRAWDOWN_IGNORE_LAST_SEC;
-
-    if (bothSidesPresent && !withinIgnoreWindow && price < pos.minPriceSinceEntry) {
+    // Обновляем минимальную цену за время жизни позиции — независимо от
+    // того, сработает ли выход сейчас. Это и есть просадка сделки.
+    if (price < pos.minPriceSinceEntry) {
       pos.minPriceSinceEntry = price;
     }
 
@@ -614,14 +426,7 @@ class FastFlipMarketBot {
         `   Покупаем: ${size.toFixed(2)} акций рыночным ордером (цель ~${settings.entryPrice}, ~$${TRADE_SIZE_USD})`,
     );
 
-    // v5.2: запрашиваем цену BTC на момент входа ПАРАЛЛЕЛЬНО с ордером,
-    // а не до него — чтобы не замедлять само исполнение сделки ни на
-    // миллисекунду. Если Chainlink не ответит вовремя или упадёт —
-    // просто не добавим строку в отчёт, сделка на это не влияет.
-    const [result, btcEntryPrice] = await Promise.all([
-      this.placeMarketOrder({ tokenId, side: "BUY", size, nominalPrice: settings.entryPrice }),
-      getBtcPriceChainlink(),
-    ]);
+    const result = await this.placeMarketOrder({ tokenId, side: "BUY", size, nominalPrice: settings.entryPrice });
 
     if (result.filledSize <= 0) {
       console.log(`   ⏳ Рыночная покупка не исполнилась (eventSlug: ${market.eventSlug}). Продолжаю мониторинг.`);
@@ -630,14 +435,6 @@ class FastFlipMarketBot {
     }
 
     console.log(`   💰 ПОКУПКА ИСПОЛНЕНА ПО РЫНКУ: ${result.filledSize.toFixed(2)} акций по ~${result.avgPrice}.`);
-
-    // v5.2: считаем % изменения цены BTC от начала окна до входа.
-    const btcStartSnapshot = this.btcStartPrices.get(market.eventSlug);
-    const btcStartPrice = btcStartSnapshot?.startPrice ?? null;
-    let btcChangePct: number | null = null;
-    if (btcStartPrice !== null && btcEntryPrice !== null && btcStartPrice > 0) {
-      btcChangePct = ((btcEntryPrice - btcStartPrice) / btcStartPrice) * 100;
-    }
 
     const pos: OpenPosition = {
       market,
@@ -649,9 +446,6 @@ class FastFlipMarketBot {
       closed: false,
       minPriceSinceEntry: result.avgPrice,
       resolveFallbackTimer: null,
-      btcStartPrice,
-      btcEntryPrice,
-      btcChangePct,
     };
     this.openPosition = pos;
 
@@ -683,13 +477,8 @@ class FastFlipMarketBot {
         ? `\n⚠️ Проскальзывание съело запас прибыли (купили по ${result.avgPrice.toFixed(3)}, номинальный тейк ${settings.tpPrice}) — мгновенный выход отменён, жду реального роста цены или резолва.`
         : `\nЖду тейк ${settings.tpPrice} по рынку, либо закрытия окна...`;
 
-      const btcLine =
-        btcChangePct !== null
-          ? `\nBTC от начала окна до входа: ${btcChangePct >= 0 ? "+" : ""}${btcChangePct.toFixed(2)}%`
-          : "";
-
       await this.telegram.send(
-        `💰 Куплено по рынку: ${market.title}\nСторона: ${side}\nЦена: ${result.avgPrice.toFixed(3)} | Размер: ${result.filledSize.toFixed(2)}${btcLine}${warning}`,
+        `💰 Куплено по рынку: ${market.title}\nСторона: ${side}\nЦена: ${result.avgPrice.toFixed(3)} | Размер: ${result.filledSize.toFixed(2)}${warning}`,
       );
     }
 
@@ -843,16 +632,10 @@ class FastFlipMarketBot {
   ): Promise<void> {
     const sign = outcome === "WIN" ? "✅ ПРИБЫЛЬ" : "🔻 УБЫТОК";
 
-    // Максимальная просадка сделки (v5.2: считается только по честным
-    // двусторонним тикам вне последних DRAWDOWN_IGNORE_LAST_SEC секунд
-    // окна — см. maybeTriggerExit).
+    // Максимальная просадка сделки: насколько цена проваливалась вниз
+    // от цены покупки за всё время, пока позиция была открыта.
     const drawdown = Math.max(0, pos.buyPrice - pos.minPriceSinceEntry);
     const drawdownPct = pos.buyPrice > 0 ? (drawdown / pos.buyPrice) * 100 : 0;
-
-    const btcLine =
-      pos.btcChangePct !== null
-        ? `\nВо время входа цена BTC от начала окна была ${pos.btcChangePct >= 0 ? "+" : ""}${pos.btcChangePct.toFixed(2)}%`
-        : "";
 
     const msg =
       `${sign} (${outcome})\n` +
@@ -861,8 +644,7 @@ class FastFlipMarketBot {
       `Сторона: ${pos.side}\n` +
       `Профит: ${profit >= 0 ? "+" : ""}$${profit.toFixed(3)}\n` +
       `Цена покупки: ${pos.buyPrice.toFixed(3)} | Мин. цена за сделку: ${pos.minPriceSinceEntry.toFixed(3)}\n` +
-      `Максимальная просадка: ${drawdown.toFixed(3)} (${drawdownPct.toFixed(1)}%)` +
-      btcLine;
+      `Максимальная просадка: ${drawdown.toFixed(3)} (${drawdownPct.toFixed(1)}%)`;
 
     console.log(`\n${msg}\n`);
     if (this.telegram) await this.telegram.send(msg);
