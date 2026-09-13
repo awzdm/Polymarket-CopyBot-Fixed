@@ -211,10 +211,35 @@ async function resolveWinner(eventSlug: string): Promise<"Up" | "Down" | null> {
   }
 }
 
-// ─── v5.2: получение цены BTC/USD через Chainlink price feed (Polygon) ───
-// Без сторонних библиотек — обычный JSON-RPC eth_call к RPC_URL, который
-// уже используется в проекте для редима. Никаких приватных ключей для
-// чтения цены не требуется — это публичный view-вызов.
+// ─── v5.2.2: получение цены BTC/USD через Chainlink price feed (Polygon) ───
+// Без сторонних библиотек — обычный JSON-RPC eth_call. Специально
+// НЕ завязано жёстко на один RPC_URL — если он временно недоступен или
+// у провайдера истёк ключ, бот пробует по очереди СПИСОК бесплатных
+// публичных Polygon RPC, пока один из них не ответит. Порядок:
+//   1) FASTFLIP_CHAINLINK_RPC_URLS — список через запятую, если задан явно;
+//   2) иначе FASTFLIP_CHAINLINK_RPC_URL / RPC_URL, если заданы, ПЛЮС
+//      несколько известных бесплатных публичных нод как подстраховка.
+const CHAINLINK_RPC_URLS: string[] = (() => {
+  const explicit = process.env.FASTFLIP_CHAINLINK_RPC_URLS;
+  if (explicit) {
+    return explicit
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+
+  const primary = process.env.FASTFLIP_CHAINLINK_RPC_URL ?? process.env.RPC_URL;
+  const fallbacks = [
+    "https://polygon-rpc.com",
+    "https://rpc.ankr.com/polygon",
+    "https://polygon.llamarpc.com",
+    "https://polygon-bor-rpc.publicnode.com",
+  ];
+
+  const list = primary ? [primary, ...fallbacks] : fallbacks;
+  // Убираем дубликаты, сохраняя порядок.
+  return [...new Set(list)];
+})();
 
 let chainlinkDecimalsCache: number | null = null;
 
@@ -264,39 +289,43 @@ async function getChainlinkDecimals(rpcUrl: string): Promise<number> {
 }
 
 /**
- * Текущая цена BTC/USD по Chainlink на Polygon. Возвращает null, если
- * RPC_URL не задан или запрос не удался — вызывающий код должен просто
- * пропустить добавление % в отчёт в этом случае, а не падать.
+ * Текущая цена BTC/USD по Chainlink на Polygon. Перебирает
+ * CHAINLINK_RPC_URLS по очереди, пока один из них не ответит успешно.
+ * Возвращает null, только если ВСЕ эндпоинты из списка не сработали —
+ * вызывающий код должен просто пропустить добавление % в отчёт в этом
+ * случае, а не падать.
  */
 async function getBtcPriceChainlink(): Promise<number | null> {
-  const rpcUrl = process.env.RPC_URL;
-  if (!rpcUrl) return null;
+  for (const rpcUrl of CHAINLINK_RPC_URLS) {
+    try {
+      const [decimals, roundData] = await Promise.all([
+        getChainlinkDecimals(rpcUrl),
+        ethCall(rpcUrl, CHAINLINK_BTC_USD_FEED, "0xfeaf968c"), // selector latestRoundData()
+      ]);
 
-  try {
-    const [decimals, roundData] = await Promise.all([
-      getChainlinkDecimals(rpcUrl),
-      ethCall(rpcUrl, CHAINLINK_BTC_USD_FEED, "0xfeaf968c"), // selector latestRoundData()
-    ]);
+      // latestRoundData() возвращает 5 слов по 32 байта:
+      // (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
+      // Нас интересует только второе слово — answer.
+      const hex = roundData.slice(2);
+      const answerHex = hex.slice(64, 128);
+      let answer = BigInt(`0x${answerHex}`);
 
-    // latestRoundData() возвращает 5 слов по 32 байта:
-    // (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
-    // Нас интересует только второе слово — answer.
-    const hex = roundData.slice(2);
-    const answerHex = hex.slice(64, 128);
-    let answer = BigInt(`0x${answerHex}`);
+      // На случай отрицательного значения (для цен фидов не встречается,
+      // но на всякий случай корректно раскодируем two's complement).
+      const MAX_INT256 = BigInt(2) ** BigInt(255);
+      if (answer >= MAX_INT256) {
+        answer -= BigInt(2) ** BigInt(256);
+      }
 
-    // На случай отрицательного значения (для цен фидов не встречается,
-    // но на всякий случай корректно раскодируем two's complement).
-    const MAX_INT256 = BigInt(2) ** BigInt(255);
-    if (answer >= MAX_INT256) {
-      answer -= BigInt(2) ** BigInt(256);
+      return Number(answer) / 10 ** decimals;
+    } catch (err) {
+      console.error(`[chainlink] эндпоинт ${rpcUrl} не сработал:`, err);
+      // Пробуем следующий эндпоинт из списка.
     }
-
-    return Number(answer) / 10 ** decimals;
-  } catch (err) {
-    console.error("[chainlink] не удалось получить цену BTC:", err);
-    return null;
   }
+
+  console.error("[chainlink] все RPC-эндпоинты для получения цены BTC не сработали — пропускаю % в этом отчёте.");
+  return null;
 }
 
 /** Результат попытки рыночного (FOK) ордера. filledSize=0 значит "не исполнился". */
