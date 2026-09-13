@@ -1,77 +1,42 @@
 /**
- * "Быстрый флип" v5.6 — РЫНОЧНЫЕ ордера на ВХОД, НАСТОЯЩИЙ ВИСЯЩИЙ
- * ЛИМИТНИК (GTC) на ВЫХОД в плюс, СТОП-ЛОСС по рынку, ЖЁСТКИЙ ПОТОЛОК
- * ЦЕНЫ ПОКУПКИ (не выше maxEntryPrice ни при каких раскладах).
+ * "Быстрый флип" v6.0 — РЫНОЧНЫЕ ордера на ВХОД, БЕЗ ПРОДАЖИ В ПЛЮС —
+ * ПОЗИЦИЯ ДЕРЖИТСЯ ДО ОФИЦИАЛЬНОГО РЕЗОЛВА. СТОП-ЛОСС по рынку остаётся
+ * как единственный вариант досрочного выхода. ЖЁСТКИЙ ПОТОЛОК ЦЕНЫ
+ * ПОКУПКИ (не выше maxEntryPrice ни при каких раскладах).
  *
- * ИЗМЕНЕНИЯ В v5.6 (относительно v5.5) — ПОЧЕМУ БОТ "ПОКУПАЛ ПО 98 И
- * ТУТ ЖЕ ПРОДАВАЛ ПО 97-98":
+ * ИЗМЕНЕНИЯ В v6.0 (относительно v5.6) — ПО ПРОСЬБЕ: "бот покупает по
+ * 97-98 и продаёт по 99, сделай так, чтобы стоял до резолва, а не
+ * продавал":
  *
- *   БАГ №1 (главная причина). Вход рыночным ордером ВСЕГДА целился в
- *   settings.entryPrice (фиксированные 0.97), а НЕ в реальную цену
- *   тика в момент входа (priceAtEntry), хотя она уже была известна.
- *   Метод placeLimitOrder (по факту FAK market-ордер) считает базу
- *   допустимого проскальзывания (maxSlippagePct) от переданной сюда
- *   nominalPrice. Если реальная цена тика была, скажем, 0.978, а бот
- *   всё равно целился от 0.97 — ордер либо не добирал до реального
- *   аска, либо (в тонком стакане перед самым закрытием окна) "проезжал"
- *   на несколько уровней глубже, чем должен был. Из-за этого реальная
- *   цена исполнения иногда вылезала за maxEntryPrice (0.98) — и тут же
- *   срабатывала защита isBadFillHigh, которая МГНОВЕННО (через секунду
- *   после покупки) аварийно продаёт позицию обратно по рынку — отсюда
- *   и "купил по 98, продал по 97-98" почти сразу.
+ *   - Полностью убран висящий лимитный ордер на тейк-профит (GTC),
+ *     который раньше выставлялся сразу после покупки
+ *     (placeTpLimitWithRetry / startTpPolling / finalizeTpBeforeOverride
+ *     / parseGtcOrderStatus — всё удалено, как и поле settings.tpPrice
+ *     больше нигде не влияет на выход).
+ *   - Убран и тик-триггер тейка, который раньше работал в DRY_RUN
+ *     (executeMarketExit) — теперь в любом режиме (DRY_RUN и LIVE)
+ *     позиция НЕ продаётся по достижении какой-либо "прибыльной" цены.
+ *   - После покупки бот просто ждёт: либо сработает СТОП-ЛОСС (если
+ *     settings.slPrice > 0 и цена упала до него или ниже — это
+ *     единственный оставшийся вариант досрочного выхода по рынку),
+ *     либо доходим до закрытия 5-минутного окна и уходим на официальный
+ *     резолв через Gamma API (resolveWinner), как раньше.
+ *   - Команда Telegram "тейк X" оставлена в коде (чтобы не ломать
+ *     остальной интерфейс), но она больше ни на что не влияет —
+ *     сама settings.tpPrice не используется никаким выходом.
  *
- *   ИСПРАВЛЕНО: теперь nominalPrice для входа = реальная priceAtEntry
- *   (последний известный тик), а не статичный settings.entryPrice.
+ * ВСЁ ОСТАЛЬНОЕ — БЕЗ ИЗМЕНЕНИЙ ОТНОСИТЕЛЬНО v5.6:
  *
- *   БАГ №2 (усугублял №1). MAX_ENTRY_OVERSHOOT_TOLERANCE был всего
- *   0.002 (0.2 цента) — крайне жёсткий допуск для рыночного входа в
- *   последние секунды перед закрытием окна, когда стакан часто тонкий
- *   и цена естественно скачет на пару тиков при исполнении.
- *
- *   ИСПРАВЛЕНО: допуск увеличен до 0.008 по умолчанию (настраивается
- *   через FASTFLIP_MAX_ENTRY_OVERSHOOT_TOLERANCE), чтобы не путать
- *   нормальное проскальзывание тонкого рынка с реальной поломкой.
- *
- *   БАГ №3 (диагностика). Раньше сырые числа биржи (filledSize/
- *   filledUsdc) логировались ТОЛЬКО если filledSize > 0. Если фактическая
- *   цена покупки уходила за потолок, но исполнение всё же было — лог
- *   печатался, и это можно было увидеть, но НЕ печаталась сама причина
- *   срабатывания isBadFillHigh/isBadFillLow с точными числами.
- *
- *   ИСПРАВЛЕНО: сообщение о "плохом филле" теперь всегда содержит
- *   непокруглённую (полную) цену покупки и разницу с порогом — это
- *   видно и в консоли, и в Telegram, без необходимости лезть в сырые
- *   логи биржи.
- *
- * ВСЁ ОСТАЛЬНОЕ — БЕЗ ИЗМЕНЕНИЙ ОТНОСИТЕЛЬНО v5.5:
- *
- *   1. ВЫХОД В ПЛЮС — НАСТОЯЩИЙ висящий лимитный (GTC) ордер, выставляется
- *      сразу после исполнения покупки через ClobService.placeGtcLimitOrder,
- *      дальше исполняется сам на бирже, без ожидания тика.
- *   2. Если выставить лимитник с первого раза не получилось — ретраи,
- *      пока не будет ПРИНЯТ биржей.
- *   3. Жёсткий потолок покупки — проверка ПОСЛЕ реального исполнения
- *      (не только по цене тика до отправки), см. isBadFillHigh выше.
- *   4. Сверка перед стопом / перед уходом на резолв: бот проверяет
- *      статус висящего лимитника через getOrder() перед тем, как
- *      считать позицию всё ещё открытой.
- *
- * СТОП-ЛОСС остаётся рыночным (FAK), проверка "price <= settings.slPrice"
- * — это АБСОЛЮТНАЯ цена токена (0.0–1.0), а не доля от цены входа.
- * По умолчанию 0.90. Если стоп стоит близко к цене входа (например 0.5,
- * а вход в районе 0.97-0.98) — он вообще не должен сработать в обычных
- * условиях, т.к. цена должна рухнуть до 0.50, чтобы это случилось.
- *
- * ⚠️ ВАЖНО, КАК И РАНЬШЕ: разбор ответа getOrder() (parseGtcOrderStatus)
- * сделан по типичной схеме Polymarket CLOB (status: LIVE/MATCHED/CANCELED,
- * size_matched: число) БЕЗ реального примера ответа под рукой. Код
- * логирует СЫРОЙ ответ на каждой проверке — если разбор окажется
- * неточным, это будет видно в логах [tp-poll]/[tp-check].
+ *   1. Жёсткий потолок покупки — проверка ПОСЛЕ реального исполнения
+ *      (не только по цене тика до отправки), см. isBadFillHigh.
+ *   2. Аварийный выход, если реальная цена покупки оказалась намного
+ *      выше потолка или намного ниже ожидаемой (см. emergencyExit).
+ *   3. Стоп-лосс — АБСОЛЮТНАЯ цена токена (0.0–1.0), а не доля от цены
+ *      входа. По умолчанию 0.90. Поставь 0, чтобы отключить стоп
+ *      полностью — тогда бот будет держать позицию только до резолва,
+ *      без каких-либо досрочных выходов вообще.
  *
  * DRY_RUN=true по умолчанию (FASTFLIP_DRY_RUN=false для реальных денег).
- * ВАЖНО: баг №1/№2 выше воспроизводится ТОЛЬКО в LIVE — в DRY_RUN нет
- * реального стакана и реального проскальзывания, поэтому тестировать
- * этот фикс можно только в LIVE, на минимальном размере сделки.
  */
 
 import "dotenv/config";
@@ -100,20 +65,8 @@ const HOUR_MS = 60 * 60 * 1000;
 // рынок не в критическом окне — см. refreshMarkets / hasCriticalMarket).
 const MARKET_REFRESH_MS = 15 * 1000;
 
-// ВАЖНО: пересоздание PriceWatcher (refreshMarkets) полностью рвёт
-// текущее WebSocket-соединение и поднимает новое — на время
-// переподключения бот НЕ ВИДИТ никаких обновлений цены вообще. Если
-// это происходит ровно в момент, когда цена подходит к entryPrice —
-// вход будет пропущен молча, без единой ошибки в логах.
-//
-// Поэтому: если хотя бы один из уже отслеживаемых рынков находится
-// ближе, чем entryWindowSec + этот буфер, к своему закрытию — вообще
-// НЕ трогаем вотчер в этом цикле рефреша, даже если список токенов
-// формально поменялся. Лучше пропустить один цикл дискавери новых
-// рынков, чем оборвать соединение прямо перед потенциальным входом.
 const REFRESH_SAFETY_BUFFER_SEC = 30;
 
-// На сколько вперёд видим рынок, чтобы начать за ним следить.
 function observeWindowMs(windowMinutes: number): number {
   return (windowMinutes + 1) * 60 * 1000;
 }
@@ -122,41 +75,24 @@ function observeWindowMs(windowMinutes: number): number {
 // метод ClobService.placeLimitOrder как maxSlippagePct.
 const MARKET_ORDER_SLIPPAGE_PCT = Number(process.env.FASTFLIP_SLIPPAGE_PCT ?? "0.5");
 
-// Минимальный запас прибыли (в долях цены), без которого выход не имеет
-// смысла — если покупка уже съела весь запас проскальзыванием, просто
-// держим позицию до официального резолва вместо мгновенного выхода в ноль.
-const MIN_PROFIT_MARGIN = Number(process.env.FASTFLIP_MIN_PROFIT_MARGIN ?? "0.003");
-
 // Если реальная цена покупки оказалась НАМНОГО ниже ожидаемой (entryPrice)
-// — значит цена рухнула ПРЯМО ПОКА ордер летел до биржи (рынок начал
-// резкий разворот в тот же момент). В этом случае сразу пробуем
-// аварийно продать обратно вместо того, чтобы слепо держать до резолва
-// — см. executeMarketEntry/emergencyExit.
+// — значит цена рухнула ПРЯМО ПОКА ордер летел до биржи. В этом случае
+// сразу пробуем аварийно продать обратно вместо того, чтобы слепо
+// держать до резолва — см. executeMarketEntry/emergencyExit.
 const BAD_FILL_TOLERANCE = Number(process.env.FASTFLIP_BAD_FILL_TOLERANCE ?? "0.02");
 
-// v5.6: ФИКС. Раньше было 0.002 — слишком жёстко для рыночного входа в
-// последние секунды перед закрытием окна, когда стакан тонкий и цена
-// естественно "проезжает" пару тиков при исполнении. Именно узкий
-// допуск здесь в сочетании с багом №1 (см. шапку файла) вызывал
-// мгновенные аварийные продажи сразу после нормальной на вид покупки.
-// Теперь допуск шире — но всё ещё достаточно узкий, чтобы ловить
-// реально плохие филлы, а не нормальное проскальзывание тонкого рынка.
+// Допуск на овершут реальной цены исполнения покупки сверх maxEntryPrice
+// (тонкий стакан в последние секунды перед закрытием окна).
 const MAX_ENTRY_OVERSHOOT_TOLERANCE = Number(process.env.FASTFLIP_MAX_ENTRY_OVERSHOOT_TOLERANCE ?? "0.008");
 
 // После закрытия окна ждём чуть-чуть (на случай гонки с последним тиком
-// цены), и если ни тейк, ни стоп так и не сработали — идём резолвить
-// через Gamma API.
+// цены / стопом), и если стоп так и не сработал — идём резолвить через
+// Gamma API.
 const CLOSE_FALLBACK_BUFFER_MS = 5 * 1000;
 
 const RESOLVE_CHECK_DELAY_SEC = 180;
 const RESOLVE_RETRY_MS = 30 * 1000;
 const RESOLVE_GIVE_UP_MS = 30 * 60 * 1000;
-
-// v5.5: как часто перепроверяем статус висящего лимитника на выход, и
-// с какой паузой повторяем ПОПЫТКУ ЕГО ВЫСТАВИТЬ, если предыдущая
-// попытка не удалась (сетевая ошибка/отказ биржи и т.п.).
-const TP_POLL_INTERVAL_MS = Number(process.env.FASTFLIP_TP_POLL_INTERVAL_MS ?? "2000");
-const TP_PLACEMENT_RETRY_MS = Number(process.env.FASTFLIP_TP_PLACEMENT_RETRY_MS ?? "300");
 
 const REDEEM_POLL_MS = 60 * 1000;
 const GAMMA_HOST = "https://gamma-api.polymarket.com";
@@ -170,11 +106,14 @@ const settings = {
   // потолок на РЕАЛЬНУЮ цену исполнения покупки, см.
   // MAX_ENTRY_OVERSHOOT_TOLERANCE.
   maxEntryPrice: Number(process.env.FASTFLIP_MAX_ENTRY_PRICE ?? "0.98"),
+  // v6.0: больше НИ НА ЧТО не влияет — оставлено только чтобы не
+  // ломать команду Telegram "тейк X", если она где-то используется в
+  // твоих заметках/привычке. Никакой продажи по этой цене больше нет.
   tpPrice: Number(process.env.FASTFLIP_TP_PRICE ?? "0.99"),
   // Стоп-лосс: АБСОЛЮТНАЯ цена токена (0.0–1.0), а не доля от цены
   // входа. Если цена после входа падает ДО этого уровня ИЛИ НИЖЕ —
-  // бот немедленно пытается выйти по рынку, не дожидаясь тейка или
-  // резолва. Поставь 0, чтобы фактически отключить стоп.
+  // бот немедленно пытается выйти по рынку, не дожидаясь резолва.
+  // Поставь 0, чтобы отключить стоп — тогда бот держит ВСЕГДА до резолва.
   slPrice: Number(process.env.FASTFLIP_SL_PRICE ?? "0.90"),
   // Сколько секунд до закрытия текущей 5-минутки ещё разрешён вход.
   entryWindowSec: Number(process.env.FASTFLIP_ENTRY_WINDOW_SEC ?? "60"),
@@ -199,19 +138,10 @@ interface OpenPosition {
   // Минимальная цена, зафиксированная с момента входа — нужна для
   // расчёта максимальной просадки сделки, которую пришлём в отчёте.
   minPriceSinceEntry: number;
-  // Таймер, который резолвит сделку через Gamma API, если ни тейк, ни
-  // стоп не успели сработать до закрытия окна. Отменяем его, если
-  // выход всё же сработал раньше.
+  // Таймер, который резолвит сделку через Gamma API, если стоп не
+  // успел сработать до закрытия окна. Отменяем его, если стоп всё же
+  // сработал раньше.
   resolveFallbackTimer: NodeJS.Timeout | null;
-  // v5.5: цена, по которой выставлен (или ещё выставляется) висящий
-  // лимитник на выход в плюс — это max(tpPrice, buyPrice+маржа).
-  tpLimitPrice: number;
-  // v5.5: id висящего лимитника на бирже, если он уже успешно
-  // выставлен. null, пока идут попытки выставить, или если он уже
-  // снят/исполнен и обнулён после сверки.
-  tpOrderId: string | null;
-  // v5.5: таймер периодической проверки статуса висящего лимитника.
-  tpPollTimer: NodeJS.Timeout | null;
 }
 
 function buildTokenIndex(markets: CryptoUpDownMarket[]): Map<string, TokenInfo> {
@@ -223,7 +153,7 @@ function buildTokenIndex(markets: CryptoUpDownMarket[]): Map<string, TokenInfo> 
   return idx;
 }
 
-/** Официальный резолв рынка через Gamma API (fallback-кейс, когда ни тейк, ни стоп не сработали по рынку). */
+/** Официальный резолв рынка через Gamma API. */
 async function resolveWinner(eventSlug: string): Promise<"Up" | "Down" | null> {
   try {
     const resp = await fetch(`${GAMMA_HOST}/events/slug/${eventSlug}`);
@@ -266,17 +196,8 @@ interface MarketOrderResult {
 
 /**
  * Самопроверяющийся разбор ответа биржи на предмет "что тут акции, а
- * что доллары" — используется ТОЛЬКО для рыночных (taker) ордеров
- * (вход и стоп-лосс), где мы не выбираем цену исполнения сами. Для
- * висящего лимитника на выход это не нужно — см. parseGtcOrderStatus.
- *
- * Пробуем ОБА варианта раскладки чисел rawA/rawB, считаем получившуюся
- * среднюю цену в каждом варианте, и оставляем тот, где цена получается
- * РЕАЛЬНОЙ (строго между 0 и 1) и БЛИЖЕ к ожидаемой цене сделки.
- *
- * v5.6: expectedPrice для входа теперь передаётся как реальная цена
- * тика на момент входа (priceAtEntry), а не фиксированный
- * settings.entryPrice — см. фикс в executeMarketEntry.
+ * что доллары" — используется для рыночных (taker) ордеров (вход,
+ * стоп-лосс, аварийный выход).
  */
 function resolveFill(
   rawA: number,
@@ -306,51 +227,17 @@ function resolveFill(
   return { filledSize: best.shares, avgPrice: best.price };
 }
 
-/**
- * Разбор ответа getOrder() для НАШЕГО СОБСТВЕННОГО висящего лимитника.
- * В отличие от resolveFill() выше, тут не нужно гадать цену — она у
- * нас уже известна (это та цена, что мы сами поставили). Нужно только
- * понять: жив ли ордер ещё, исполнен ли (полностью/частично), или
- * отменён.
- *
- * ⚠️ Поля ниже (status, size_matched) — по типичной схеме Polymarket
- * CLOB (status: LIVE/MATCHED/CANCELED). Точного примера ответа под
- * рукой не было на момент написания — функция логирует сырой ответ
- * при каждом вызове (см. вызовы ниже), чтобы расхождение в названиях
- * полей сразу было видно в логах и его можно было поправить.
- */
-function parseGtcOrderStatus(raw: unknown): {
-  status: "LIVE" | "MATCHED" | "CANCELED" | "UNKNOWN";
-  sizeMatched: number;
-} {
-  const obj = (raw ?? {}) as Record<string, unknown>;
-
-  const rawStatus = String(obj.status ?? obj.state ?? "").toUpperCase();
-  let status: "LIVE" | "MATCHED" | "CANCELED" | "UNKNOWN" = "UNKNOWN";
-  if (rawStatus.includes("MATCH") || rawStatus.includes("FILL")) status = "MATCHED";
-  else if (rawStatus.includes("CANCEL")) status = "CANCELED";
-  else if (rawStatus.includes("LIVE") || rawStatus.includes("OPEN")) status = "LIVE";
-
-  const sizeMatchedRaw = obj.size_matched ?? obj.sizeMatched ?? obj.matchedAmount ?? obj.filledSize ?? 0;
-  const sizeMatched = Number(sizeMatchedRaw) || 0;
-
-  return { status, sizeMatched };
-}
-
 class FastFlipMarketBot {
   private watcher: PriceWatcher | null = null;
   private tokenIndex = new Map<string, TokenInfo>();
   private lastTokenIds: string[] = [];
 
-  // Блокирует одновременный вход по нескольким токенам сразу (гонка,
-  // если сетап сложился на двух рынках в одну и ту же секунду).
   private attemptInProgress = false;
 
   private openPosition: OpenPosition | null = null;
   private updateCount = 0;
   private tradesTotal = 0;
 
-  // Квота в час.
   private currentHourKey: number | null = null;
   private tradesThisHour = 0;
 
@@ -362,36 +249,28 @@ class FastFlipMarketBot {
   getStatus(): string {
     const watchedMarkets = this.tokenIndex.size / 2;
     return (
-      `Режим: рыночный вход, лимитный выход (GTC), BTC\n` +
-      `Вход: ${settings.entryPrice}–${settings.maxEntryPrice} | Тейк: ${settings.tpPrice} | Стоп: ${settings.slPrice} | Окно входа: последние ${settings.entryWindowSec}с\n` +
+      `Режим: рыночный вход, БЕЗ продажи в плюс — держим до резолва, BTC\n` +
+      `Вход: ${settings.entryPrice}–${settings.maxEntryPrice} | Стоп: ${settings.slPrice} | Окно входа: последние ${settings.entryWindowSec}с\n` +
       `Допуск на овершут входа: ${MAX_ENTRY_OVERSHOOT_TOLERANCE}\n` +
       `Квота: ${this.tradesThisHour}/${settings.quotaPerHour} сделок в этом часе\n` +
       `Сейчас отслеживается активных 5-мин рынков: ${watchedMarkets}\n` +
       `Всего сделок с запуска: ${this.tradesTotal}\n` +
       `Открытая позиция: ${
         this.openPosition
-          ? `${this.openPosition.market.title} (${this.openPosition.side}), цена входа ${this.openPosition.buyPrice.toFixed(4)}, лимитник на выход: ${this.openPosition.tpOrderId ? `выставлен по ${this.openPosition.tpLimitPrice.toFixed(3)}` : "ещё выставляется..."}`
+          ? `${this.openPosition.market.title} (${this.openPosition.side}), цена входа ${this.openPosition.buyPrice.toFixed(4)}, держим до резолва (стоп: ${settings.slPrice > 0 ? settings.slPrice : "выключен"})`
           : "нет"
       }`
     );
   }
 
-  /** Сбрасывает счётчик квоты при смене часа. */
   private checkHourlyReset(): void {
     const hourKey = Math.floor(Date.now() / HOUR_MS);
-
     if (this.currentHourKey !== hourKey) {
       this.currentHourKey = hourKey;
       this.tradesThisHour = 0;
     }
   }
 
-  /**
-   * true, если хоть один из СЕЙЧАС отслеживаемых рынков уже настолько
-   * близко к закрытию, что в любую секунду может сложиться сетап входа
-   * (или уже складывается). Используется, чтобы НЕ пересоздавать
-   * WebSocket-подписку в этот момент — см. REFRESH_SAFETY_BUFFER_SEC.
-   */
   private hasCriticalMarket(): boolean {
     const now = Date.now();
     const criticalMs = (settings.entryWindowSec + REFRESH_SAFETY_BUFFER_SEC) * 1000;
@@ -402,14 +281,6 @@ class FastFlipMarketBot {
     return false;
   }
 
-  /**
-   * Пересканирует список активных BTC 5-минутных рынков и обновляет
-   * подписку PriceWatcher. Пока открыта позиция, идёт попытка входа,
-   * ИЛИ любой из уже отслеживаемых рынков в критическом окне (см.
-   * hasCriticalMarket) — НЕ трогаем существующую подписку вообще,
-   * чтобы не оборвать соединение в момент, когда цена может как раз
-   * пересекать коридор входа.
-   */
   async refreshMarkets(): Promise<void> {
     if (this.openPosition || this.attemptInProgress || this.hasCriticalMarket()) return;
 
@@ -461,15 +332,13 @@ class FastFlipMarketBot {
     if (price === null) return;
 
     // ── Позиция уже открыта — обновляем минимум цены (для просадки в
-    // отчёте) и проверяем не пора ли выходить по стопу (и, в DRY_RUN,
-    // по тейку — см. maybeTriggerExit) ──
+    // отчёте) и проверяем не пора ли аварийно выходить по стопу. Тейка
+    // больше нет — держим до резолва ──
     if (this.openPosition) {
-      this.maybeTriggerExit(this.openPosition, market, price);
+      this.maybeTriggerStop(this.openPosition, market, price);
       return;
     }
 
-    // ── Ищем вход: сетап может сложиться на ЛЮБОМ из отслеживаемых
-    // сейчас рынков, мы не привязаны к одной заранее выбранной цели ──
     if (this.attemptInProgress) return;
 
     this.checkHourlyReset();
@@ -478,16 +347,8 @@ class FastFlipMarketBot {
 
     const secToClose = (market.closeTimeMs - Date.now()) / 1000;
 
-    // Вход разрешён ТОЛЬКО в последние entryWindowSec секунд перед
-    // закрытием ИМЕННО ЭТОЙ пятиминутки.
     if (secToClose > settings.entryWindowSec || secToClose < 0) return;
 
-    // Вход разрешён ТОЛЬКО если цена внутри коридора [entryPrice,
-    // maxEntryPrice]. Ниже коридора — сетап ещё не сложился, ждём.
-    // Выше коридора — цена уже "проехала" точку входа, слишком дорого
-    // покупать, пропускаем этот сетап (не гонимся за ценой). Это
-    // проверка по цене ТИКА — окончательная проверка по РЕАЛЬНОЙ цене
-    // исполнения делается после покупки, см. executeMarketEntry.
     if (price < settings.entryPrice) return;
     if (price > settings.maxEntryPrice) return;
 
@@ -497,53 +358,30 @@ class FastFlipMarketBot {
   }
 
   /**
-   * Вызывается на каждый тик цены, пока позиция открыта. Порядок
-   * проверок важен: СТОП проверяется ПЕРВЫМ, до тейка.
-   *
-   * Тейк в LIVE-режиме больше НЕ проверяется здесь — он исполняется
-   * сам как висящий лимитник на бирже (см. placeTpLimitWithRetry). Тик-
-   * триггер на тейк остаётся только для DRY_RUN (там нет реального
-   * стакана и реального лимитника, поэтому старая симуляция "по тику").
+   * Вызывается на каждый тик цены, пока позиция открыта. v6.0: больше
+   * НЕТ проверки тейка — единственная причина досрочного выхода это
+   * стоп-лосс. Если стоп выключен (slPrice = 0) — эта функция вообще
+   * ничего не делает, кроме отслеживания минимальной цены (для отчёта
+   * о просадке), и позиция держится до резолва в любом случае.
    */
-  private maybeTriggerExit(pos: OpenPosition, market: CryptoUpDownMarket, price: number): void {
-    // Тик пришёл не по тому рынку, где у нас открыта позиция — игнор.
+  private maybeTriggerStop(pos: OpenPosition, market: CryptoUpDownMarket, price: number): void {
     if (market.eventSlug !== pos.market.eventSlug) return;
 
-    // Обновляем минимальную цену за время жизни позиции — независимо от
-    // того, сработает ли выход сейчас. Это и есть просадка сделки.
     if (price < pos.minPriceSinceEntry) {
       pos.minPriceSinceEntry = price;
     }
 
     if (pos.closed || pos.exitAttemptInProgress) return;
 
-    // ── СТОП-ЛОСС: цена пересекла границу вниз — выходим НЕМЕДЛЕННО по
-    // рынку, что бы ни было с тейком и сколько бы времени ни оставалось
-    // до закрытия окна. Условие "<=", чтобы сработать и точно на уровне.
-    // Работает одинаково в DRY_RUN и в LIVE. ВАЖНО: settings.slPrice —
-    // это АБСОЛЮТНАЯ цена токена (0.0-1.0), а не доля от цены входа.
+    // Единственный оставшийся вариант досрочного выхода — стоп-лосс.
+    // settings.slPrice — АБСОЛЮТНАЯ цена токена (0.0-1.0), а не доля
+    // от цены входа.
     if (settings.slPrice > 0 && price <= settings.slPrice) {
       pos.exitAttemptInProgress = true;
       this.executeStopLoss(pos, price);
-      return;
     }
-
-    // ── ТЕЙК по тику — ТОЛЬКО для DRY_RUN / когда нет реального клоба.
-    // В LIVE-режиме тейк исполняется сам как висящий лимитник на бирже
-    // (placeTpLimitWithRetry уже выставлен сразу после входа), поэтому
-    // тут для LIVE ничего не делаем — дальше просто ждём: либо биржа
-    // сама исполнит лимитник, либо сработает стоп выше, либо дойдём до
-    // закрытия окна и уйдём на резолв (со сверкой, см. entry-таймер).
-    if (!DRY_RUN && this.clob) return;
-
-    const effectiveExitPrice = Math.max(settings.tpPrice, pos.buyPrice + MIN_PROFIT_MARGIN);
-    if (price < effectiveExitPrice) return;
-
-    pos.exitAttemptInProgress = true;
-    this.executeMarketExit(pos, price);
   }
 
-  /** Единая точка вызова рыночного ордера — с реальным клобом или в DRY_RUN-симуляции. */
   private async placeMarketOrder(params: {
     tokenId: string;
     side: "BUY" | "SELL";
@@ -566,7 +404,6 @@ class FastFlipMarketBot {
       const rawA = Number(resp.filledSize ?? 0);
       const rawB = Number(resp.filledUsdc ?? 0);
 
-      // Самопроверяющийся разбор — см. комментарий у функции resolveFill.
       const { filledSize, avgPrice } = resolveFill(rawA, rawB, params.nominalPrice);
 
       if (filledSize > 0) {
@@ -580,159 +417,6 @@ class FastFlipMarketBot {
       console.log(`   ⏳ Рыночный ордер (${params.side}) не исполнился: ${(err as Error).message}`);
       return { orderId: null, filledSize: 0, avgPrice: 0 };
     }
-  }
-
-  /**
-   * Выставляет висящий лимитник (GTC) на продажу по цене
-   * pos.tpLimitPrice. Если попытка ВЫСТАВИТЬ (не исполнить!) не удалась
-   * — сразу пробует снова, с небольшой паузой, пока не получится или
-   * пока позиция не закрылась другим способом (например, сработал стоп
-   * раньше, чем мы успели выставить тейк). Как только ордер успешно
-   * принят биржей — запускает периодическую проверку его статуса.
-   *
-   * В DRY_RUN / без реального клоба — ничего не делает: там тейк по-
-   * прежнему симулируется по тику цены (см. maybeTriggerExit).
-   */
-  private async placeTpLimitWithRetry(pos: OpenPosition): Promise<void> {
-    if (DRY_RUN || !this.clob) return;
-
-    let attempt = 0;
-    while (!pos.closed && pos.tpOrderId === null) {
-      attempt++;
-      try {
-        const resp = await this.clob.placeGtcLimitOrder({
-          tokenId: pos.tokenId,
-          side: Side.SELL,
-          price: pos.tpLimitPrice,
-          size: pos.filledSize,
-          // offsetPct: 0 — хотим повесить ордер РОВНО на tpLimitPrice,
-          // без дополнительного агрессивного сдвига (тот сдвиг нужен
-          // для других сценариев использования этого метода, не для
-          // нашего "поставил и жду").
-          offsetPct: 0,
-        });
-
-        if (pos.closed) {
-          // Пока ждали ответ биржи, позицию уже закрыли другим путём
-          // (например, стоп успел сработать раньше). Пытаемся сразу
-          // отменить только что выставленный ордер, чтобы не остался
-          // висеть без дела.
-          if (resp.orderId) {
-            this.clob.cancelOrders([resp.orderId]).catch(() => {});
-          }
-          return;
-        }
-
-        pos.tpOrderId = resp.orderId ?? null;
-
-        if (!pos.tpOrderId) {
-          console.log(
-            `   ⚠️ Лимитка на выход принята биржей, но orderId не вернулся — отследить статус не смогу, сверю при закрытии окна.`,
-          );
-          return;
-        }
-
-        console.log(
-          `   📌 Лимитка на выход выставлена: цена ${pos.tpLimitPrice.toFixed(3)}, размер ${pos.filledSize.toFixed(2)}, orderId ${pos.tpOrderId} (попытка ${attempt}).`,
-        );
-        this.startTpPolling(pos);
-        return;
-      } catch (err) {
-        console.log(
-          `   ⏳ Не удалось выставить лимитку на выход (попытка ${attempt}): ${(err as Error).message}. Пробую снова через ${TP_PLACEMENT_RETRY_MS}мс.`,
-        );
-        await new Promise((r) => setTimeout(r, TP_PLACEMENT_RETRY_MS));
-      }
-    }
-  }
-
-  /** Периодически проверяет, не исполнился ли висящий лимитник на выход. */
-  private startTpPolling(pos: OpenPosition): void {
-    if (!this.clob) return;
-
-    pos.tpPollTimer = setInterval(async () => {
-      if (pos.closed || !pos.tpOrderId) {
-        if (pos.tpPollTimer) {
-          clearInterval(pos.tpPollTimer);
-          pos.tpPollTimer = null;
-        }
-        return;
-      }
-
-      try {
-        const raw = await this.clob!.getOrder(pos.tpOrderId);
-        console.log(`   [tp-poll] статус лимитника ${pos.tpOrderId}:`, raw);
-        const { status, sizeMatched } = parseGtcOrderStatus(raw);
-
-        if (status === "MATCHED" && sizeMatched >= pos.filledSize - 0.001) {
-          if (pos.tpPollTimer) {
-            clearInterval(pos.tpPollTimer);
-            pos.tpPollTimer = null;
-          }
-          if (pos.resolveFallbackTimer) {
-            clearTimeout(pos.resolveFallbackTimer);
-            pos.resolveFallbackTimer = null;
-          }
-          pos.closed = true;
-          const profit = pos.filledSize * (pos.tpLimitPrice - pos.buyPrice);
-          await this.notifyClose(pos, "тейк лимиткой", "WIN", profit);
-          this.finishTrade(pos);
-        } else if (status === "CANCELED") {
-          console.log(`   ⚠️ Лимитник на выход оказался отменён (не нами) — выставляю заново.`);
-          if (pos.tpPollTimer) {
-            clearInterval(pos.tpPollTimer);
-            pos.tpPollTimer = null;
-          }
-          pos.tpOrderId = null;
-          if (!pos.closed) this.placeTpLimitWithRetry(pos);
-        }
-        // status === "LIVE" или частичное исполнение — просто ждём дальше.
-      } catch (err) {
-        console.error(`   [tp-poll] ошибка проверки статуса лимитника:`, (err as Error).message);
-      }
-    }, TP_POLL_INTERVAL_MS);
-  }
-
-  /**
-   * Сверка перед тем, как забрать позицию у висящего лимитника (перед
-   * стопом или перед уходом на резолв). Останавливает поллинг,
-   * проверяет актуальный статус, и если выясняется, что лимитник УЖЕ
-   * полностью исполнился — сообщает об этом вызывающему коду, чтобы
-   * тот закрыл сделку как "тейк лимиткой", а не продолжал считать
-   * позицию открытой. Если не исполнился — пробует его отменить
-   * (best-effort, ошибки игнорируем: возможно, он уже пропал сам по
-   * другой причине) и возвращает "clear".
-   */
-  private async finalizeTpBeforeOverride(pos: OpenPosition): Promise<"already-filled" | "clear"> {
-    if (pos.tpPollTimer) {
-      clearInterval(pos.tpPollTimer);
-      pos.tpPollTimer = null;
-    }
-
-    if (!pos.tpOrderId || !this.clob) return "clear";
-
-    const orderId = pos.tpOrderId;
-
-    try {
-      const raw = await this.clob.getOrder(orderId);
-      console.log(`   [tp-check] финальная сверка статуса лимитника ${orderId}:`, raw);
-      const { status, sizeMatched } = parseGtcOrderStatus(raw);
-      if (status === "MATCHED" && sizeMatched >= pos.filledSize - 0.001) {
-        pos.tpOrderId = null;
-        return "already-filled";
-      }
-    } catch (err) {
-      console.error(`   [tp-check] не удалось проверить статус перед отменой:`, (err as Error).message);
-    }
-
-    try {
-      await this.clob.cancelOrders([orderId]);
-    } catch (err) {
-      console.error(`   [tp-check] не удалось отменить лимитник (возможно, уже неактуален):`, (err as Error).message);
-    }
-
-    pos.tpOrderId = null;
-    return "clear";
   }
 
   private async executeMarketEntry(
@@ -750,11 +434,6 @@ class FastFlipMarketBot {
         `   Покупаем: ${size.toFixed(2)} акций рыночным ордером (~$${TRADE_SIZE_USD})`,
     );
 
-    // v5.6 ФИКС: раньше здесь передавался фиксированный settings.entryPrice
-    // (0.97) как база для расчёта проскальзывания FAK-ордера, хотя
-    // реальная цена тика (priceAtEntry) уже была известна на этот момент.
-    // Из-за этого допустимый диапазон исполнения считался от неправильной
-    // точки — теперь база = реальная цена тика.
     const result = await this.placeMarketOrder({ tokenId, side: "BUY", size, nominalPrice: priceAtEntry });
 
     if (result.filledSize <= 0) {
@@ -775,27 +454,13 @@ class FastFlipMarketBot {
       closed: false,
       minPriceSinceEntry: result.avgPrice,
       resolveFallbackTimer: null,
-      tpLimitPrice: Math.max(settings.tpPrice, result.avgPrice + MIN_PROFIT_MARGIN),
-      tpOrderId: null,
-      tpPollTimer: null,
     };
     this.openPosition = pos;
 
-    // ── Проверка на аномальное исполнение СНИЗУ: купили НАМНОГО ниже,
-    // чем ожидали — сразу пробуем аварийно выйти, не дожидаясь резолва.
     const isBadFillLow = pos.buyPrice < settings.entryPrice - BAD_FILL_TOLERANCE;
-
-    // ── Проверка на аномальное исполнение СВЕРХУ — купили дороже
-    // потолка коридора (settings.maxEntryPrice). Требование "никогда не
-    // покупать дороже 0.98" — обеспечивается именно этой проверкой уже
-    // ПОСЛЕ реального исполнения, а не только по цене тика до отправки.
-    // v5.6: допуск расширен (MAX_ENTRY_OVERSHOOT_TOLERANCE = 0.008), см.
-    // комментарий у константы выше.
     const isBadFillHigh = pos.buyPrice > settings.maxEntryPrice + MAX_ENTRY_OVERSHOOT_TOLERANCE;
 
     if (isBadFillLow || isBadFillHigh) {
-      // v5.6: печатаем точную непокруглённую цену и разницу с порогом,
-      // чтобы не гадать по округлённым 97/98 из интерфейса Polymarket.
       const reason = isBadFillHigh
         ? `купили ДОРОЖЕ потолка коридора: ${pos.buyPrice.toFixed(5)} (потолок ${settings.maxEntryPrice} + допуск ${MAX_ENTRY_OVERSHOOT_TOLERANCE} = ${(settings.maxEntryPrice + MAX_ENTRY_OVERSHOOT_TOLERANCE).toFixed(5)}, превышение на ${(pos.buyPrice - settings.maxEntryPrice - MAX_ENTRY_OVERSHOOT_TOLERANCE).toFixed(5)})`
         : `цена рухнула ПРЯМО во время исполнения ордера: купили по ${pos.buyPrice.toFixed(5)} вместо ожидаемых ~${priceAtEntry.toFixed(5)} (допуск ${BAD_FILL_TOLERANCE})`;
@@ -815,43 +480,20 @@ class FastFlipMarketBot {
       );
     }
 
-    // Сразу, максимально быстро (не дожидаясь ничего другого), запускаем
-    // выставление висящего лимитника на выход. Не await — это отдельный
-    // самоподдерживающийся процесс (ретраи постановки + последующий
-    // поллинг), не должен блокировать остальной код.
-    this.placeTpLimitWithRetry(pos).catch((err) =>
-      console.error(`   [tp] неожиданная ошибка в цикле выставления лимитника:`, (err as Error).message),
-    );
-
     if (this.telegram) {
-      const tpNote = DRY_RUN || !this.clob
-        ? `\nЖду тейк ${settings.tpPrice} (симуляция DRY_RUN) или стоп ${settings.slPrice}, либо закрытия окна...`
-        : `\nВыставляю лимитник на выход по ${pos.tpLimitPrice.toFixed(3)}, либо жду стоп ${settings.slPrice}, либо закрытие окна...`;
+      const holdNote = settings.slPrice > 0
+        ? `\nДержим до официального резолва. Стоп-лосс активен: ${settings.slPrice}.`
+        : `\nДержим до официального резолва. Стоп-лосс выключен — досрочного выхода не будет.`;
 
       await this.telegram.send(
-        `💰 Куплено по рынку: ${market.title}\nСторона: ${side}\nЦена: ${result.avgPrice.toFixed(4)} | Размер: ${result.filledSize.toFixed(2)}${tpNote}`,
+        `💰 Куплено по рынку: ${market.title}\nСторона: ${side}\nЦена: ${result.avgPrice.toFixed(4)} | Размер: ${result.filledSize.toFixed(2)}${holdNote}`,
       );
     }
 
     const msUntilCloseCheck = Math.max(0, market.closeTimeMs - Date.now() + CLOSE_FALLBACK_BUFFER_MS);
-    pos.resolveFallbackTimer = setTimeout(async () => {
+    pos.resolveFallbackTimer = setTimeout(() => {
       if (pos.closed) return;
-
-      // Перед уходом на резолв — сверяемся, не исполнился ли лимитник в
-      // последний момент, пока мы не смотрели (гонка "тик от резолва
-      // против последнего тика цены").
-      const state = await this.finalizeTpBeforeOverride(pos);
-      if (pos.closed) return; // сверка могла сама закрыть сделку
-
-      if (state === "already-filled") {
-        const profit = pos.filledSize * (pos.tpLimitPrice - pos.buyPrice);
-        pos.closed = true;
-        await this.notifyClose(pos, "тейк лимиткой (обнаружено при сверке)", "WIN", profit);
-        this.finishTrade(pos);
-        return;
-      }
-
-      console.log(`   ⏳ Ни тейк, ни стоп не сработали до закрытия — жду официальный резолв (eventSlug: ${market.eventSlug}).`);
+      console.log(`   ⏳ Окно закрылось, стоп не сработал — жду официальный резолв (eventSlug: ${market.eventSlug}).`);
       this.scheduleResolveFallback(pos);
     }, msUntilCloseCheck);
   }
@@ -887,66 +529,12 @@ class FastFlipMarketBot {
     }, msUntilCloseCheck);
   }
 
-  /**
-   * Старый метод "выйти рынком по тейку" — используется ТОЛЬКО в
-   * DRY_RUN (см. gate в maybeTriggerExit). В LIVE-режиме тейк
-   * закрывается через висящий лимитник, а не отсюда.
-   */
-  private async executeMarketExit(pos: OpenPosition, priceAtExit: number): Promise<void> {
-    console.log(
-      `\n🎯 ВЫХОД ПО РЫНКУ (ТЕЙК, DRY_RUN): [BTC / 5мин] "${pos.market.title}"\n` +
-        `   Сторона: ${pos.side} | Цена сейчас: ~${priceAtExit} | Продаём: ${pos.filledSize.toFixed(2)} акций (цель ~${settings.tpPrice})`,
-    );
-
-    const result = await this.placeMarketOrder({
-      tokenId: pos.tokenId,
-      side: "SELL",
-      size: pos.filledSize,
-      nominalPrice: settings.tpPrice,
-    });
-
-    if (result.filledSize < pos.filledSize - 0.001) {
-      console.log(
-        `   ⚠️ Рыночная продажа не прошла целиком (${result.filledSize.toFixed(2)}/${pos.filledSize.toFixed(2)}). Пробую снова при следующем тике.`,
-      );
-      pos.exitAttemptInProgress = false;
-      return;
-    }
-
-    if (pos.resolveFallbackTimer) {
-      clearTimeout(pos.resolveFallbackTimer);
-      pos.resolveFallbackTimer = null;
-    }
-
-    pos.closed = true;
-    const profit = result.filledSize * (result.avgPrice - pos.buyPrice);
-    await this.notifyClose(pos, "тейк по рынку (DRY_RUN)", "WIN", profit);
-    this.finishTrade(pos);
-  }
-
   private async executeStopLoss(pos: OpenPosition, priceAtExit: number): Promise<void> {
     console.log(
       `\n🛑 СТОП-ЛОСС: [BTC / 5мин] "${pos.market.title}"\n` +
         `   Сторона: ${pos.side} | Цена сейчас: ~${priceAtExit} (порог стопа: ${settings.slPrice}) | ` +
         `Продаём: ${pos.filledSize.toFixed(2)} акций рыночным ордером НЕМЕДЛЕННО`,
     );
-
-    // ПЕРЕД тем как продавать по стопу — сверяемся с висящим лимитником
-    // на выход. Если он на самом деле УЖЕ исполнился (гонка: цена
-    // мазнула по тейку и тут же обвалилась до стопа) — закрываем сделку
-    // как тейк, а НЕ пытаемся продать уже не существующую позицию по
-    // стопу поверх неё.
-    if (!DRY_RUN && this.clob) {
-      const state = await this.finalizeTpBeforeOverride(pos);
-      if (pos.closed) return;
-      if (state === "already-filled") {
-        const profit = pos.filledSize * (pos.tpLimitPrice - pos.buyPrice);
-        pos.closed = true;
-        await this.notifyClose(pos, "тейк лимиткой (обнаружено перед стопом)", "WIN", profit);
-        this.finishTrade(pos);
-        return;
-      }
-    }
 
     const result = await this.placeMarketOrder({
       tokenId: pos.tokenId,
@@ -1013,10 +601,6 @@ class FastFlipMarketBot {
     if (pos.resolveFallbackTimer) {
       clearTimeout(pos.resolveFallbackTimer);
       pos.resolveFallbackTimer = null;
-    }
-    if (pos.tpPollTimer) {
-      clearInterval(pos.tpPollTimer);
-      pos.tpPollTimer = null;
     }
     if (this.openPosition === pos) this.openPosition = null;
     this.attemptInProgress = false;
@@ -1145,7 +729,6 @@ async function pollTelegramCommands(
           continue;
         }
 
-        // "цена 0.97" — нижняя граница коридора входа.
         const priceMatch = text.match(/^цена\s+([\d.]+)$/);
         if (priceMatch) {
           settings.entryPrice = Number(priceMatch[1]);
@@ -1153,7 +736,6 @@ async function pollTelegramCommands(
           continue;
         }
 
-        // "цена_макс 0.98" — верхняя граница коридора входа.
         const maxPriceMatch = text.match(/^цена_макс\s+([\d.]+)$/);
         if (maxPriceMatch) {
           settings.maxEntryPrice = Number(maxPriceMatch[1]);
@@ -1164,7 +746,7 @@ async function pollTelegramCommands(
         const tpMatch = text.match(/^тейк\s+([\d.]+)$/);
         if (tpMatch) {
           settings.tpPrice = Number(tpMatch[1]);
-          await telegram?.send(`Тейк-профит установлен: ${settings.tpPrice}`);
+          await telegram?.send(`⚠️ Значение сохранено (${settings.tpPrice}), но тейк-выход отключён в этой версии — бот держит позиции до резолва.`);
           continue;
         }
 
@@ -1202,7 +784,7 @@ async function main() {
   console.log(`Режим: ${DRY_RUN ? "DRY_RUN (без реальных сделок, полная симуляция)" : "⚠️  LIVE — РЕАЛЬНЫЕ ДЕНЬГИ"}`);
   console.log(
     `Актив: BTC only | Вход: ${settings.entryPrice}-${settings.maxEntryPrice} (рынком, окно ${settings.entryWindowSec}с) | ` +
-      `Тейк: ${settings.tpPrice} (лимитником) | Стоп: ${settings.slPrice} (рынком) | Квота: ${settings.quotaPerHour}/час | ` +
+      `Тейк: ОТКЛЮЧЁН — держим до резолва | Стоп: ${settings.slPrice} (рынком) | Квота: ${settings.quotaPerHour}/час | ` +
       `Допуск овершута входа: ${MAX_ENTRY_OVERSHOOT_TOLERANCE}`,
   );
 
@@ -1236,7 +818,7 @@ async function main() {
   bot.start();
 
   if (telegram && process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
-    console.log("Telegram-команды включены: цена X / цена_макс X / тейк X / стоп X / окно X / квота X / статус");
+    console.log("Telegram-команды включены: цена X / цена_макс X / стоп X / окно X / квота X / статус");
     pollTelegramCommands(process.env.TELEGRAM_BOT_TOKEN, process.env.TELEGRAM_CHAT_ID, telegram, bot);
   }
 
