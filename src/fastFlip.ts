@@ -229,9 +229,30 @@ async function ethCall(rpcUrl: string, to: string, data: string): Promise<string
       params: [{ to, data }, "latest"],
     }),
   });
+
+  // v5.2.1: если RPC вернул не-200 (провайдер режет запрос, лимит, требует
+  // ключ в URL и т.п.) — показываем статус и тело ответа целиком, а не
+  // падаем на непонятном "Unexpected token" из resp.json().
+  if (!resp.ok) {
+    const bodyText = await resp.text().catch(() => "<не удалось прочитать тело>");
+    throw new Error(`RPC ответил ${resp.status} ${resp.statusText}: ${bodyText.slice(0, 300)}`);
+  }
+
   const json = await resp.json();
-  if (json.error) throw new Error(json.error.message ?? "eth_call ошибка");
-  return json.result as string;
+
+  if (json.error) {
+    // Разные провайдеры кладут ошибку по-разному: { error: { message } },
+    // { error: "строка" }, иногда без message вообще — логируем весь
+    // объект целиком, чтобы не терять реальную причину.
+    const detail = typeof json.error === "string" ? json.error : JSON.stringify(json.error);
+    throw new Error(`RPC вернул error: ${detail}`);
+  }
+
+  if (typeof json.result !== "string") {
+    throw new Error(`RPC вернул неожиданный ответ без result: ${JSON.stringify(json).slice(0, 300)}`);
+  }
+
+  return json.result;
 }
 
 /** decimals() — сколько знаков после запятой зашито в ответах фида (обычно 8 для BTC/USD). Кэшируем — не меняется. */
@@ -273,7 +294,7 @@ async function getBtcPriceChainlink(): Promise<number | null> {
 
     return Number(answer) / 10 ** decimals;
   } catch (err) {
-    console.error("[chainlink] не удалось получить цену BTC:", (err as Error).message);
+    console.error("[chainlink] не удалось получить цену BTC:", err);
     return null;
   }
 }
