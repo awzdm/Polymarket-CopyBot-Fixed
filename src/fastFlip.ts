@@ -119,8 +119,9 @@ const DRAWDOWN_IGNORE_LAST_SEC = Number(process.env.FASTFLIP_DRAWDOWN_IGNORE_LAS
 
 // ─── v5.2: цена BTC через Chainlink (Polygon) ───
 // Адрес официального Chainlink BTC/USD price feed на Polygon mainnet.
+// Проверено по PolygonScan и data.chain.link/polygon/mainnet/crypto-usd/btc-usd.
 // Можно переопределить через env, если Chainlink сменит контракт.
-const CHAINLINK_BTC_USD_FEED = process.env.CHAINLINK_BTC_USD_FEED ?? "0xc907E116054Ad103354f2D350FD2514fB620441";
+const CHAINLINK_BTC_USD_FEED = process.env.CHAINLINK_BTC_USD_FEED ?? "0xc907E116054Ad103354f2D350FD2514433D57F6f";
 
 // ─── Настройки, которые можно менять на лету через Telegram ───
 const settings = {
