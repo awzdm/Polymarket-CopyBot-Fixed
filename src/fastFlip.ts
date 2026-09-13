@@ -103,6 +103,14 @@ const MARKET_ORDER_SLIPPAGE_PCT = Number(process.env.FASTFLIP_SLIPPAGE_PCT ?? "0
 // держим позицию до официального резолва вместо мгновенного выхода в ноль.
 const MIN_PROFIT_MARGIN = Number(process.env.FASTFLIP_MIN_PROFIT_MARGIN ?? "0.003");
 
+// Если реальная цена покупки оказалась НАМНОГО ниже ожидаемой (entryPrice)
+// — значит цена рухнула ПРЯМО ПОКА ордер летел до биржи (рынок начал
+// резкий разворот в тот же момент). Это больше не "почти гарантированная"
+// позиция по 0.98, а фактически монетка на исход. В этом случае сразу
+// пробуем аварийно продать обратно вместо того, чтобы слепо держать до
+// резолва — см. executeMarketEntry/emergencyExit.
+const BAD_FILL_TOLERANCE = Number(process.env.FASTFLIP_BAD_FILL_TOLERANCE ?? "0.02");
+
 // После закрытия окна ждём чуть-чуть (на случай гонки с последним тиком
 // цены), и если тейк так и не сработал — идём резолвить через Gamma API.
 const CLOSE_FALLBACK_BUFFER_MS = 5 * 1000;
@@ -441,6 +449,23 @@ class FastFlipMarketBot {
     };
     this.openPosition = pos;
 
+    // ── Проверка на аномальное исполнение: купили НАМНОГО ниже, чем
+    // ожидали — значит цена рухнула прямо в момент исполнения ордера.
+    // Это больше не "почти гарантированная" позиция, а фактически
+    // монетка. Сразу пробуем аварийно выйти, не дожидаясь резолва.
+    const isBadFill = pos.buyPrice < settings.entryPrice - BAD_FILL_TOLERANCE;
+
+    if (isBadFill) {
+      if (this.telegram) {
+        await this.telegram.send(
+          `🚨 Цена рухнула ПРЯМО во время исполнения ордера: купили по ${result.avgPrice.toFixed(3)} вместо ожидаемых ~${settings.entryPrice} — рынок начал резкий разворот. Это больше не почти-гарантированная позиция. Пробую аварийно продать обратно прямо сейчас.`,
+        );
+      }
+
+      this.emergencyExit(pos);
+      return;
+    }
+
     // Если проскальзывание на входе уже съело весь запас прибыли —
     // предупреждаем прямо сейчас, чтобы было видно в моменте, а не
     // только постфактум по цифрам в истории Polymarket.
@@ -462,6 +487,48 @@ class FastFlipMarketBot {
     pos.resolveFallbackTimer = setTimeout(() => {
       if (pos.closed) return;
       console.log(`   ⏳ Тейк не сработал до закрытия — жду официальный резолв (eventSlug: ${market.eventSlug}).`);
+      this.scheduleResolveFallback(pos);
+    }, msUntilCloseCheck);
+  }
+
+  /**
+   * Аварийный выход — вызывается, когда фактическая цена покупки
+   * оказалась намного ниже ожидаемой (см. BAD_FILL_TOLERANCE). Пробует
+   * СРАЗУ продать обратно по рынку, что бы ни было в стакане, вместо
+   * того чтобы слепо держать до резолва позицию, которая перестала
+   * быть "почти гарантированной". Если продать сразу не получилось —
+   * всё равно ставим обычный резервный таймер на резолв, чтобы сделка
+   * не осталась висеть без исхода.
+   */
+  private async emergencyExit(pos: OpenPosition): Promise<void> {
+    console.log(
+      `\n🚨 АВАРИЙНЫЙ ВЫХОД: [BTC / 5мин] "${pos.market.title}" — цена рухнула во время исполнения, пробую продать немедленно.`,
+    );
+
+    const result = await this.placeMarketOrder({
+      tokenId: pos.tokenId,
+      side: "SELL",
+      size: pos.filledSize,
+      nominalPrice: pos.buyPrice,
+    });
+
+    if (result.filledSize >= pos.filledSize - 0.001) {
+      pos.closed = true;
+      const profit = result.filledSize * (result.avgPrice - pos.buyPrice);
+      const outcome: "WIN" | "LOSS" = profit >= 0 ? "WIN" : "LOSS";
+      await this.notifyClose(pos, "аварийный выход (цена рухнула при исполнении)", outcome, profit);
+      this.finishTrade(pos);
+      return;
+    }
+
+    console.log(`   ⚠️ Аварийная продажа не прошла — держим до резолва как обычно.`);
+
+    // Не получилось продать сразу — ставим обычный резервный таймер на
+    // резолв, как в штатном сценарии.
+    const msUntilCloseCheck = Math.max(0, pos.market.closeTimeMs - Date.now() + CLOSE_FALLBACK_BUFFER_MS);
+    pos.resolveFallbackTimer = setTimeout(() => {
+      if (pos.closed) return;
+      console.log(`   ⏳ Аварийный выход не удался — жду официальный резолв (eventSlug: ${pos.market.eventSlug}).`);
       this.scheduleResolveFallback(pos);
     }, msUntilCloseCheck);
   }
