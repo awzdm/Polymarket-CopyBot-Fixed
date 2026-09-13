@@ -1,33 +1,41 @@
 /**
- * "Быстрый флип" v5.2 — РЫНОЧНЫЕ ордера, вход только в последние секунды
- * перед закрытием, С квотой сделок в час, С СТОП-ЛОССОМ, БЕЗ заранее
- * выбранной цели.
- * ПАРАЛЛЕЛЬНЫЙ старым sniperTrader.ts и fastFlip.ts (их не трогаем, не
- * запускаем).
+ * "Быстрый флип" v5.3 — РЫНОЧНЫЕ ордера, вход только в последние секунды
+ * перед закрытием, С КОРИДОРОМ ВХОДА (нижняя+верхняя граница цены), С
+ * КВОТОЙ сделок в час, С СТОП-ЛОССОМ.
+ * ПАРАЛЛЕЛЬНЫЙ старым sniperTrader.ts / fastFlip.ts / fastFlipMarket.ts
+ * (их не трогаем, не запускаем).
  *
- * Это восстановленная версия BTC-бота (та, что работала несколько дней
- * без квоты), с тремя добавками:
+ * Изменения относительно v5.2 (по запросу):
  *
- *   1. КВОТА СДЕЛОК В ЧАС — команда "квота N" в Telegram. Как только за
- *      текущий час набрано N сделок — новые входы не ищутся до начала
- *      следующего часа. По умолчанию не ограничивает (большое число),
- *      если явно не задано через env/команду.
+ *   1. entryPrice по умолчанию 0.97 (было 0.98).
  *
- *   2. МАКСИМАЛЬНАЯ ПРОСАДКА СДЕЛКИ В ОТЧЁТЕ — теперь при закрытии
- *      каждой сделки (тейк, стоп или резолв) в Telegram-сообщении помимо
- *      прибыли/убытка указывается, насколько сильно цена проваливалась
- *      вниз от цены покупки за время, пока позиция была открыта.
+ *   2. НОВОЕ: maxEntryPrice (по умолчанию 0.98) — верхняя граница входа.
+ *      Раньше условие входа было только "price >= entryPrice", БЕЗ
+ *      потолка — то есть бот теоретически мог купить и по 0.995, если
+ *      цена именно в этот тик перескочила сразу высоко. Теперь вход
+ *      разрешён ТОЛЬКО когда цена находится В КОРИДОРЕ
+ *      [entryPrice, maxEntryPrice], т.е. по умолчанию 0.97–0.98.
+ *      Если цена уже выше maxEntryPrice — сетап считается "проехавшим",
+ *      бот НЕ покупает и ждёт следующую возможность (следующий тик /
+ *      следующий рынок).
  *
- *   3. СТОП-ЛОСС — команда "стоп N" в Telegram (по умолчанию 0.90).
- *      Если после входа цена падает до этого уровня или ниже — бот
- *      СРАЗУ, не дожидаясь ни тейка, ни закрытия окна, ни резолва,
- *      пытается продать позицию рыночным ордером. Это отдельная,
- *      более общая механика, чем "аварийный выход при плохом филле"
- *      (BAD_FILL_TOLERANCE) — та отрабатывает один раз сразу после
- *      покупки, если цена уже была плохой в момент исполнения. Стоп
- *      же следит за ценой ВСЁ время, пока позиция открыта, и может
- *      сработать в любой момент, если цена развернулась уже ПОСЛЕ
- *      входа.
+ *   3. entryWindowSec по умолчанию 60 (было 30) — вход рассматривается
+ *      только в последние 60 секунд до закрытия текущей 5-минутки.
+ *
+ *   4. tpPrice остаётся 0.99 по умолчанию — без изменений.
+ *
+ *   5. Скорость выхода: НЕ МЕНЯЛАСЬ, потому что уже была максимальной.
+ *      Проверка тейка/стопа идёт на КАЖДОМ обновлении цены из
+ *      PriceWatcher (событийно, без polling и без искусственных пауз).
+ *      Как только цена достигает эффективного тейка — в ту же
+ *      миллисекунду улетает рыночный (FAK) SELL-ордер через
+ *      ClobService.placeLimitOrder (см. комментарий там же — по факту
+ *      это market-ордер, метод берёт свежий стакан и бьёт в лучшую
+ *      цену). Единственное "ожидание" в системе — это резервный
+ *      механизм resolve через Gamma API, который включается ТОЛЬКО
+ *      если ни тейк, ни стоп не сработали до самого закрытия окна.
+ *      Соответственно никакого отдельного "ускорения продажи" делать
+ *      не нужно было — логика и так продаёт при первой же возможности.
  *
  * КАК ЭТО РАБОТАЕТ (не изменилось с v5):
  *
@@ -39,9 +47,10 @@
  *  сетап прямо сейчас?"
  *
  *  Сетап — это:
- *    1. Цена коснулась entryPrice (0.98 по умолчанию), И
+ *    1. Цена в коридоре [entryPrice, maxEntryPrice] (по умолчанию
+ *       0.97–0.98), И
  *    2. До закрытия ИМЕННО ЭТОЙ пятиминутки осталось не больше
- *       entryWindowSec секунд (30 по умолчанию), И
+ *       entryWindowSec секунд (60 по умолчанию), И
  *    3. Квота сделок на этот час ещё не исчерпана.
  *
  *  ВХОД И ВЫХОД — РЫНОЧНЫМИ ОРДЕРАМИ через `ClobService.placeLimitOrder`
@@ -52,9 +61,10 @@
  *    - FAK (fill-and-kill): исполняется сразу, что может, остальное
  *      снимается — ничего не висит в стакане.
  *
- *  Выход из позиции теперь возможен ТРЕМЯ способами (раньше было два):
+ *  Выход из позиции возможен ТРЕМЯ способами:
  *    - ТЕЙК: цена дошла до settings.tpPrice (с поправкой на реальную
- *      цену покупки, см. MIN_PROFIT_MARGIN) — рыночным ордером.
+ *      цену покупки, см. MIN_PROFIT_MARGIN) — рыночным ордером,
+ *      МГНОВЕННО на этом же тике.
  *    - СТОП: цена упала до settings.slPrice или ниже — рыночным ордером,
  *      немедленно, независимо от того, сколько времени осталось до
  *      закрытия окна.
@@ -69,12 +79,13 @@
  *   именно для BUY.
  *
  * НАСТРОЙКИ НА ЛЕТУ ЧЕРЕЗ TELEGRAM (без передеплоя):
- *   цена 0.98     — цена входа
- *   тейк 0.99     — цена выхода в плюс
- *   стоп 0.90     — цена аварийного выхода в минус (стоп-лосс)
- *   окно 30       — сколько секунд до закрытия окна разрешён вход
- *   квота 3       — сколько сделок максимум за текущий час
- *   статус        — текущие настройки + что происходит сейчас
+ *   цена 0.97       — нижняя цена входа
+ *   цена_макс 0.98  — верхняя цена входа (потолок коридора)
+ *   тейк 0.99       — цена выхода в плюс
+ *   стоп 0.90       — цена аварийного выхода в минус (стоп-лосс)
+ *   окно 60         — сколько секунд до закрытия окна разрешён вход
+ *   квота 3         — сколько сделок максимум за текущий час
+ *   статус          — текущие настройки + что происходит сейчас
  *
  * DRY_RUN=true по умолчанию (FASTFLIP_DRY_RUN=false для реальных денег).
  * В DRY_RUN бот полностью симулирует сделку (вход → ожидание тейка,
@@ -104,8 +115,22 @@ const TIMEFRAMES_TO_DISCOVER = [{ suffixes: ["up-or-down-5m"], minutes: TARGET_W
 const HOUR_MS = 60 * 60 * 1000;
 
 // Раз в столько пересканируем список активных рынков (только когда нет
-// открытой позиции и не идёт попытка входа — см. refreshMarkets).
+// открытой позиции, не идёт попытка входа И ни один отслеживаемый
+// рынок не в критическом окне — см. refreshMarkets / hasCriticalMarket).
 const MARKET_REFRESH_MS = 15 * 1000;
+
+// ВАЖНО: пересоздание PriceWatcher (refreshMarkets) полностью рвёт
+// текущее WebSocket-соединение и поднимает новое — на время
+// переподключения бот НЕ ВИДИТ никаких обновлений цены вообще. Если
+// это происходит ровно в момент, когда цена подходит к entryPrice —
+// вход будет пропущен молча, без единой ошибки в логах.
+//
+// Поэтому: если хотя бы один из уже отслеживаемых рынков находится
+// ближе, чем entryWindowSec + этот буфер, к своему закрытию — вообще
+// НЕ трогаем вотчер в этом цикле рефреша, даже если список токенов
+// формально поменялся. Лучше пропустить один цикл дискавери новых
+// рынков, чем оборвать соединение прямо перед потенциальным входом.
+const REFRESH_SAFETY_BUFFER_SEC = 30;
 
 // На сколько вперёд видим рынок, чтобы начать за ним следить.
 function observeWindowMs(windowMinutes: number): number {
@@ -123,15 +148,9 @@ const MIN_PROFIT_MARGIN = Number(process.env.FASTFLIP_MIN_PROFIT_MARGIN ?? "0.00
 
 // Если реальная цена покупки оказалась НАМНОГО ниже ожидаемой (entryPrice)
 // — значит цена рухнула ПРЯМО ПОКА ордер летел до биржи (рынок начал
-// резкий разворот в тот же момент). Это больше не "почти гарантированная"
-// позиция по 0.98, а фактически монетка на исход. В этом случае сразу
-// пробуем аварийно продать обратно вместо того, чтобы слепо держать до
-// резолва — см. executeMarketEntry/emergencyExit.
-//
-// Это ОТДЕЛЬНАЯ механика от стоп-лосса (settings.slPrice): эта проверка
-// смотрит только на момент исполнения ПОКУПКИ (один раз), стоп-лосс же
-// следит за ценой постоянно, пока позиция открыта, и может сработать в
-// любой момент — в том числе спустя минуты после входа.
+// резкий разворот в тот же момент). В этом случае сразу пробуем
+// аварийно продать обратно вместо того, чтобы слепо держать до резолва
+// — см. executeMarketEntry/emergencyExit.
 const BAD_FILL_TOLERANCE = Number(process.env.FASTFLIP_BAD_FILL_TOLERANCE ?? "0.02");
 
 // После закрытия окна ждём чуть-чуть (на случай гонки с последним тиком
@@ -148,14 +167,20 @@ const GAMMA_HOST = "https://gamma-api.polymarket.com";
 
 // ─── Настройки, которые можно менять на лету через Telegram ───
 const settings = {
-  entryPrice: Number(process.env.FASTFLIP_ENTRY_PRICE ?? "0.98"),
+  // Нижняя граница коридора входа.
+  entryPrice: Number(process.env.FASTFLIP_ENTRY_PRICE ?? "0.97"),
+  // ВЕРХНЯЯ граница коридора входа. Если цена уже выше — сетап
+  // считается "проехавшим", вход не совершается. Это защита от того,
+  // чтобы купить слишком дорого, если цена одним тиком перескочила
+  // высоко (раньше такого потолка не было вообще).
+  maxEntryPrice: Number(process.env.FASTFLIP_MAX_ENTRY_PRICE ?? "0.98"),
   tpPrice: Number(process.env.FASTFLIP_TP_PRICE ?? "0.99"),
   // Стоп-лосс: если цена после входа падает ДО этого уровня ИЛИ НИЖЕ —
   // бот немедленно пытается выйти по рынку, не дожидаясь тейка или
-  // резолва. Поставь 0, чтобы фактически отключить стоп (цена акции
-  // Polymarket никогда не бывает ≤0, так что сработать не сможет).
+  // резолва. Поставь 0, чтобы фактически отключить стоп.
   slPrice: Number(process.env.FASTFLIP_SL_PRICE ?? "0.90"),
-  entryWindowSec: Number(process.env.FASTFLIP_ENTRY_WINDOW_SEC ?? "30"),
+  // Сколько секунд до закрытия текущей 5-минутки ещё разрешён вход.
+  entryWindowSec: Number(process.env.FASTFLIP_ENTRY_WINDOW_SEC ?? "60"),
   // Большое число по умолчанию = фактически без ограничения, пока не
   // задано явно через env или команду "квота N".
   quotaPerHour: Math.max(1, Number(process.env.FASTFLIP_QUOTA_PER_HOUR ?? "999")),
@@ -258,8 +283,8 @@ class FastFlipMarketBot {
   getStatus(): string {
     const watchedMarkets = this.tokenIndex.size / 2;
     return (
-      `Режим: рыночные ордера (FOK), BTC, без выбора цели заранее\n` +
-      `Цена входа: ${settings.entryPrice} | Тейк: ${settings.tpPrice} | Стоп: ${settings.slPrice} | Окно входа: последние ${settings.entryWindowSec}с\n` +
+      `Режим: рыночные ордера (FOK), BTC, коридор входа\n` +
+      `Вход: ${settings.entryPrice}–${settings.maxEntryPrice} | Тейк: ${settings.tpPrice} | Стоп: ${settings.slPrice} | Окно входа: последние ${settings.entryWindowSec}с\n` +
       `Квота: ${this.tradesThisHour}/${settings.quotaPerHour} сделок в этом часе\n` +
       `Сейчас отслеживается активных 5-мин рынков: ${watchedMarkets}\n` +
       `Всего сделок с запуска: ${this.tradesTotal}\n` +
@@ -278,13 +303,31 @@ class FastFlipMarketBot {
   }
 
   /**
+   * true, если хоть один из СЕЙЧАС отслеживаемых рынков уже настолько
+   * близко к закрытию, что в любую секунду может сложиться сетап входа
+   * (или уже складывается). Используется, чтобы НЕ пересоздавать
+   * WebSocket-подписку в этот момент — см. REFRESH_SAFETY_BUFFER_SEC.
+   */
+  private hasCriticalMarket(): boolean {
+    const now = Date.now();
+    const criticalMs = (settings.entryWindowSec + REFRESH_SAFETY_BUFFER_SEC) * 1000;
+    for (const info of this.tokenIndex.values()) {
+      const msToClose = info.market.closeTimeMs - now;
+      if (msToClose >= 0 && msToClose <= criticalMs) return true;
+    }
+    return false;
+  }
+
+  /**
    * Пересканирует список активных BTC 5-минутных рынков и обновляет
-   * подписку PriceWatcher. Пока открыта позиция или идёт попытка входа —
-   * НЕ трогаем существующую подписку (там уже есть нужный токен, ему
-   * ничего не мешает продолжать присылать тики).
+   * подписку PriceWatcher. Пока открыта позиция, идёт попытка входа,
+   * ИЛИ любой из уже отслеживаемых рынков в критическом окне (см.
+   * hasCriticalMarket) — НЕ трогаем существующую подписку вообще,
+   * чтобы не оборвать соединение в момент, когда цена может как раз
+   * пересекать коридор входа.
    */
   async refreshMarkets(): Promise<void> {
-    if (this.openPosition || this.attemptInProgress) return;
+    if (this.openPosition || this.attemptInProgress || this.hasCriticalMarket()) return;
 
     let allMarkets: CryptoUpDownMarket[];
     try {
@@ -354,7 +397,12 @@ class FastFlipMarketBot {
     // закрытием ИМЕННО ЭТОЙ пятиминутки.
     if (secToClose > settings.entryWindowSec || secToClose < 0) return;
 
+    // Вход разрешён ТОЛЬКО если цена внутри коридора [entryPrice,
+    // maxEntryPrice]. Ниже коридора — сетап ещё не сложился, ждём.
+    // Выше коридора — цена уже "проехала" точку входа, слишком дорого
+    // покупать, пропускаем этот сетап (не гонимся за ценой).
     if (price < settings.entryPrice) return;
+    if (price > settings.maxEntryPrice) return;
 
     this.attemptInProgress = true;
     const tokenId = side === "Up" ? market.upTokenId : market.downTokenId;
@@ -363,16 +411,13 @@ class FastFlipMarketBot {
 
   /**
    * Вызывается на каждый тик цены, пока позиция открыта. Порядок
-   * проверок важен: СТОП проверяется ПЕРВЫМ, до тейка — если цена
-   * одновременно и ниже стопа, и (гипотетически) выше тейка (не может
-   * случиться при нормальных настройках, но на всякий случай порядок
-   * такой), стоп важнее, потому что это защита от убытка.
+   * проверок важен: СТОП проверяется ПЕРВЫМ, до тейка.
    */
   private maybeTriggerExit(pos: OpenPosition, market: CryptoUpDownMarket, price: number): void {
     // Тик пришёл не по тому рынку, где у нас открыта позиция — игнор.
     if (market.eventSlug !== pos.market.eventSlug) return;
 
-    // Обновляем минimal цену за время жизни позиции — независимо от
+    // Обновляем минимальную цену за время жизни позиции — независимо от
     // того, сработает ли выход сейчас. Это и есть просадка сделки.
     if (price < pos.minPriceSinceEntry) {
       pos.minPriceSinceEntry = price;
@@ -391,9 +436,7 @@ class FastFlipMarketBot {
 
     // Реальная цель выхода в плюс: не просто "цена дошла до номинального
     // тейка", а "цена дошла до тейка И это даёт реальную прибыль сверх
-    // того, что мы заплатили при покупке". Если проскальзывание на
-    // входе уже съело весь запас (купили по цене ≥ тейка) — ждём
-    // тейка/стопа/резолва вместо бессмысленного выхода в ноль/убыток.
+    // того, что мы заплатили при покупке".
     const effectiveExitPrice = Math.max(settings.tpPrice, pos.buyPrice + MIN_PROFIT_MARGIN);
 
     if (price < effectiveExitPrice) return;
@@ -407,21 +450,13 @@ class FastFlipMarketBot {
     tokenId: string;
     side: "BUY" | "SELL";
     size: number;
-    nominalPrice: number; // 0.98 при входе / 0.99 при тейке / цена на момент срабатывания при стопе — используется методом только как fallback, если стакан вдруг пуст
+    nominalPrice: number;
   }): Promise<MarketOrderResult> {
     if (DRY_RUN || !this.clob) {
-      // В DRY_RUN считаем, что рыночный ордер исполнился мгновенно и
-      // целиком по запрошенной (номинальной) цене — без реального похода
-      // на биржу.
       return { orderId: null, filledSize: params.size, avgPrice: params.nominalPrice };
     }
 
     try {
-      // Это тот самый "market-по-факту" метод — несмотря на название
-      // placeLimitOrder, он берёт свежий стакан ПРЯМО СЕЙЧАС и целится в
-      // реальную лучшую цену (+буфер MARKET_ORDER_SLIPPAGE_PCT), с жёстким
-      // потолком/полом 0.999/0.001. Это FAK — исполняется сразу, что
-      // может, остальное снимается, ничего не висит в стакане.
       const resp = await this.clob.placeLimitOrder({
         tokenId: params.tokenId,
         side: params.side === "BUY" ? Side.BUY : Side.SELL,
@@ -430,27 +465,16 @@ class FastFlipMarketBot {
         maxSlippagePct: MARKET_ORDER_SLIPPAGE_PCT,
       });
 
-      // ⚠️ making/taking семантика биржи — "сколько ОТДАЛИ" / "сколько
-      // ПОЛУЧИЛИ". При ПОКУПКЕ ты отдаёшь доллары и получаешь акции — то
-      // есть для BUY поле resp.filledSize (=makingAmount) на самом деле
-      // содержит ДОЛЛАРЫ, а resp.filledUsdc (=takingAmount) содержит
-      // АКЦИИ — противоположно тому, что предполагают их названия. Для
-      // ПРОДАЖИ всё совпадает с названиями полей правильно, поэтому
-      // меняем местами только для BUY.
       const rawA = Number(resp.filledSize ?? 0);
       const rawB = Number(resp.filledUsdc ?? 0);
 
       const filledShares = params.side === "BUY" ? rawB : rawA;
       const filledDollars = params.side === "BUY" ? rawA : rawB;
 
-      // Средняя цена исполнения = сколько USDC ушло / сколько акций закрылось.
       const avgPrice = filledShares > 0 ? filledDollars / filledShares : 0;
 
       return { orderId: null, filledSize: filledShares, avgPrice };
     } catch (err) {
-      // placeLimitOrder кидает исключение, если ордер не исполнился
-      // (нет встречной ликвидности для FAK) или был отклонён — это
-      // ожидаемая ситуация, не баг, просто считаем как "не вошли/не вышли".
       console.log(`   ⏳ Рыночный ордер (${params.side}) не исполнился: ${(err as Error).message}`);
       return { orderId: null, filledSize: 0, avgPrice: 0 };
     }
@@ -467,8 +491,8 @@ class FastFlipMarketBot {
 
     console.log(
       `\n⚡ ВХОД ПО РЫНКУ: [BTC / 5мин] "${market.title}"\n` +
-        `   Сторона: ${side} | Цена сейчас: ~${priceAtEntry} | До закрытия: ${secToClose.toFixed(1)}с\n` +
-        `   Покупаем: ${size.toFixed(2)} акций рыночным ордером (цель ~${settings.entryPrice}, ~$${TRADE_SIZE_USD})`,
+        `   Сторона: ${side} | Цена сейчас: ~${priceAtEntry} (коридор ${settings.entryPrice}-${settings.maxEntryPrice}) | До закрытия: ${secToClose.toFixed(1)}с\n` +
+        `   Покупаем: ${size.toFixed(2)} акций рыночным ордером (~$${TRADE_SIZE_USD})`,
     );
 
     const result = await this.placeMarketOrder({ tokenId, side: "BUY", size, nominalPrice: settings.entryPrice });
@@ -495,17 +519,13 @@ class FastFlipMarketBot {
     this.openPosition = pos;
 
     // ── Проверка на аномальное исполнение: купили НАМНОГО ниже, чем
-    // ожидали — значит цена рухнула прямо в момент исполнения ордера.
-    // Это больше не "почти гарантированная" позиция, а фактически
-    // монетка. Сразу пробуем аварийно выйти, не дожидаясь резолва.
-    // (Отдельно от стоп-лосса ниже — этот кейс ловит именно момент
-    // покупки, стоп-лосс же следит за ценой постоянно после входа.)
+    // ожидали — сразу пробуем аварийно выйти, не дожидаясь резолва.
     const isBadFill = pos.buyPrice < settings.entryPrice - BAD_FILL_TOLERANCE;
 
     if (isBadFill) {
       if (this.telegram) {
         await this.telegram.send(
-          `🚨 Цена рухнула ПРЯМО во время исполнения ордера: купили по ${result.avgPrice.toFixed(3)} вместо ожидаемых ~${settings.entryPrice} — рынок начал резкий разворот. Это больше не почти-гарантированная позиция. Пробую аварийно продать обратно прямо сейчас.`,
+          `🚨 Цена рухнула ПРЯМО во время исполнения ордера: купили по ${result.avgPrice.toFixed(3)} вместо ожидаемых ~${settings.entryPrice} — рынок начал резкий разворот. Пробую аварийно продать обратно прямо сейчас.`,
         );
       }
 
@@ -513,19 +533,12 @@ class FastFlipMarketBot {
       return;
     }
 
-    // Если цена покупки уже на уровне стопа или ниже (например, стоп
-    // стоит слишком близко к тейку, либо BAD_FILL_TOLERANCE не поймал
-    // это) — сразу шлём предупреждение, чтобы это не осталось
-    // незамеченным до следующего тика.
     if (settings.slPrice > 0 && pos.buyPrice <= settings.slPrice) {
       console.log(
         `   ⚠️ Цена покупки (${pos.buyPrice.toFixed(3)}) уже на уровне стопа (${settings.slPrice}) или ниже — выход сработает на следующем тике.`,
       );
     }
 
-    // Если проскальзывание на входе уже съело весь запас прибыли —
-    // предупреждаем прямо сейчас, чтобы было видно в моменте, а не
-    // только постфактум по цифрам в истории Polymarket.
     const effectiveExitPrice = Math.max(settings.tpPrice, pos.buyPrice + MIN_PROFIT_MARGIN);
     const slippageAteMargin = effectiveExitPrice > settings.tpPrice + 0.0001;
 
@@ -539,8 +552,6 @@ class FastFlipMarketBot {
       );
     }
 
-    // Если ни тейк, ни стоп не сработают до закрытия окна — идём
-    // резолвить через Gamma API.
     const msUntilCloseCheck = Math.max(0, market.closeTimeMs - Date.now() + CLOSE_FALLBACK_BUFFER_MS);
     pos.resolveFallbackTimer = setTimeout(() => {
       if (pos.closed) return;
@@ -549,15 +560,6 @@ class FastFlipMarketBot {
     }, msUntilCloseCheck);
   }
 
-  /**
-   * Аварийный выход — вызывается, когда фактическая цена покупки
-   * оказалась намного ниже ожидаемой (см. BAD_FILL_TOLERANCE). Пробует
-   * СРАЗУ продать обратно по рынку, что бы ни было в стакане, вместо
-   * того чтобы слепо держать до резолва позицию, которая перестала
-   * быть "почти гарантированной". Если продать сразу не получилось —
-   * всё равно ставим обычный резервный таймер на резолв (стоп-лосс на
-   * последующих тиках тоже продолжит пытаться, см. maybeTriggerExit).
-   */
   private async emergencyExit(pos: OpenPosition): Promise<void> {
     console.log(
       `\n🚨 АВАРИЙНЫЙ ВЫХОД: [BTC / 5мин] "${pos.market.title}" — цена рухнула во время исполнения, пробую продать немедленно.`,
@@ -581,9 +583,6 @@ class FastFlipMarketBot {
 
     console.log(`   ⚠️ Аварийная продажа не прошла — держим до стопа/резолва как обычно.`);
 
-    // Не получилось продать сразу — ставим обычный резервный таймер на
-    // резолв, как в штатном сценарии. Стоп-лосс продолжит пытаться на
-    // каждом следующем тике цены через maybeTriggerExit.
     const msUntilCloseCheck = Math.max(0, pos.market.closeTimeMs - Date.now() + CLOSE_FALLBACK_BUFFER_MS);
     pos.resolveFallbackTimer = setTimeout(() => {
       if (pos.closed) return;
@@ -592,7 +591,7 @@ class FastFlipMarketBot {
     }, msUntilCloseCheck);
   }
 
-  /** Обычный выход в плюс — цена дошла до тейка (с поправкой на реальную цену покупки). */
+  /** Обычный выход в плюс — цена дошла до тейка (с поправкой на реальную цену покупки). Срабатывает мгновенно на том же тике, где цена достигла цели. */
   private async executeMarketExit(pos: OpenPosition, priceAtExit: number): Promise<void> {
     console.log(
       `\n🎯 ВЫХОД ПО РЫНКУ (ТЕЙК): [BTC / 5мин] "${pos.market.title}"\n` +
@@ -607,10 +606,6 @@ class FastFlipMarketBot {
     });
 
     if (result.filledSize < pos.filledSize - 0.001) {
-      // Не удалось продать целиком по рынку (цена успела уйти обратно
-      // ниже тейка раньше, чем ордер долетел). Оставляем позицию
-      // открытой — попробуем снова на следующем тике цены (сработает
-      // либо тейк, либо стоп), либо fallback-резолв при закрытии окна.
       console.log(
         `   ⚠️ Рыночная продажа не прошла целиком (${result.filledSize.toFixed(2)}/${pos.filledSize.toFixed(2)}). Пробую снова при следующем тике.`,
       );
@@ -629,15 +624,6 @@ class FastFlipMarketBot {
     this.finishTrade(pos);
   }
 
-  /**
-   * СТОП-ЛОСС — вызывается, когда цена после входа упала до
-   * settings.slPrice или ниже. Пытается продать НЕМЕДЛЕННО по рынку,
-   * по любой доступной цене (не ждёт возврата к тейку). Если продать
-   * целиком не получилось с первой попытки — снимает блокировку, и
-   * maybeTriggerExit попробует снова на следующем тике цены (стоп —
-   * это не разовая попытка, а постоянно активная защита, пока позиция
-   * открыта).
-   */
   private async executeStopLoss(pos: OpenPosition, priceAtExit: number): Promise<void> {
     console.log(
       `\n🛑 СТОП-ЛОСС: [BTC / 5мин] "${pos.market.title}"\n` +
@@ -653,9 +639,6 @@ class FastFlipMarketBot {
     });
 
     if (result.filledSize < pos.filledSize - 0.001) {
-      // Не продалось целиком (например, ликвидности не хватило на весь
-      // размер). Не закрываем позицию — пробуем снова на следующем тике,
-      // цена, скорее всего, всё ещё ниже или около стопа.
       console.log(
         `   ⚠️ Стоп не исполнился целиком (${result.filledSize.toFixed(2)}/${pos.filledSize.toFixed(2)}). Пробую снова при следующем тике.`,
       );
@@ -670,8 +653,6 @@ class FastFlipMarketBot {
 
     pos.closed = true;
     const profit = result.filledSize * (result.avgPrice - pos.buyPrice);
-    // По стопу почти всегда LOSS, но если каким-то чудом avgPrice
-    // оказалась выше buyPrice — честно покажем WIN.
     const outcome: "WIN" | "LOSS" = profit >= 0 ? "WIN" : "LOSS";
     await this.notifyClose(pos, "стоп-лосс", outcome, profit);
     this.finishTrade(pos);
@@ -711,7 +692,6 @@ class FastFlipMarketBot {
     setTimeout(check, RESOLVE_RETRY_MS);
   }
 
-  /** Вызывается после любого способа закрытия сделки — обнуляет позицию, засчитывает в квоту часа и возвращается к мониторингу всех активных рынков. */
   private finishTrade(pos: OpenPosition): void {
     if (pos.resolveFallbackTimer) {
       clearTimeout(pos.resolveFallbackTimer);
@@ -728,7 +708,6 @@ class FastFlipMarketBot {
       `✅ Сделка завершена (всего с запуска: ${this.tradesTotal}, в этом часе: ${this.tradesThisHour}/${settings.quotaPerHour}). Возвращаюсь к мониторингу всех активных рынков.`,
     );
 
-    // Сразу пересканируем рынки — не ждём следующего тика таймера.
     this.refreshMarkets().catch((err) => console.error("[refresh] ошибка:", (err as Error).message));
   }
 
@@ -740,8 +719,6 @@ class FastFlipMarketBot {
   ): Promise<void> {
     const sign = outcome === "WIN" ? "✅ ПРИБЫЛЬ" : "🔻 УБЫТОК";
 
-    // Максимальная просадка сделки: насколько цена проваливалась вниз
-    // от цены покупки за всё время, пока позиция была открыта.
     const drawdown = Math.max(0, pos.buyPrice - pos.minPriceSinceEntry);
     const drawdownPct = pos.buyPrice > 0 ? (drawdown / pos.buyPrice) * 100 : 0;
 
@@ -847,10 +824,19 @@ async function pollTelegramCommands(
           continue;
         }
 
+        // "цена 0.97" — нижняя граница коридора входа.
         const priceMatch = text.match(/^цена\s+([\d.]+)$/);
         if (priceMatch) {
           settings.entryPrice = Number(priceMatch[1]);
-          await telegram?.send(`Цена входа установлена: ${settings.entryPrice}`);
+          await telegram?.send(`Нижняя цена входа установлена: ${settings.entryPrice}`);
+          continue;
+        }
+
+        // "цена_макс 0.98" — верхняя граница коридора входа.
+        const maxPriceMatch = text.match(/^цена_макс\s+([\d.]+)$/);
+        if (maxPriceMatch) {
+          settings.maxEntryPrice = Number(maxPriceMatch[1]);
+          await telegram?.send(`Верхняя цена входа установлена: ${settings.maxEntryPrice}`);
           continue;
         }
 
@@ -894,7 +880,7 @@ async function pollTelegramCommands(
 async function main() {
   console.log(`Режим: ${DRY_RUN ? "DRY_RUN (без реальных сделок, полная симуляция)" : "⚠️  LIVE — РЕАЛЬНЫЕ ДЕНЬГИ"}`);
   console.log(
-    `Актив: BTC only | Вход: ${settings.entryPrice} (рынком, окно ${settings.entryWindowSec}с) | ` +
+    `Актив: BTC only | Вход: ${settings.entryPrice}-${settings.maxEntryPrice} (рынком, окно ${settings.entryWindowSec}с) | ` +
       `Тейк: ${settings.tpPrice} (рынком) | Стоп: ${settings.slPrice} (рынком) | Квота: ${settings.quotaPerHour}/час`,
   );
 
@@ -928,7 +914,7 @@ async function main() {
   bot.start();
 
   if (telegram && process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
-    console.log("Telegram-команды включены: цена X / тейк X / стоп X / окно X / квота X / статус");
+    console.log("Telegram-команды включены: цена X / цена_макс X / тейк X / стоп X / окно X / квота X / статус");
     pollTelegramCommands(process.env.TELEGRAM_BOT_TOKEN, process.env.TELEGRAM_CHAT_ID, telegram, bot);
   }
 
