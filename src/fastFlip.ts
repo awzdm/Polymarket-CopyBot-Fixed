@@ -81,8 +81,9 @@ const MARKET_ORDER_SLIPPAGE_PCT = Number(process.env.FASTFLIP_SLIPPAGE_PCT ?? "0
 // держать до резолва — см. executeMarketEntry/emergencyExit.
 const BAD_FILL_TOLERANCE = Number(process.env.FASTFLIP_BAD_FILL_TOLERANCE ?? "0.02");
 
-// Допуск на овершут реальной цены исполнения покупки сверх maxEntryPrice
-// (тонкий стакан в последние секунды перед закрытием окна).
+// v6.1: допуск на овершут ОТКЛЮЧЁН (см. executeMarketEntry) — эта
+// константа больше нигде не используется, оставлена только чтобы не
+// ломать env-переменную, если она у тебя где-то задана.
 const MAX_ENTRY_OVERSHOOT_TOLERANCE = Number(process.env.FASTFLIP_MAX_ENTRY_OVERSHOOT_TOLERANCE ?? "0.008");
 
 // После закрытия окна ждём чуть-чуть (на случай гонки с последним тиком
@@ -250,8 +251,7 @@ class FastFlipMarketBot {
     const watchedMarkets = this.tokenIndex.size / 2;
     return (
       `Режим: рыночный вход, БЕЗ продажи в плюс — держим до резолва, BTC\n` +
-      `Вход: ${settings.entryPrice}–${settings.maxEntryPrice} | Стоп: ${settings.slPrice} | Окно входа: последние ${settings.entryWindowSec}с\n` +
-      `Допуск на овершут входа: ${MAX_ENTRY_OVERSHOOT_TOLERANCE}\n` +
+      `Вход: ${settings.entryPrice}–${settings.maxEntryPrice} (потолок не жёсткий, овершут не триггерит аварийный выход) | Стоп: ${settings.slPrice} | Окно входа: последние ${settings.entryWindowSec}с\n` +
       `Квота: ${this.tradesThisHour}/${settings.quotaPerHour} сделок в этом часе\n` +
       `Сейчас отслеживается активных 5-мин рынков: ${watchedMarkets}\n` +
       `Всего сделок с запуска: ${this.tradesTotal}\n` +
@@ -457,13 +457,17 @@ class FastFlipMarketBot {
     };
     this.openPosition = pos;
 
+    // v6.1: проверка isBadFillHigh (аварийная продажа, если реальная
+    // цена покупки чуть выше maxEntryPrice) ПОЛНОСТЬЮ ОТКЛЮЧЕНА по
+    // просьбе — овершут больше никогда не триггерит аварийный выход.
+    // Осталась только проверка на аномально НИЗКУЮ цену покупки
+    // (isBadFillLow) — она ловит случай, когда цена резко рухнула
+    // прямо во время исполнения ордера и купили сильно дешевле
+    // ожидаемого; это не про овершут потолка, а про обвал в моменте.
     const isBadFillLow = pos.buyPrice < settings.entryPrice - BAD_FILL_TOLERANCE;
-    const isBadFillHigh = pos.buyPrice > settings.maxEntryPrice + MAX_ENTRY_OVERSHOOT_TOLERANCE;
 
-    if (isBadFillLow || isBadFillHigh) {
-      const reason = isBadFillHigh
-        ? `купили ДОРОЖЕ потолка коридора: ${pos.buyPrice.toFixed(5)} (потолок ${settings.maxEntryPrice} + допуск ${MAX_ENTRY_OVERSHOOT_TOLERANCE} = ${(settings.maxEntryPrice + MAX_ENTRY_OVERSHOOT_TOLERANCE).toFixed(5)}, превышение на ${(pos.buyPrice - settings.maxEntryPrice - MAX_ENTRY_OVERSHOOT_TOLERANCE).toFixed(5)})`
-        : `цена рухнула ПРЯМО во время исполнения ордера: купили по ${pos.buyPrice.toFixed(5)} вместо ожидаемых ~${priceAtEntry.toFixed(5)} (допуск ${BAD_FILL_TOLERANCE})`;
+    if (isBadFillLow) {
+      const reason = `цена рухнула ПРЯМО во время исполнения ордера: купили по ${pos.buyPrice.toFixed(5)} вместо ожидаемых ~${priceAtEntry.toFixed(5)} (допуск ${BAD_FILL_TOLERANCE})`;
 
       console.log(`   🚨 Плохой филл на входе: ${reason}. Пробую аварийно продать обратно прямо сейчас.`);
       if (this.telegram) {
@@ -783,9 +787,8 @@ async function pollTelegramCommands(
 async function main() {
   console.log(`Режим: ${DRY_RUN ? "DRY_RUN (без реальных сделок, полная симуляция)" : "⚠️  LIVE — РЕАЛЬНЫЕ ДЕНЬГИ"}`);
   console.log(
-    `Актив: BTC only | Вход: ${settings.entryPrice}-${settings.maxEntryPrice} (рынком, окно ${settings.entryWindowSec}с) | ` +
-      `Тейк: ОТКЛЮЧЁН — держим до резолва | Стоп: ${settings.slPrice} (рынком) | Квота: ${settings.quotaPerHour}/час | ` +
-      `Допуск овершута входа: ${MAX_ENTRY_OVERSHOOT_TOLERANCE}`,
+    `Актив: BTC only | Вход: ${settings.entryPrice}-${settings.maxEntryPrice} (рынком, окно ${settings.entryWindowSec}с, овершут потолка НЕ триггерит аварийный выход) | ` +
+      `Тейк: ОТКЛЮЧЁН — держим до резолва | Стоп: ${settings.slPrice} (рынком) | Квота: ${settings.quotaPerHour}/час`,
   );
 
   let clob: ClobService | null = null;
