@@ -32,6 +32,8 @@
  *   - bounceCount       — сколько раз после входа цена уходила ниже
  *                         entryLevel и затем возвращалась обратно ≥ entryLevel.
  *   - coin              — BTC или ETH.
+ *   - windowMinutes     — таймфрейм рынка (5, 15, 60, 240), нужен чтобы
+ *                         резать отчёт по таймфреймам отдельно (см. ниже).
  *
  * Раз в REPORT_INTERVAL_MS шлёт промежуточную сводку в Telegram (если
  * настроен), и финальную — при остановке (Ctrl+C).
@@ -40,6 +42,14 @@
  * исследователя — запускается отдельным процессом, ничего не
  * покупает, только смотрит. Использует свой собственный файл состояния
  * (research-state-btc-eth.json), чтобы не конфликтовать с другими версиями.
+ *
+ * ВАЖНО (v4): отчёт теперь режется по таймфреймам. Раньше внутри одной
+ * стратегии все сделки по 5м/15м/1ч/4ч суммировались в одну кучу — из-за
+ * этого нельзя было понять, на каком именно таймфрейме стратегия
+ * работает лучше. Теперь для каждой стратегии строится отдельный блок
+ * на каждый таймфрейм, и все метрики (винрейт, просадка, крах,
+ * микроструктура, время до закрытия, час UTC) считаются только внутри
+ * своего таймфрейма.
  */
 
 import "dotenv/config";
@@ -93,6 +103,22 @@ const TARGET_WINDOW_MINUTES_LIST = TIMEFRAMES_TO_DISCOVER.map(
   (t) => t.minutes,
 );
 
+// Человекочитаемая подпись таймфрейма для отчёта.
+function timeframeLabel(windowMinutes: number): string {
+  switch (windowMinutes) {
+    case 5:
+      return "5м";
+    case 15:
+      return "15м";
+    case 60:
+      return "1ч";
+    case 240:
+      return "4ч";
+    default:
+      return `${windowMinutes}мин`;
+  }
+}
+
 function isIncludedCoin(coin: string): boolean {
   const upper = coin.toUpperCase();
 
@@ -140,6 +166,7 @@ interface TradeEvent {
   eventSlug: string;
   coin: string;
   side: "Up" | "Down";
+  windowMinutes: number;
   entryTimestamp: number;
   secToCloseAtEntry: number;
   minPriceSinceEntry: number;
@@ -308,6 +335,20 @@ class ResearchLogger {
 
       const loadedTrades: TradeEvent[] =
         data.tradesList ?? [];
+
+      // Бэкфилл для старых записей состояния, сохранённых до того,
+      // как появилось поле windowMinutes — иначе они не попадут
+      // ни в один блок отчёта. Ставим 0 = "неизвестный таймфрейм",
+      // такие сделки просто не будут учитываться в разбивке по
+      // таймфреймам, но не потеряются физически.
+      for (const t of loadedTrades) {
+        if (
+          (t as { windowMinutes?: number })
+            .windowMinutes === undefined
+        ) {
+          (t as { windowMinutes?: number }).windowMinutes = 0;
+        }
+      }
 
       this.tradesList = loadedTrades;
 
@@ -522,6 +563,8 @@ class ResearchLogger {
         coin: market.coin,
         side,
 
+        windowMinutes: market.windowMinutes,
+
         entryTimestamp: now,
 
         secToCloseAtEntry: secToClose,
@@ -681,14 +724,34 @@ class ResearchLogger {
     }
   }
 
-  private buildStrategyReport(
+  /**
+   * Строит блок отчёта для одной стратегии на ОДНОМ конкретном
+   * таймфрейме (windowMinutes). Раньше все таймфреймы одной стратегии
+   * суммировались в один блок — теперь каждый таймфрейм полностью
+   * изолирован: винрейт, просадка, крах, микроструктура, тайминги —
+   * всё считается только на сделках именно этого таймфрейма.
+   */
+  private buildStrategyTimeframeReport(
     spec: StrategySpec,
+    windowMinutes: number,
   ): string[] {
     const lines: string[] = [];
 
     const all = this.tradesList.filter(
-      (t) => t.strategy === spec.name,
+      (t) =>
+        t.strategy === spec.name &&
+        t.windowMinutes === windowMinutes,
     );
+
+    lines.push(
+      `<b>── ${spec.name} | ${timeframeLabel(windowMinutes)} ──</b>`,
+    );
+
+    if (all.length === 0) {
+      lines.push("  сделок пока нет");
+      lines.push("");
+      return lines;
+    }
 
     const determined = all.filter(
       (t) => t.determined,
@@ -703,10 +766,6 @@ class ResearchLogger {
 
     const losses = determined.filter(
       (t) => !t.won,
-    );
-
-    lines.push(
-      `<b>═══ ${spec.name} ═══</b>`,
     );
 
     lines.push(
@@ -735,7 +794,7 @@ class ResearchLogger {
       );
     }
 
-    // Разбивка по монетам (BTC / ETH).
+    // Разбивка по монетам (BTC / ETH) внутри этого таймфрейма.
     if (determined.length > 0) {
       lines.push(
         `  <b>Win rate по монете</b>`,
@@ -1099,7 +1158,7 @@ class ResearchLogger {
     const lines: string[] = [];
 
     lines.push(
-      `<b>📊 Отчёт BTC/ETH — сравнение стратегий (v3, мультитаймфрейм)</b>`,
+      `<b>📊 Отчёт BTC/ETH — сравнение стратегий (v4, по таймфреймам отдельно)</b>`,
     );
 
     lines.push(
@@ -1110,8 +1169,19 @@ class ResearchLogger {
 
     for (const spec of STRATEGIES) {
       lines.push(
-        ...this.buildStrategyReport(spec),
+        `<b>═══════════ ${spec.name} ═══════════</b>`,
       );
+
+      lines.push("");
+
+      for (const tf of TIMEFRAMES_TO_DISCOVER) {
+        lines.push(
+          ...this.buildStrategyTimeframeReport(
+            spec,
+            tf.minutes,
+          ),
+        );
+      }
     }
 
     return lines.join("\n");
