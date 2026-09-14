@@ -1,16 +1,54 @@
 /**
- * "Быстрый флип" v6.2 — РЫНОЧНЫЕ ордера на ВХОД. НИКАКИХ ПРОДАЖ ДО
- * ОФИЦИАЛЬНОГО РЕЗОЛВА — ни тейка, ни стоп-лосса, ни аварийных выходов.
- * Купил → держишь до резолва рынка через Gamma API. Точка.
+ * "Быстрый флип" v6.3 — РЫНОЧНЫЕ ордера на ВХОД. Сразу после входа
+ * выставляется ЛИМИТНАЯ заявка на ВЫХОД по exitPrice (по умолчанию 0.99).
+ * Пока эта лимитка не исполнилась и рынок не зарезолвился — позиция
+ * считается открытой. Аварийных стопов и продаж по тику цены как не
+ * было, так и нет.
  *
- * v6.2 (относительно v6.0/v6.1): СТОП-ЛОСС ПОЛНОСТЬЮ УБРАН вместе с
- * emergencyExit/isBadFillLow. Причина: в реальных логах стоп срабатывал
- * от единичного аномального тика цены (например 0.97 → 0.03 за доли
- * секунды — комплементарная/шумовая цена), что не отражало реальный
- * рынок, и бот продавал позицию почти сразу в убыток. Раз риск ложных
- * срабатываний выше пользы от защиты — стоп убран целиком, без
- * возможности включить через settings/Telegram. Единственный путь
- * закрытия сделки теперь — resolveWinner() через официальный Gamma API.
+ * v6.3 (относительно v6.2): ДВЕ НОВЫЕ ВЕЩИ.
+ *
+ * 1) В начале каждого часа (и сразу при старте бота, если час уже идёт)
+ *    случайно выбирается N пятиминуток из 12 возможных в этом часе,
+ *    где N = квота сделок в час (quotaPerHour). Бот пытается входить
+ *    ТОЛЬКО в выбранные пятиминутки. Если в выбранной пятиминутке
+ *    условия входа так и не сложились (цена не дошла до коридора) —
+ *    просто ждём следующую ВЫБРАННУЮ пятиминутку, остальные (не
+ *    попавшие в выборку) полностью игнорируются.
+ *
+ * 2) Сразу как только рыночная покупка исполнилась, бот СРАЗУ выставляет
+ *    лимитную заявку на продажу (GTC) по settings.exitPrice (по
+ *    умолчанию 0.99) на весь объём позиции. Если выставить заявку не
+ *    получилось (ошибка биржи/сети) — бот повторяет попытку каждые
+ *    EXIT_ORDER_RETRY_MS, пока заявка не будет успешно выставлена.
+ *    Это НЕ рыночная продажа и не реакция на тик цены — это пассивная
+ *    лимитка, которая исполнится сама, только если рынок реально
+ *    дойдёт до этой цены. Поэтому проблема v6.1 (стоп срабатывал от
+ *    единичного шумового тика) сюда не относится.
+ *
+ *    ВАЖНО: bot.clob.placeLimitOrder() в этом файле изначально писался
+ *    под агрессивный "рыночный" вход (с maxSlippagePct, ожидание
+ *    немедленного/частичного исполнения). Для пассивной лимитки на
+ *    выход этот же метод вызывается с maxSlippagePct: 0 — то есть
+ *    ожидается, что он просто выставит GTC-ордер ровно по exitPrice.
+ *    Если в реальности ClobService.placeLimitOrder ведёт себя иначе
+ *    (например, всегда пытается исполниться немедленно и отменяет
+ *    остаток вместо того чтобы оставить его в стакане) — нужно
+ *    смотреть в clob.ts и либо добавить отдельный метод
+ *    placeRestingLimitOrder(...), либо передавать туда явный флаг
+ *    "GTC" / orderType. Я не видел содержимое clob.ts, поэтому это
+ *    единственное место, которое стоит перепроверить руками.
+ *
+ *    Также: если лимитка на выход исполнится ДО официального резолва
+ *    рынка, эта версия бота узнает об этом? — НЕТ. Бот не опрашивает
+ *    статус выставленной заявки и не проверяет, продалась ли позиция
+ *    раньше времени. Он всё равно дождётся закрытия окна и запросит
+ *    resolveWinner(), и посчитает профит так, как будто держал до
+ *    резолва (по buyPrice), даже если на самом деле уже продал по
+ *    exitPrice раньше. Отчёт в Telegram в этом случае будет неточным
+ *    (хотя реальные деньги на балансе будут в порядке — это только
+ *    вопрос корректности итогового сообщения/статистики). Если нужно,
+ *    это лечится отдельно — опросом DataApiClient.getPositions() на
+ *    предмет "позиция уже закрыта" перед вызовом resolveWinner().
  */
 
 import "dotenv/config";
@@ -29,6 +67,7 @@ const TRADE_SIZE_USD = Number(process.env.FASTFLIP_TRADE_SIZE_USD ?? "5");
 
 const COIN = "Bitcoin";
 const TARGET_WINDOW_MINUTES = 5;
+const WINDOWS_PER_HOUR = 60 / TARGET_WINDOW_MINUTES; // 12 пятиминуток в часе
 
 const TIMEFRAMES_TO_DISCOVER = [{ suffixes: ["up-or-down-5m"], minutes: TARGET_WINDOW_MINUTES }];
 
@@ -49,6 +88,8 @@ const RESOLVE_CHECK_DELAY_SEC = 180;
 const RESOLVE_RETRY_MS = 30 * 1000;
 const RESOLVE_GIVE_UP_MS = 30 * 60 * 1000;
 
+const EXIT_ORDER_RETRY_MS = 5 * 1000;
+
 const REDEEM_POLL_MS = 60 * 1000;
 const GAMMA_HOST = "https://gamma-api.polymarket.com";
 
@@ -58,6 +99,7 @@ const settings = {
   maxEntryPrice: Number(process.env.FASTFLIP_MAX_ENTRY_PRICE ?? "0.98"),
   entryWindowSec: Number(process.env.FASTFLIP_ENTRY_WINDOW_SEC ?? "60"),
   quotaPerHour: Math.max(1, Number(process.env.FASTFLIP_QUOTA_PER_HOUR ?? "999")),
+  exitPrice: Number(process.env.FASTFLIP_EXIT_PRICE ?? "0.99"),
 };
 
 interface TokenInfo {
@@ -74,6 +116,7 @@ interface OpenPosition {
   closed: boolean;
   minPriceSinceEntry: number;
   resolveFallbackTimer: NodeJS.Timeout | null;
+  exitOrderPlaced: boolean;
 }
 
 function buildTokenIndex(markets: CryptoUpDownMarket[]): Map<string, TokenInfo> {
@@ -83,6 +126,13 @@ function buildTokenIndex(markets: CryptoUpDownMarket[]): Map<string, TokenInfo> 
     idx.set(m.downTokenId, { market: m, side: "Down" });
   }
   return idx;
+}
+
+/** На какую пятиминутку внутри часа приходится ОТКРЫТИЕ этого рынка (0..11). */
+function windowIndexInHour(market: CryptoUpDownMarket): number {
+  const startMs = market.closeTimeMs - market.windowMinutes * 60 * 1000;
+  const hourStartMs = Math.floor(startMs / HOUR_MS) * HOUR_MS;
+  return Math.floor((startMs - hourStartMs) / (TARGET_WINDOW_MINUTES * 60 * 1000));
 }
 
 /** Официальный резолв рынка через Gamma API. Это ЕДИНСТВЕННЫЙ способ закрыть сделку. */
@@ -167,6 +217,10 @@ class FastFlipMarketBot {
   private currentHourKey: number | null = null;
   private tradesThisHour = 0;
 
+  // v6.3: набор выбранных на этот час пятиминуток (индексы 0..11)
+  private windowsHourKey: number | null = null;
+  private selectedWindows: Set<number> = new Set();
+
   constructor(
     private clob: ClobService | null,
     private telegram: ReturnType<typeof createTelegramNotifier>,
@@ -174,15 +228,21 @@ class FastFlipMarketBot {
 
   getStatus(): string {
     const watchedMarkets = this.tokenIndex.size / 2;
+    const windowsLabel = [...this.selectedWindows]
+      .sort((a, b) => a - b)
+      .map((i) => `${String(i * TARGET_WINDOW_MINUTES).padStart(2, "0")}`)
+      .join(", ");
     return (
-      `Режим: рыночный вход, БЕЗ ДОСРОЧНЫХ ПРОДАЖ — держим ВСЕГДА до резолва, BTC\n` +
-      `Вход: ${settings.entryPrice}–${settings.maxEntryPrice} | Окно входа: последние ${settings.entryWindowSec}с\n` +
+      `Режим: рыночный вход, лимитка на выход по ${settings.exitPrice}, иначе держим до резолва, BTC\n` +
+      `Вход: ${settings.entryPrice}–${settings.maxEntryPrice} | Окно входа: последние ${settings.entryWindowSec}с | Выход: лимитка ${settings.exitPrice}\n` +
       `Квота: ${this.tradesThisHour}/${settings.quotaPerHour} сделок в этом часе\n` +
+      `Выбранные пятиминутки этого часа (мин. от начала часа): ${windowsLabel || "—"}\n` +
       `Сейчас отслеживается активных 5-мин рынков: ${watchedMarkets}\n` +
       `Всего сделок с запуска: ${this.tradesTotal}\n` +
       `Открытая позиция: ${
         this.openPosition
-          ? `${this.openPosition.market.title} (${this.openPosition.side}), цена входа ${this.openPosition.buyPrice.toFixed(4)}, держим до резолва`
+          ? `${this.openPosition.market.title} (${this.openPosition.side}), цена входа ${this.openPosition.buyPrice.toFixed(4)}, ` +
+            `выход: ${this.openPosition.exitOrderPlaced ? `лимитка по ${settings.exitPrice} стоит` : "выставляю лимитку..."}`
           : "нет"
       }`
     );
@@ -193,6 +253,30 @@ class FastFlipMarketBot {
     if (this.currentHourKey !== hourKey) {
       this.currentHourKey = hourKey;
       this.tradesThisHour = 0;
+    }
+    this.regenerateSelectedWindowsIfNeeded(hourKey);
+  }
+
+  /** v6.3: раз в час случайно выбираем quotaPerHour пятиминуток из 12, в которые будем пытаться входить. */
+  private regenerateSelectedWindowsIfNeeded(hourKey: number): void {
+    if (this.windowsHourKey === hourKey) return;
+    this.windowsHourKey = hourKey;
+
+    const all = Array.from({ length: WINDOWS_PER_HOUR }, (_, i) => i);
+    for (let i = all.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [all[i], all[j]] = [all[j], all[i]];
+    }
+    const count = Math.min(Math.max(1, settings.quotaPerHour), WINDOWS_PER_HOUR);
+    this.selectedWindows = new Set(all.slice(0, count));
+
+    const label = [...this.selectedWindows]
+      .sort((a, b) => a - b)
+      .map((i) => `${String(i * TARGET_WINDOW_MINUTES).padStart(2, "0")}`)
+      .join(", ");
+    console.log(`[окна часа] Новый час — выбраны пятиминутки для торговли (мин.): ${label}`);
+    if (this.telegram) {
+      this.telegram.send(`🎲 Новый час: буду пытаться входить только в пятиминутки: ${label}`).catch(() => {});
     }
   }
 
@@ -256,9 +340,11 @@ class FastFlipMarketBot {
     const price = update.bestBid ?? update.bestAsk;
     if (price === null) return;
 
-    // Позиция уже открыта — v6.2: НИКАКОЙ реакции на цену вообще, кроме
+    // Позиция уже открыта — никакой реакции на цену вообще, кроме
     // отслеживания минимума (для статистики просадки в отчёте о
-    // резолве). Никаких продаж на основании тика цены — только резолв.
+    // резолве). Продажа по цене происходит ТОЛЬКО через отдельно
+    // выставленную лимитку на выход (см. placeExitLimitOrder), а не
+    // отсюда.
     if (this.openPosition) {
       if (market.eventSlug === this.openPosition.market.eventSlug && price < this.openPosition.minPriceSinceEntry) {
         this.openPosition.minPriceSinceEntry = price;
@@ -271,6 +357,9 @@ class FastFlipMarketBot {
     this.checkHourlyReset();
 
     if (this.tradesThisHour >= settings.quotaPerHour) return; // квота часа выполнена
+
+    // v6.3: торгуем только в заранее выбранные на этот час пятиминутки
+    if (!this.selectedWindows.has(windowIndexInHour(market))) return;
 
     const secToClose = (market.closeTimeMs - Date.now()) / 1000;
 
@@ -321,6 +410,49 @@ class FastFlipMarketBot {
     }
   }
 
+  /**
+   * v6.3: сразу после входа выставляем ПАССИВНУЮ лимитку на продажу
+   * (GTC) по settings.exitPrice на весь объём позиции. Если не
+   * получилось выставить — повторяем, пока не получится (или пока
+   * позиция не закрылась резолвом раньше, чем заявка успела встать).
+   */
+  private async placeExitLimitOrder(pos: OpenPosition): Promise<void> {
+    if (DRY_RUN || !this.clob) {
+      pos.exitOrderPlaced = true;
+      console.log(`   🎯 [DRY_RUN] Лимитка на выход по ${settings.exitPrice} выставлена (симуляция).`);
+      return;
+    }
+
+    while (!pos.closed) {
+      try {
+        await this.clob.placeLimitOrder({
+          tokenId: pos.tokenId,
+          side: Side.SELL,
+          price: settings.exitPrice,
+          size: pos.filledSize,
+          // 0 = не гнаться за немедленным исполнением, это пассивная
+          // GTC-заявка ровно по exitPrice, ждущая реальной цены.
+          maxSlippagePct: 0,
+        });
+        pos.exitOrderPlaced = true;
+        console.log(
+          `   🎯 Лимитка на выход выставлена: ПРОДАЖА ${pos.filledSize.toFixed(2)} акций по ${settings.exitPrice} (eventSlug: ${pos.market.eventSlug}).`,
+        );
+        if (this.telegram) {
+          await this.telegram.send(
+            `🎯 Выставлена лимитка на выход по ${settings.exitPrice}\n${pos.market.title}\nСторона: ${pos.side}\nРазмер: ${pos.filledSize.toFixed(2)}`,
+          );
+        }
+        return;
+      } catch (err) {
+        console.log(
+          `   ⏳ Не удалось выставить лимитку на выход (${(err as Error).message}). Повтор через ${EXIT_ORDER_RETRY_MS / 1000}с...`,
+        );
+        await new Promise((r) => setTimeout(r, EXIT_ORDER_RETRY_MS));
+      }
+    }
+  }
+
   private async executeMarketEntry(
     market: CryptoUpDownMarket,
     side: "Up" | "Down",
@@ -355,18 +487,21 @@ class FastFlipMarketBot {
       closed: false,
       minPriceSinceEntry: result.avgPrice,
       resolveFallbackTimer: null,
+      exitOrderPlaced: false,
     };
     this.openPosition = pos;
 
-    // v6.2: НИКАКИХ проверок "плохого филла", никаких аварийных
-    // продаж. Что бы ни случилось с ценой исполнения — держим до
-    // официального резолва.
-
     if (this.telegram) {
       await this.telegram.send(
-        `💰 Куплено по рынку: ${market.title}\nСторона: ${side}\nЦена: ${result.avgPrice.toFixed(4)} | Размер: ${result.filledSize.toFixed(2)}\nДержим ДО ОФИЦИАЛЬНОГО РЕЗОЛВА. Никаких досрочных продаж вообще.`,
+        `💰 Куплено по рынку: ${market.title}\nСторона: ${side}\nЦена: ${result.avgPrice.toFixed(4)} | Размер: ${result.filledSize.toFixed(2)}\nСразу выставляю лимитку на выход по ${settings.exitPrice}. Если не сработает — держим до официального резолва.`,
       );
     }
+
+    // v6.3: выставляем лимитку на выход СРАЗУ, не дожидаясь ничего
+    // другого. Не await — чтобы не блокировать таймер фолбэка ниже.
+    this.placeExitLimitOrder(pos).catch((err) =>
+      console.error("[exit] неожиданная ошибка при выставлении лимитки:", (err as Error).message),
+    );
 
     const msUntilCloseCheck = Math.max(0, market.closeTimeMs - Date.now() + CLOSE_FALLBACK_BUFFER_MS);
     pos.resolveFallbackTimer = setTimeout(() => {
@@ -454,6 +589,7 @@ class FastFlipMarketBot {
   }
 
   start(): void {
+    this.checkHourlyReset(); // сразу выбрать пятиминутки текущего часа при старте
     this.refreshMarkets();
     setInterval(() => this.refreshMarkets(), MARKET_REFRESH_MS);
     setInterval(() => {
@@ -556,6 +692,13 @@ async function pollTelegramCommands(
           continue;
         }
 
+        const exitMatch = text.match(/^выход\s+([\d.]+)$/);
+        if (exitMatch) {
+          settings.exitPrice = Number(exitMatch[1]);
+          await telegram?.send(`Цена выхода (лимитка) установлена: ${settings.exitPrice}`);
+          continue;
+        }
+
         const windowMatch = text.match(/^окно\s+(\d+)$/);
         if (windowMatch) {
           settings.entryWindowSec = Number(windowMatch[1]);
@@ -566,7 +709,9 @@ async function pollTelegramCommands(
         const quotaMatch = text.match(/^квота\s+(\d+)$/);
         if (quotaMatch) {
           settings.quotaPerHour = Math.max(1, Number(quotaMatch[1]));
-          await telegram?.send(`Квота установлена: ${settings.quotaPerHour} сделок в час`);
+          await telegram?.send(
+            `Квота установлена: ${settings.quotaPerHour} сделок в час. Новая выборка пятиминуток вступит в силу со следующего часа.`,
+          );
           continue;
         }
       }
@@ -580,11 +725,11 @@ async function pollTelegramCommands(
 async function main() {
   // МЕТКА ВЕРСИИ — если в логах при старте бота НЕТ этой строки,
   // значит запущен не этот файл (старая сборка / другой процесс).
-  console.log("=== FASTFLIP BUILD: v6.2 — ТОЛЬКО ВХОД, ДЕРЖИМ ДО РЕЗОЛВА, СТОПА НЕТ ВООБЩЕ ===");
+  console.log("=== FASTFLIP BUILD: v6.3 — СЛУЧАЙНЫЕ ПЯТИМИНУТКИ В ЧАСЕ + МГНОВЕННАЯ ЛИМИТКА НА ВЫХОД ===");
   console.log(`Режим: ${DRY_RUN ? "DRY_RUN (без реальных сделок, полная симуляция)" : "⚠️  LIVE — РЕАЛЬНЫЕ ДЕНЬГИ"}`);
   console.log(
     `Актив: BTC only | Вход: ${settings.entryPrice}-${settings.maxEntryPrice} (рынком, окно ${settings.entryWindowSec}с) | ` +
-      `Выход: ТОЛЬКО официальный резолв. Тейка нет. Стоп-лосса нет. Аварийных продаж нет. | Квота: ${settings.quotaPerHour}/час`,
+      `Выход: лимитка по ${settings.exitPrice}, иначе официальный резолв. | Квота: ${settings.quotaPerHour}/час (${WINDOWS_PER_HOUR} пятиминуток на выбор)`,
   );
 
   let clob: ClobService | null = null;
@@ -617,7 +762,7 @@ async function main() {
   bot.start();
 
   if (telegram && process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
-    console.log("Telegram-команды включены: цена X / цена_макс X / окно X / квота X / статус");
+    console.log("Telegram-команды включены: цена X / цена_макс X / выход X / окно X / квота X / статус");
     pollTelegramCommands(process.env.TELEGRAM_BOT_TOKEN, process.env.TELEGRAM_CHAT_ID, telegram, bot);
   }
 
