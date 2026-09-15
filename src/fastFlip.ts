@@ -1,29 +1,25 @@
 /**
- * "Быстрый флип" v6.5 — РЫНОЧНЫЕ ордера на ВХОД, держим ДО ОФИЦИАЛЬНОГО
+ * "Быстрый флип" v6.6 — РЫНОЧНЫЕ ордера на ВХОД, держим ДО ОФИЦИАЛЬНОГО
  * РЕЗОЛВА. Никаких лимиток на выход и никаких продаж по тику цены.
  *
- * v6.5 (относительно v6.4): УПРОЩЕНА ЛОГИКА КВОТЫ + УБРАН ВЫХОД ПО ЛИМИТКЕ.
+ * v6.6 (относительно v6.5): ДОБАВЛЕНА ПРОВЕРКА ПОДТВЕРЖДЕНИЯ СДЕЛКИ
+ * ЧЕРЕЗ АВТОРИЗОВАННЫЙ USER STREAM POLYMARKET.
  *
- * 1) Убран рандомный выбор N пятиминуток в час. Теперь бот мониторит
- *    КАЖДУЮ пятиминутку часа (все 12). Как только в любой из них
- *    складываются условия входа — бот входит, это и есть сделка часа.
- *    После входа бот больше не ищет сделок до конца текущего часа
- *    (квота по умолчанию 1/час, но настраивается). С началом нового
- *    часа счётчик и поиск начинаются заново.
+ * Раньше бот доверял первому ответу CLOB ("success, status: matched")
+ * как финальному факту покупки. На самом деле это только оффчейн-мэтч —
+ * итоговое ончейн-исполнение (settlement) теоретически может позже
+ * провалиться (FAILED), и бот об этом никак не узнавал.
  *
- * 2) Убрана лимитная заявка на выход по exitPrice. После входа позиция
- *    держится ДО ОФИЦИАЛЬНОГО РЕЗОЛВА рынка (Gamma API) — это теперь
- *    единственный способ закрыть сделку, как и было задумано изначально.
+ * Теперь: сразу после покупки параллельно (не блокируя основной поток)
+ * запускается ожидание финального статуса сделки через userStream.ts
+ * (авторизованный WebSocket wss://ws-subscriptions-clob.polymarket.com/ws/user).
+ * Если сделка в итоге придёт как FAILED — бот немедленно шлёт тревожный
+ * алерт в Telegram, чтобы можно было проверить баланс/позицию вручную.
+ * Если подтверждение не пришло за отведённое время — это просто
+ * логируется, никакой паники (User Stream мог не успеть/переподключиться).
  *
- * Условия входа (все обязательны):
- *  - квота часа ещё не выполнена (tradesThisHour < quotaPerHour)
- *  - до закрытия текущего 5-минутного окна осталось не больше
- *    entryWindowSec секунд (по умолчанию 60)
- *  - реальная цена BTC (Binance) отклонилась от цены на момент
- *    открытия окна минимум на pctMoveThreshold (по умолчанию 0.2%) —
- *    и именно в сторону токена, который собираемся купить
- *  - цена токена в коридоре entryPrice..maxEntryPrice (по умолчанию
- *    0.97-0.98)
+ * Эта проверка НЕ меняет основную торговую логику (вход/квота/резолв) —
+ * это отдельный слой контроля поверх.
  */
 
 import "dotenv/config";
@@ -32,6 +28,7 @@ import { discoverCryptoUpDownMarkets, CryptoUpDownMarket } from "./cryptoMarketD
 import { PriceWatcher, PriceUpdate } from "./priceWatcher.js";
 import { btcPriceFeed } from "./btcPriceFeed.js";
 import { ClobService } from "./clob.js";
+import { userStream } from "./userStream.js";
 import { RedeemService } from "./redeem.js";
 import { DataApiClient } from "./dataApi.js";
 import { createTelegramNotifier } from "./telegram.js";
@@ -63,19 +60,20 @@ const RESOLVE_CHECK_DELAY_SEC = 180;
 const RESOLVE_RETRY_MS = 30 * 1000;
 const RESOLVE_GIVE_UP_MS = 30 * 60 * 1000;
 
-const GAMMA_HOST = "https://gamma-api.polymarket.com";
+const TRADE_CONFIRMATION_TIMEOUT_MS = 60 * 1000;
 
+const GAMMA_HOST = "https://gamma-api.polymarket.com";
 const REDEEM_POLL_MS = 60 * 1000;
 
 // ─── Настройки, которые можно менять на лету через Telegram ───
 const settings = {
   entryPrice: Number(process.env.FASTFLIP_ENTRY_PRICE ?? "0.97"),
   maxEntryPrice: Number(process.env.FASTFLIP_MAX_ENTRY_PRICE ?? "0.98"),
-  entryWindowSec: Number(process.env.FASTFLIP_ENTRY_WINDOW_SEC ?? "60"),
+  entryWindowSec: Number(process.env.FASTFLIP_ENTRY_WINDOW_SEC ?? "120"),
   quotaPerHour: Math.max(1, Number(process.env.FASTFLIP_QUOTA_PER_HOUR ?? "1")),
   // минимальное % отклонение цены BTC от цены открытия окна,
-  // необходимое для входа (в нужную сторону). 0.002 = 0.2%.
-  pctMoveThreshold: Number(process.env.FASTFLIP_PCT_MOVE_THRESHOLD ?? "0.002"),
+  // необходимое для входа (в нужную сторону). 0.0014 = 0.14%.
+  pctMoveThreshold: Number(process.env.FASTFLIP_PCT_MOVE_THRESHOLD ?? "0.0014"),
 };
 
 interface TokenInfo {
@@ -359,11 +357,43 @@ class FastFlipMarketBot {
         );
       }
 
-      return { orderId: null, filledSize, avgPrice };
+      return { orderId: resp.orderId ?? null, filledSize, avgPrice };
     } catch (err) {
       console.log(`   ⏳ Рыночный ордер (${params.side}) не исполнился: ${(err as Error).message}`);
       return { orderId: null, filledSize: 0, avgPrice: 0 };
     }
+  }
+
+  /**
+   * v6.6: НЕ блокирует торговую логику. Запускается "в фоне" сразу после
+   * успешной покупки и ждёт финальный статус сделки через User Stream.
+   * Если сделка в итоге провалилась ончейн (FAILED) — шлёт тревожный
+   * алерт, чтобы можно было проверить баланс/позицию вручную. Если
+   * подтверждение просто не пришло за отведённое время — тихо логирует
+   * это, без паники (не обязательно значит проблему).
+   */
+  private async verifyTradeConfirmation(orderId: string, market: CryptoUpDownMarket, side: "Up" | "Down"): Promise<void> {
+    const confirmation = await userStream.waitForConfirmation(orderId, TRADE_CONFIRMATION_TIMEOUT_MS);
+
+    if (confirmation === null) {
+      console.log(
+        `   ⚠️ Не дождались подтверждения сделки ончейн за ${TRADE_CONFIRMATION_TIMEOUT_MS / 1000}с (orderId: ${orderId}). ` +
+          `CLOB репортил успех при покупке — статус ончейн просто неизвестен, это не обязательно проблема.`,
+      );
+      return;
+    }
+
+    if (confirmation.status === "FAILED") {
+      console.log(`   🚨 КРИТИЧНО: сделка НЕ подтвердилась ончейн (FAILED), хотя CLOB репортил success! orderId: ${orderId}`);
+      if (this.telegram) {
+        await this.telegram.send(
+          `🚨 ВНИМАНИЕ: покупка "${market.title}" (${side}) была отклонена в сети (FAILED) уже ПОСЛЕ того как CLOB сказал, что всё прошло успешно.\nПроверь баланс и позицию вручную — возможно, деньги не списались/не купилось на самом деле, но бот думает, что позиция открыта.`,
+        );
+      }
+      return;
+    }
+
+    console.log(`   ✅ Сделка подтверждена ончейн: ${confirmation.status} (orderId: ${orderId})`);
   }
 
   private async executeMarketEntry(
@@ -408,6 +438,13 @@ class FastFlipMarketBot {
     if (this.telegram) {
       await this.telegram.send(
         `💰 Куплено по рынку: ${market.title}\nСторона: ${side}\nЦена: ${result.avgPrice.toFixed(4)} | Размер: ${result.filledSize.toFixed(2)}\nДвижение BTC от открытия окна: ${(pctMove * 100).toFixed(3)}%\nДержим до официального резолва (это сделка часа, квота ${this.tradesThisHour + 1}/${settings.quotaPerHour}).`,
+      );
+    }
+
+    // v6.6: параллельно (не блокируя) проверяем финальное ончейн-подтверждение.
+    if (!DRY_RUN && result.orderId) {
+      this.verifyTradeConfirmation(result.orderId, market, side).catch((err) =>
+        console.error("[userStream] ошибка проверки подтверждения:", (err as Error).message),
       );
     }
 
@@ -629,7 +666,7 @@ async function pollTelegramCommands(
 async function main() {
   // МЕТКА ВЕРСИИ — если в логах при старте бота НЕТ этой строки,
   // значит запущен не этот файл (старая сборка / другой процесс).
-  console.log("=== FASTFLIP BUILD: v6.5 — 1 СДЕЛКА В ЧАС, ФИЛЬТР ДВИЖЕНИЯ BTC, ДЕРЖИМ ДО РЕЗОЛВА ===");
+  console.log("=== FASTFLIP BUILD: v6.6 — 1 СДЕЛКА В ЧАС, ФИЛЬТР ДВИЖЕНИЯ BTC, ДЕРЖИМ ДО РЕЗОЛВА, ПРОВЕРКА ЧЕРЕЗ USER STREAM ===");
   console.log(`Режим: ${DRY_RUN ? "DRY_RUN (без реальных сделок, полная симуляция)" : "⚠️  LIVE — РЕАЛЬНЫЕ ДЕНЬГИ"}`);
   console.log(
     `Актив: BTC only | Вход: ${settings.entryPrice}-${settings.maxEntryPrice} (рынком, окно ${settings.entryWindowSec}с) | ` +
@@ -637,7 +674,7 @@ async function main() {
       `Фильтр движения BTC: ${(settings.pctMoveThreshold * 100).toFixed(2)}%`,
   );
 
-  // запускаем фид цены BTC с Binance до старта самого бота
+  // запускаем фид цены BTC (Polymarket RTDS, Chainlink TWAP) до старта самого бота
   btcPriceFeed.start();
 
   let clob: ClobService | null = null;
@@ -661,6 +698,11 @@ async function main() {
       logger,
     );
     console.log("ClobService инициализирован для LIVE торговли.");
+
+    // v6.6: запускаем User Stream для подтверждения сделок ончейн,
+    // используя те же креды, что и основной CLOB-клиент.
+    userStream.start(clob.getApiCreds());
+    console.log("User Stream запущен — сделки будут дополнительно проверяться на ончейн-подтверждение.");
   }
 
   const logger = createLogger(false);
