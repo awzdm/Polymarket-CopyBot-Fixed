@@ -1,25 +1,23 @@
 /**
- * "Быстрый флип" v6.6 — РЫНОЧНЫЕ ордера на ВХОД, держим ДО ОФИЦИАЛЬНОГО
+ * "Быстрый флип" v6.7 — РЫНОЧНЫЕ ордера на ВХОД, держим ДО ОФИЦИАЛЬНОГО
  * РЕЗОЛВА. Никаких лимиток на выход и никаких продаж по тику цены.
  *
- * v6.6 (относительно v6.5): ДОБАВЛЕНА ПРОВЕРКА ПОДТВЕРЖДЕНИЯ СДЕЛКИ
- * ЧЕРЕЗ АВТОРИЗОВАННЫЙ USER STREAM POLYMARKET.
+ * v6.7 (относительно v6.6): ДОБАВЛЕН ETHEREUM РЯДОМ С BTC.
  *
- * Раньше бот доверял первому ответу CLOB ("success, status: matched")
- * как финальному факту покупки. На самом деле это только оффчейн-мэтч —
- * итоговое ончейн-исполнение (settlement) теоретически может позже
- * провалиться (FAILED), и бот об этом никак не узнавал.
+ * Раньше бот торговал только Bitcoin. Теперь список монет расширен на
+ * Ethereum — у каждой монеты СВОЙ отдельный фид цены (btcPriceFeed.ts /
+ * ethPriceFeed.ts, оба через Polymarket RTDS / Chainlink TWAP), и при
+ * входе бот выбирает нужный фид по полю market.coin. Логика входа
+ * (коридор цены токена + фильтр движения) не изменилась — просто теперь
+ * применяется к вдвое большему числу окон в час (12 BTC + 12 ETH),
+ * что даёт больше шансов поймать подходящий момент без ослабления
+ * самого порога.
  *
- * Теперь: сразу после покупки параллельно (не блокируя основной поток)
- * запускается ожидание финального статуса сделки через userStream.ts
- * (авторизованный WebSocket wss://ws-subscriptions-clob.polymarket.com/ws/user).
- * Если сделка в итоге придёт как FAILED — бот немедленно шлёт тревожный
- * алерт в Telegram, чтобы можно было проверить баланс/позицию вручную.
- * Если подтверждение не пришло за отведённое время — это просто
- * логируется, никакой паники (User Stream мог не успеть/переподключиться).
- *
- * Эта проверка НЕ меняет основную торговую логику (вход/квота/резолв) —
- * это отдельный слой контроля поверх.
+ * Также по итогам статистики и обсуждения: квота по факту снята
+ * (дефолт поднят до 999 — то есть не ограничивает), окно входа сужено
+ * до 90с (более поздний вход показывал чуть более высокий винрейт),
+ * порог движения возвращён на 0.2% (на нём не было ни одного лосса
+ * в наблюдениях).
  */
 
 import "dotenv/config";
@@ -27,6 +25,7 @@ import { Side } from "@polymarket/clob-client-v2";
 import { discoverCryptoUpDownMarkets, CryptoUpDownMarket } from "./cryptoMarketDiscovery.js";
 import { PriceWatcher, PriceUpdate } from "./priceWatcher.js";
 import { btcPriceFeed } from "./btcPriceFeed.js";
+import { ethPriceFeed } from "./ethPriceFeed.js";
 import { ClobService } from "./clob.js";
 import { userStream } from "./userStream.js";
 import { RedeemService } from "./redeem.js";
@@ -38,7 +37,9 @@ const DRY_RUN = (process.env.FASTFLIP_DRY_RUN ?? "true").toLowerCase() !== "fals
 const AUTO_REDEEM = (process.env.FASTFLIP_AUTO_REDEEM ?? "true").toLowerCase() !== "false";
 const TRADE_SIZE_USD = Number(process.env.FASTFLIP_TRADE_SIZE_USD ?? "5");
 
-const COIN = "Bitcoin";
+// v6.7: список торгуемых монет. Каждая монета обязана иметь свой фид
+// в PRICE_FEEDS ниже.
+const COINS = ["Bitcoin", "Ethereum"];
 const TARGET_WINDOW_MINUTES = 5;
 
 const TIMEFRAMES_TO_DISCOVER = [{ suffixes: ["up-or-down-5m"], minutes: TARGET_WINDOW_MINUTES }];
@@ -65,15 +66,27 @@ const TRADE_CONFIRMATION_TIMEOUT_MS = 60 * 1000;
 const GAMMA_HOST = "https://gamma-api.polymarket.com";
 const REDEEM_POLL_MS = 60 * 1000;
 
+// v6.7: соответствие монета -> её фид цены. Оба фида запускаются в main().
+interface CoinPriceFeed {
+  getPriceAt(ts: number): number | null;
+  getLatestPrice(): number | null;
+}
+const PRICE_FEEDS: Record<string, CoinPriceFeed> = {
+  Bitcoin: btcPriceFeed,
+  Ethereum: ethPriceFeed,
+};
+
 // ─── Настройки, которые можно менять на лету через Telegram ───
 const settings = {
   entryPrice: Number(process.env.FASTFLIP_ENTRY_PRICE ?? "0.97"),
   maxEntryPrice: Number(process.env.FASTFLIP_MAX_ENTRY_PRICE ?? "0.98"),
-  entryWindowSec: Number(process.env.FASTFLIP_ENTRY_WINDOW_SEC ?? "120"),
-  quotaPerHour: Math.max(1, Number(process.env.FASTFLIP_QUOTA_PER_HOUR ?? "1")),
-  // минимальное % отклонение цены BTC от цены открытия окна,
-  // необходимое для входа (в нужную сторону). 0.0014 = 0.14%.
-  pctMoveThreshold: Number(process.env.FASTFLIP_PCT_MOVE_THRESHOLD ?? "0.0014"),
+  entryWindowSec: Number(process.env.FASTFLIP_ENTRY_WINDOW_SEC ?? "90"),
+  // v6.7: квота фактически снята — 999 в час не является реальным
+  // ограничением, частоту сделок теперь регулирует только pctMoveThreshold.
+  quotaPerHour: Math.max(1, Number(process.env.FASTFLIP_QUOTA_PER_HOUR ?? "999")),
+  // минимальное % отклонение цены монеты от цены открытия окна,
+  // необходимое для входа (в нужную сторону). 0.002 = 0.2%.
+  pctMoveThreshold: Number(process.env.FASTFLIP_PCT_MOVE_THRESHOLD ?? "0.002"),
 };
 
 interface TokenInfo {
@@ -183,8 +196,8 @@ class FastFlipMarketBot {
   private currentHourKey: number | null = null;
   private tradesThisHour = 0;
 
-  // зафиксированная цена BTC на момент открытия окна, по eventSlug
-  private btcOpenPrices: Map<string, number> = new Map();
+  // зафиксированная цена монеты на момент открытия окна, по eventSlug
+  private openPrices: Map<string, number> = new Map();
 
   constructor(
     private clob: ClobService | null,
@@ -194,9 +207,9 @@ class FastFlipMarketBot {
   getStatus(): string {
     const watchedMarkets = this.tokenIndex.size / 2;
     return (
-      `Режим: рыночный вход, держим ДО РЕЗОЛВА (без выхода по лимитке), BTC\n` +
+      `Режим: рыночный вход, держим ДО РЕЗОЛВА (без выхода по лимитке), монеты: ${COINS.join(", ")}\n` +
       `Вход: ${settings.entryPrice}–${settings.maxEntryPrice} | Окно входа: последние ${settings.entryWindowSec}с до закрытия\n` +
-      `Фильтр движения BTC: мин. ${(settings.pctMoveThreshold * 100).toFixed(2)}% от цены открытия окна\n` +
+      `Фильтр движения: мин. ${(settings.pctMoveThreshold * 100).toFixed(2)}% от цены открытия окна\n` +
       `Квота: ${this.tradesThisHour}/${settings.quotaPerHour} сделок в этом часе\n` +
       `Сейчас отслеживается активных 5-мин рынков: ${watchedMarkets}\n` +
       `Всего сделок с запуска: ${this.tradesTotal}\n` +
@@ -238,10 +251,11 @@ class FastFlipMarketBot {
       return;
     }
 
+    const allowedCoins = new Set(COINS.map((c) => c.toUpperCase()));
     const now = Date.now();
     const markets = allMarkets.filter(
       (m) =>
-        m.coin.toUpperCase() === COIN.toUpperCase() &&
+        allowedCoins.has(m.coin.toUpperCase()) &&
         m.windowMinutes === TARGET_WINDOW_MINUTES &&
         m.closeTimeMs - now <= observeWindowMs(m.windowMinutes),
     );
@@ -249,12 +263,12 @@ class FastFlipMarketBot {
     this.tokenIndex = buildTokenIndex(markets);
     const tokenIds = [...this.tokenIndex.keys()].sort();
 
-    console.log(`[refresh] наблюдаем активных BTC 5-мин рынков: ${markets.length} (${tokenIds.length} токенов)`);
+    console.log(`[refresh] наблюдаем активных рынков (${COINS.join("/")}) 5-мин: ${markets.length} (${tokenIds.length} токенов)`);
 
     // чистим сохранённые цены открытия для рынков, которых больше нет в наблюдении
     const activeSlugs = new Set(markets.map((m) => m.eventSlug));
-    for (const slug of this.btcOpenPrices.keys()) {
-      if (!activeSlugs.has(slug)) this.btcOpenPrices.delete(slug);
+    for (const slug of this.openPrices.keys()) {
+      if (!activeSlugs.has(slug)) this.openPrices.delete(slug);
     }
 
     const sameAsLastTime =
@@ -303,18 +317,22 @@ class FastFlipMarketBot {
 
     if (secToClose > settings.entryWindowSec || secToClose < 0) return;
 
-    // Фильтр по реальному движению BTC от цены открытия окна.
+    // v6.7: фид цены выбирается по монете конкретного рынка
+    const feed = PRICE_FEEDS[market.coin];
+    if (!feed) return; // на всякий случай — монета без фида просто игнорируется
+
+    // Фильтр по реальному движению цены монеты от цены открытия окна.
     const openTimeMs = market.closeTimeMs - market.windowMinutes * 60 * 1000;
-    let openPrice = this.btcOpenPrices.get(market.eventSlug);
+    let openPrice = this.openPrices.get(market.eventSlug);
     if (openPrice === undefined) {
-      const p = btcPriceFeed.getPriceAt(openTimeMs);
+      const p = feed.getPriceAt(openTimeMs);
       if (p === null) return; // фид ещё не накопил данные на момент открытия окна — пропускаем
       openPrice = p;
-      this.btcOpenPrices.set(market.eventSlug, openPrice);
+      this.openPrices.set(market.eventSlug, openPrice);
     }
-    const btcNow = btcPriceFeed.getLatestPrice();
-    if (btcNow === null) return;
-    const pctMove = (btcNow - openPrice) / openPrice;
+    const coinNow = feed.getLatestPrice();
+    if (coinNow === null) return;
+    const pctMove = (coinNow - openPrice) / openPrice;
 
     if (side === "Up" && pctMove < settings.pctMoveThreshold) return;
     if (side === "Down" && pctMove > -settings.pctMoveThreshold) return;
@@ -365,12 +383,10 @@ class FastFlipMarketBot {
   }
 
   /**
-   * v6.6: НЕ блокирует торговую логику. Запускается "в фоне" сразу после
+   * НЕ блокирует торговую логику. Запускается "в фоне" сразу после
    * успешной покупки и ждёт финальный статус сделки через User Stream.
    * Если сделка в итоге провалилась ончейн (FAILED) — шлёт тревожный
-   * алерт, чтобы можно было проверить баланс/позицию вручную. Если
-   * подтверждение просто не пришло за отведённое время — тихо логирует
-   * это, без паники (не обязательно значит проблему).
+   * алерт, чтобы можно было проверить баланс/позицию вручную.
    */
   private async verifyTradeConfirmation(orderId: string, market: CryptoUpDownMarket, side: "Up" | "Down"): Promise<void> {
     const confirmation = await userStream.waitForConfirmation(orderId, TRADE_CONFIRMATION_TIMEOUT_MS);
@@ -407,9 +423,9 @@ class FastFlipMarketBot {
     const size = TRADE_SIZE_USD / settings.entryPrice;
 
     console.log(
-      `\n⚡ ВХОД ПО РЫНКУ: [BTC / 5мин] "${market.title}"\n` +
+      `\n⚡ ВХОД ПО РЫНКУ: [${market.coin} / 5мин] "${market.title}"\n` +
         `   Сторона: ${side} | Цена сейчас: ~${priceAtEntry} (коридор ${settings.entryPrice}-${settings.maxEntryPrice}) | До закрытия: ${secToClose.toFixed(1)}с\n` +
-        `   Движение BTC от открытия окна: ${(pctMove * 100).toFixed(3)}% (порог ${(settings.pctMoveThreshold * 100).toFixed(2)}%)\n` +
+        `   Движение ${market.coin} от открытия окна: ${(pctMove * 100).toFixed(3)}% (порог ${(settings.pctMoveThreshold * 100).toFixed(2)}%)\n` +
         `   Покупаем: ${size.toFixed(2)} акций рыночным ордером (~$${TRADE_SIZE_USD}) — держим до резолва`,
     );
 
@@ -437,11 +453,11 @@ class FastFlipMarketBot {
 
     if (this.telegram) {
       await this.telegram.send(
-        `💰 Куплено по рынку: ${market.title}\nСторона: ${side}\nЦена: ${result.avgPrice.toFixed(4)} | Размер: ${result.filledSize.toFixed(2)}\nДвижение BTC от открытия окна: ${(pctMove * 100).toFixed(3)}%\nДержим до официального резолва (это сделка часа, квота ${this.tradesThisHour + 1}/${settings.quotaPerHour}).`,
+        `💰 Куплено по рынку: ${market.title}\nСторона: ${side}\nЦена: ${result.avgPrice.toFixed(4)} | Размер: ${result.filledSize.toFixed(2)}\nДвижение ${market.coin} от открытия окна: ${(pctMove * 100).toFixed(3)}%\nДержим до официального резолва (сделка ${this.tradesThisHour + 1}/${settings.quotaPerHour} в этом часе).`,
       );
     }
 
-    // v6.6: параллельно (не блокируя) проверяем финальное ончейн-подтверждение.
+    // Параллельно (не блокируя) проверяем финальное ончейн-подтверждение.
     if (!DRY_RUN && result.orderId) {
       this.verifyTradeConfirmation(result.orderId, market, side).catch((err) =>
         console.error("[userStream] ошибка проверки подтверждения:", (err as Error).message),
@@ -651,7 +667,7 @@ async function pollTelegramCommands(
         if (moveMatch) {
           settings.pctMoveThreshold = Number(moveMatch[1]);
           await telegram?.send(
-            `Порог движения BTC установлен: ${(settings.pctMoveThreshold * 100).toFixed(2)}%`,
+            `Порог движения установлен: ${(settings.pctMoveThreshold * 100).toFixed(2)}%`,
           );
           continue;
         }
@@ -666,16 +682,17 @@ async function pollTelegramCommands(
 async function main() {
   // МЕТКА ВЕРСИИ — если в логах при старте бота НЕТ этой строки,
   // значит запущен не этот файл (старая сборка / другой процесс).
-  console.log("=== FASTFLIP BUILD: v6.6 — 1 СДЕЛКА В ЧАС, ФИЛЬТР ДВИЖЕНИЯ BTC, ДЕРЖИМ ДО РЕЗОЛВА, ПРОВЕРКА ЧЕРЕЗ USER STREAM ===");
+  console.log("=== FASTFLIP BUILD: v6.7 — BTC+ETH, БЕЗ КВОТЫ, ФИЛЬТР ДВИЖЕНИЯ 0.2%, ДЕРЖИМ ДО РЕЗОЛВА ===");
   console.log(`Режим: ${DRY_RUN ? "DRY_RUN (без реальных сделок, полная симуляция)" : "⚠️  LIVE — РЕАЛЬНЫЕ ДЕНЬГИ"}`);
   console.log(
-    `Актив: BTC only | Вход: ${settings.entryPrice}-${settings.maxEntryPrice} (рынком, окно ${settings.entryWindowSec}с) | ` +
+    `Монеты: ${COINS.join(", ")} | Вход: ${settings.entryPrice}-${settings.maxEntryPrice} (рынком, окно ${settings.entryWindowSec}с) | ` +
       `Выход: только официальный резолв | Квота: ${settings.quotaPerHour}/час | ` +
-      `Фильтр движения BTC: ${(settings.pctMoveThreshold * 100).toFixed(2)}%`,
+      `Фильтр движения: ${(settings.pctMoveThreshold * 100).toFixed(2)}%`,
   );
 
-  // запускаем фид цены BTC (Polymarket RTDS, Chainlink TWAP) до старта самого бота
+  // запускаем оба фида цены (Polymarket RTDS, Chainlink TWAP) до старта самого бота
   btcPriceFeed.start();
+  ethPriceFeed.start();
 
   let clob: ClobService | null = null;
   if (!DRY_RUN) {
@@ -699,8 +716,6 @@ async function main() {
     );
     console.log("ClobService инициализирован для LIVE торговли.");
 
-    // v6.6: запускаем User Stream для подтверждения сделок ончейн,
-    // используя те же креды, что и основной CLOB-клиент.
     userStream.start(clob.getApiCreds());
     console.log("User Stream запущен — сделки будут дополнительно проверяться на ончейн-подтверждение.");
   }
