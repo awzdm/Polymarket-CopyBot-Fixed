@@ -1,55 +1,35 @@
 /**
- * Исследовательский модуль (не торгует, только собирает статистику).
+ * Исследовательский модуль "сетка" (не торгует, только собирает статистику).
  *
- * Отслеживает Up/Down крипто-рынки на Polymarket ТОЛЬКО по BTC и ETH,
- * на нескольких таймфреймах: 5 минут, 15 минут, 1 час, 4 часа.
+ * Симулирует СЕТКУ комбинаций (порог движения монеты × окно входа в
+ * секундах) одновременно на живых 5-минутных BTC и ETH рынках — то есть
+ * ту же самую логику, что у боевого fastFlip.ts (коридор цены токена
+ * 0.97-0.98 + фильтр реального движения монеты от цены открытия окна +
+ * окно входа перед закрытием), только сразу для многих комбинаций
+ * порог/окно параллельно, чтобы понять, какая комбинация реально лучше
+ * ДО того как гонять её живыми деньгами.
  *
- * Одновременно симулирует НЕСКОЛЬКО стратегий на одних и тех же живых
- * данных (см. STRATEGIES ниже):
- *   - 0.97 → 0.99
- *   - 0.98 → 0.99
+ * Пороги:  0.10%, 0.13%, 0.14%, 0.15%, 0.20%, 0.30%
+ * Окна:    10с, 30с, 60с, 90с, 120с, 180с, 300с
+ * = 42 комбинации на каждую монету (BTC/ETH отдельно), 84 всего.
  *
- * Логика "сделки" для стратегии с winEarlyLevel:
- *   1. Как только цена токена впервые касается entryLevel — фиксируем
- *      точку входа.
- *   2. С этого момента следим за минимальной ценой этого же токена —
- *      это максимальная просадка сделки.
- *   3. WIN фиксируется досрочно, если цена долетает до winEarlyLevel
- *      ДО официального резолва (если winEarlyLevel = null — ждём только
- *      резолва).
- *   4. Иначе итог определяется официальным резолвом через Gamma API.
+ * Условие "сделки" (как в боевом боте, держим до резолва, без раннего выхода):
+ *   1. Цена токена (Up/Down) в коридоре 0.97-0.98.
+ *   2. До закрытия окна осталось ≤ windowSec секунд.
+ *   3. Движение цены монеты (Chainlink TWAP через btcPriceFeed/ethPriceFeed)
+ *      от цены открытия окна ≥ pctThreshold, в сторону токена.
+ * Как только все три условия впервые совпали для конкретной комбинации —
+ * фиксируем вход. Итог определяется ТОЛЬКО официальным резолвом Gamma API
+ * (никакого раннего выхода/лимитки — так же, как в боевом боте).
  *
- * ДОПОЛНИТЕЛЬНО собираем:
- *   - spreadAtEntry     — спред (ask−bid) в момент входа.
- *   - bestSizeAtEntry   — размер лучшего уровня.
- *                         В текущей версии PriceWatcher размер не передаёт,
- *                         поэтому значение будет null.
- *   - entryHourUtc      — час UTC в момент входа.
- *   - msToMinPrice      — сколько мс прошло от входа до момента
- *                         наихудшей цены.
- *   - msToHalfCrash     — сколько мс прошло от входа до первого момента,
- *                         когда цена упала минимум вдвое от уровня входа.
- *   - bounceCount       — сколько раз после входа цена уходила ниже
- *                         entryLevel и затем возвращалась обратно ≥ entryLevel.
- *   - coin              — BTC или ETH.
- *   - windowMinutes     — таймфрейм рынка (5, 15, 60, 240), нужен чтобы
- *                         резать отчёт по таймфреймам отдельно (см. ниже).
+ * Раз в 30 мин шлёт КОМПАКТНЫЙ отчёт в Telegram: топ-5 комбинаций по
+ * винрейту (с минимальным числом сделок) для BTC и ETH отдельно, плюс
+ * "больше всего сделок при винрейте ≥98%". Полную таблицу (все 42×2
+ * комбинации) можно запросить отдельной фразой — присылается отдельно,
+ * с разбивкой на части (Telegram режет длинные сообщения).
  *
- * Раз в REPORT_INTERVAL_MS шлёт промежуточную сводку в Telegram (если
- * настроен), и финальную — при остановке (Ctrl+C).
- *
- * Работает НЕЗАВИСИМО от sniperTrader.ts / fastFlip.ts / оригинального
- * исследователя — запускается отдельным процессом, ничего не
- * покупает, только смотрит. Использует свой собственный файл состояния
- * (research-state-btc-eth.json), чтобы не конфликтовать с другими версиями.
- *
- * ВАЖНО (v4): отчёт теперь режется по таймфреймам. Раньше внутри одной
- * стратегии все сделки по 5м/15м/1ч/4ч суммировались в одну кучу — из-за
- * этого нельзя было понять, на каком именно таймфрейме стратегия
- * работает лучше. Теперь для каждой стратегии строится отдельный блок
- * на каждый таймфрейм, и все метрики (винрейт, просадка, крах,
- * микроструктура, время до закрытия, час UTC) считаются только внутри
- * своего таймфрейма.
+ * Работает НЕЗАВИСИМО от fastFlip.ts — отдельный процесс, ничего не
+ * покупает, только смотрит. Свой файл состояния (research-grid-state.json).
  */
 
 import "dotenv/config";
@@ -60,131 +40,58 @@ import {
   CryptoUpDownMarket,
 } from "./cryptoMarketDiscovery.js";
 import { PriceWatcher, PriceUpdate } from "./priceWatcher.js";
+import { btcPriceFeed } from "./btcPriceFeed.js";
+import { ethPriceFeed } from "./ethPriceFeed.js";
 import { createTelegramNotifier } from "./telegram.js";
 import { createLogger } from "./logger.js";
 
-// Файл, в который сохраняется вся собранная статистика.
-// Переживает рестарты процесса (например, при передеплое на Railway).
-// Отдельный от других версий файл, чтобы состояния не перезаписывали друг друга.
-const STATE_FILE = path.resolve(
-  process.cwd(),
-  "research-state-btc-eth.json",
-);
-
-// Как часто сохранять состояние на диск (помимо сохранения при
-// каждом резолве сделки и при остановке процесса).
+const STATE_FILE = path.resolve(process.cwd(), "research-grid-state.json");
 const AUTOSAVE_INTERVAL_MS = 60 * 1000;
 
-// Монеты, которые отслеживаем в этой версии — ТОЛЬКО BTC и ETH.
-// Сравнение регистронезависимое, см. isIncludedCoin().
-const INCLUDED_COINS = ["Bitcoin", "BTC", "Ethereum", "ETH"];
+const TARGET_WINDOW_MINUTES = 5; // торгуем только 5-минутные рынки
+const TIMEFRAMES_TO_DISCOVER = [{ suffixes: ["up-or-down-5m"], minutes: TARGET_WINDOW_MINUTES }];
 
-// Таймфреймы, которые отслеживаем: 5 минут, 15 минут, 1 час, 4 часа.
-const TIMEFRAMES_TO_DISCOVER = [
-  {
-    suffixes: ["up-or-down-5m"],
-    minutes: 5,
-  },
-  {
-    suffixes: ["up-or-down-15m"],
-    minutes: 15,
-  },
-  {
-    suffixes: ["up-or-down-1h"],
-    minutes: 60,
-  },
-  {
-    suffixes: ["up-or-down-4h"],
-    minutes: 240,
-  },
-];
+const PRICE_LOW = 0.97;
+const PRICE_HIGH = 0.98;
 
-const TARGET_WINDOW_MINUTES_LIST = TIMEFRAMES_TO_DISCOVER.map(
-  (t) => t.minutes,
-);
+// ─── Сетка параметров ───
+const THRESHOLDS = [0.001, 0.0013, 0.0014, 0.0015, 0.002, 0.003]; // 0.10% .. 0.30%
+const WINDOWS_SEC = [10, 30, 60, 90, 120, 180, 300];
 
-// Человекочитаемая подпись таймфрейма для отчёта.
-function timeframeLabel(windowMinutes: number): string {
-  switch (windowMinutes) {
-    case 5:
-      return "5м";
-    case 15:
-      return "15м";
-    case 60:
-      return "1ч";
-    case 240:
-      return "4ч";
-    default:
-      return `${windowMinutes}мин`;
-  }
+function thresholdLabel(t: number): string {
+  return `${(t * 100).toFixed(2)}%`;
 }
 
-function isIncludedCoin(coin: string): boolean {
-  const upper = coin.toUpperCase();
+const MIN_TRADES_FOR_TOP = 15; // минимум сделок, чтобы комбинация попала в топ по винрейту
+const HIGH_WINRATE_BAR = 0.98; // порог "хороший винрейт" для строки "больше всего сделок"
 
-  return INCLUDED_COINS.some(
-    (c) => c.toUpperCase() === upper,
-  );
+interface CoinPriceFeed {
+  getPriceAt(ts: number): number | null;
+  getLatestPrice(): number | null;
 }
-
-interface StrategySpec {
-  name: string;
-  entryLevel: number;
-  winEarlyLevel: number | null;
-}
-
-const STRATEGIES: StrategySpec[] = [
-  { name: "0.97→0.99", entryLevel: 0.97, winEarlyLevel: 0.99 },
-  { name: "0.98→0.99", entryLevel: 0.98, winEarlyLevel: 0.99 },
-  { name: "0.99→резолв", entryLevel: 0.99, winEarlyLevel: null },
-];
-
-const TIME_BUCKETS = [10, 30, 60, 120, 300];
+const PRICE_FEEDS: Record<string, CoinPriceFeed> = {
+  Bitcoin: btcPriceFeed,
+  Ethereum: ethPriceFeed,
+};
+const INCLUDED_COINS = Object.keys(PRICE_FEEDS); // ["Bitcoin", "Ethereum"]
 
 const MARKET_REFRESH_MS = 30 * 1000;
-
-// Раз в столько отправляем отчёт в Telegram САМИ, без запроса пользователя.
 const AUTO_REPORT_INTERVAL_MS = 30 * 60 * 1000;
-
-function observeWindowMs(windowMinutes: number): number {
-  return (windowMinutes + 1) * 60 * 1000;
-}
-
 const RESOLVE_CHECK_DELAY_SEC = 180;
-
-const REPORT_TRIGGER_PHRASES = [
-  "крипта итог",
-  "crypto report",
-  "/report",
-];
-
 const GAMMA_HOST = "https://gamma-api.polymarket.com";
 
-interface TradeEvent {
-  strategy: string;
-  entryLevel: number;
+const COMPACT_REPORT_TRIGGERS = ["крипта итог", "crypto report", "/report"];
+const FULL_GRID_TRIGGERS = ["полная таблица", "full grid", "/grid"];
+
+interface ComboTradeEvent {
+  pctThreshold: number;
+  windowSec: number;
   eventSlug: string;
   coin: string;
   side: "Up" | "Down";
-  windowMinutes: number;
   entryTimestamp: number;
-  secToCloseAtEntry: number;
-  minPriceSinceEntry: number;
   determined: boolean;
   won: boolean | null;
-  wonEarly: boolean;
-
-  // Новые поля
-  spreadAtEntry: number | null;
-  bestSizeAtEntry: number | null;
-  entryHourUtc: number;
-  msToMinPrice: number;
-  msToHalfCrash: number | null;
-  bounceCount: number;
-
-  // Служебные
-  _crashHalfRecorded: boolean;
-  _lastPriceBelowLevel: boolean;
 }
 
 interface TokenInfo {
@@ -192,267 +99,128 @@ interface TokenInfo {
   side: "Up" | "Down";
 }
 
-function buildTokenIndex(
-  markets: CryptoUpDownMarket[],
-): Map<string, TokenInfo> {
+function buildTokenIndex(markets: CryptoUpDownMarket[]): Map<string, TokenInfo> {
   const idx = new Map<string, TokenInfo>();
-
   for (const m of markets) {
-    idx.set(m.upTokenId, {
-      market: m,
-      side: "Up",
-    });
-
-    idx.set(m.downTokenId, {
-      market: m,
-      side: "Down",
-    });
+    idx.set(m.upTokenId, { market: m, side: "Up" });
+    idx.set(m.downTokenId, { market: m, side: "Down" });
   }
-
   return idx;
 }
 
-function timeBucketLabel(secToClose: number): string {
-  for (let i = 0; i < TIME_BUCKETS.length; i++) {
-    if (secToClose <= TIME_BUCKETS[i]) {
-      const lo = i === 0 ? 0 : TIME_BUCKETS[i - 1];
-      return `${lo}-${TIME_BUCKETS[i]}с`;
-    }
-  }
-
-  return `>${TIME_BUCKETS[TIME_BUCKETS.length - 1]}с`;
+function isIncludedCoin(coin: string): boolean {
+  return INCLUDED_COINS.some((c) => c.toUpperCase() === coin.toUpperCase());
 }
 
-function drawdownOf(t: TradeEvent): number {
-  return Math.max(0, t.entryLevel - t.minPriceSinceEntry);
+function observeWindowMs(windowMinutes: number): number {
+  return (windowMinutes + 1) * 60 * 1000;
 }
 
-function drawdownBucket(dd: number): string {
-  if (dd <= 0) return "0 (без просадки)";
-  if (dd <= 0.02) return "0-0.02";
-  if (dd <= 0.05) return "0.02-0.05";
-  if (dd <= 0.1) return "0.05-0.10";
-  if (dd <= 0.2) return "0.10-0.20";
-
-  return ">0.20";
-}
-
-const DRAWDOWN_BUCKET_ORDER = [
-  "0 (без просадки)",
-  "0-0.02",
-  "0.02-0.05",
-  "0.05-0.10",
-  "0.10-0.20",
-  ">0.20",
-];
-
-function hourBucketLabel(hourUtc: number): string {
-  if (hourUtc < 6) return "0-6 UTC";
-  if (hourUtc < 12) return "6-12 UTC";
-  if (hourUtc < 18) return "12-18 UTC";
-
-  return "18-24 UTC";
-}
-
-class ResearchLogger {
+class ResearchGridLogger {
   private watcher: PriceWatcher | null = null;
-
   private tokenIndex = new Map<string, TokenInfo>();
-
   private lastTokenIds: string[] = [];
 
-  private trades = new Map<string, TradeEvent>();
+  // все комбо-сделки, ключ: `${pctThreshold}_${windowSec}:${eventSlug}:${side}`
+  private trades = new Map<string, ComboTradeEvent>();
+  private tradesList: ComboTradeEvent[] = [];
 
-  private tradesList: TradeEvent[] = [];
+  // цена монеты на момент открытия окна, по eventSlug (не зависит от комбинации)
+  private openPrices: Map<string, number> = new Map();
 
-  private pendingResolution = new Map<
-    string,
-    {
-      closeTimeMs: number;
-    }
-  >();
-
+  private pendingResolution = new Map<string, { closeTimeMs: number }>();
+  private marketsSeen = new Set<string>();
   private updateCount = 0;
 
-  /**
-   * Сохраняет всю накопленную статистику на диск в JSON.
-   * Вызывается: раз в AUTOSAVE_INTERVAL_MS, сразу после каждого
-   * резолва сделки, и один раз перед остановкой процесса.
-   */
   saveState(): void {
     try {
       const data = {
         savedAt: Date.now(),
         tradesList: this.tradesList,
-        pendingResolution: [
-          ...this.pendingResolution.entries(),
-        ],
+        pendingResolution: [...this.pendingResolution.entries()],
+        marketsSeen: [...this.marketsSeen],
         updateCount: this.updateCount,
       };
-
-      // Пишем сначала во временный файл, потом переименовываем —
-      // так при обрыве процесса посреди записи старый файл не
-      // повредится (атомарная замена).
       const tmpFile = `${STATE_FILE}.tmp`;
-
-      fs.writeFileSync(
-        tmpFile,
-        JSON.stringify(data),
-        "utf-8",
-      );
-
+      fs.writeFileSync(tmpFile, JSON.stringify(data), "utf-8");
       fs.renameSync(tmpFile, STATE_FILE);
     } catch (err) {
-      console.error(
-        "[saveState] ошибка сохранения:",
-        (err as Error).message,
-      );
+      console.error("[saveState] ошибка сохранения:", (err as Error).message);
     }
   }
 
-  /**
-   * Загружает статистику с диска при старте (если файл есть).
-   * Восстанавливает tradesList, индекс trades (по ключу
-   * strategy:eventSlug:side) и pendingResolution.
-   */
   loadState(): void {
     if (!fs.existsSync(STATE_FILE)) {
-      console.log(
-        "[loadState] файл состояния не найден — " +
-          "начинаем сбор данных с нуля.",
-      );
-
+      console.log("[loadState] файл состояния не найден — начинаем с нуля.");
       return;
     }
-
     try {
-      const raw = fs.readFileSync(
-        STATE_FILE,
-        "utf-8",
-      );
-
+      const raw = fs.readFileSync(STATE_FILE, "utf-8");
       const data = JSON.parse(raw);
 
-      const loadedTrades: TradeEvent[] =
-        data.tradesList ?? [];
-
-      // Бэкфилл для старых записей состояния, сохранённых до того,
-      // как появилось поле windowMinutes — иначе они не попадут
-      // ни в один блок отчёта. Ставим 0 = "неизвестный таймфрейм",
-      // такие сделки просто не будут учитываться в разбивке по
-      // таймфреймам, но не потеряются физически.
-      for (const t of loadedTrades) {
-        if (
-          (t as { windowMinutes?: number })
-            .windowMinutes === undefined
-        ) {
-          (t as { windowMinutes?: number }).windowMinutes = 0;
-        }
-      }
-
-      this.tradesList = loadedTrades;
-
+      this.tradesList = data.tradesList ?? [];
       this.trades = new Map();
-
-      for (const t of loadedTrades) {
-        const key =
-          `${t.strategy}:${t.eventSlug}:${t.side}`;
-
+      for (const t of this.tradesList as ComboTradeEvent[]) {
+        const key = `${t.pctThreshold}_${t.windowSec}:${t.eventSlug}:${t.side}`;
         this.trades.set(key, t);
       }
 
-      this.pendingResolution = new Map(
-        data.pendingResolution ?? [],
-      );
+      this.pendingResolution = new Map(data.pendingResolution ?? []);
+      this.marketsSeen = new Set(data.marketsSeen ?? []);
+      this.updateCount = data.updateCount ?? 0;
 
-      this.updateCount =
-        data.updateCount ?? 0;
-
-      const savedAgoSec = data.savedAt
-        ? Math.round(
-            (Date.now() - data.savedAt) / 1000,
-          )
-        : "?";
-
+      const savedAgoSec = data.savedAt ? Math.round((Date.now() - data.savedAt) / 1000) : "?";
       console.log(
-        `[loadState] восстановлено сделок: ${this.tradesList.length}, ` +
-          `ждут резолва: ${this.pendingResolution.size} ` +
-          `(файл сохранён ${savedAgoSec}с назад).`,
+        `[loadState] восстановлено комбо-сделок: ${this.tradesList.length}, ждут резолва: ${this.pendingResolution.size} (сохранено ${savedAgoSec}с назад).`,
       );
     } catch (err) {
-      console.error(
-        "[loadState] ошибка загрузки, " +
-          "начинаем с нуля:",
-        (err as Error).message,
-      );
+      console.error("[loadState] ошибка загрузки, начинаем с нуля:", (err as Error).message);
     }
   }
 
   async refreshMarkets(): Promise<void> {
     let allMarkets: CryptoUpDownMarket[];
-
     try {
-      allMarkets = await discoverCryptoUpDownMarkets(
-        TIMEFRAMES_TO_DISCOVER,
-      );
+      allMarkets = await discoverCryptoUpDownMarkets(TIMEFRAMES_TO_DISCOVER);
     } catch (err) {
-      console.error(
-        "[refresh] ошибка:",
-        (err as Error).message,
-      );
-
+      console.error("[refresh] ошибка:", (err as Error).message);
       return;
     }
 
     const now = Date.now();
-
     const markets = allMarkets.filter(
       (m) =>
         isIncludedCoin(m.coin) &&
-        TARGET_WINDOW_MINUTES_LIST.includes(m.windowMinutes) &&
+        m.windowMinutes === TARGET_WINDOW_MINUTES &&
         m.closeTimeMs - now <= observeWindowMs(m.windowMinutes),
     );
 
     this.tokenIndex = buildTokenIndex(markets);
-
     const tokenIds = [...this.tokenIndex.keys()].sort();
 
     for (const m of markets) {
+      this.marketsSeen.add(m.eventSlug);
       if (!this.pendingResolution.has(m.eventSlug)) {
-        this.pendingResolution.set(m.eventSlug, {
-          closeTimeMs: m.closeTimeMs,
-        });
+        this.pendingResolution.set(m.eventSlug, { closeTimeMs: m.closeTimeMs });
       }
     }
 
-    const coinsSeen = [
-      ...new Set(markets.map((m) => m.coin)),
-    ].sort();
-
-    const windowsSeen = [
-      ...new Set(markets.map((m) => m.windowMinutes)),
-    ].sort((a, b) => a - b);
+    // чистим кэш цен открытия для рынков, которых больше нет в наблюдении
+    const activeSlugs = new Set(markets.map((m) => m.eventSlug));
+    for (const slug of this.openPrices.keys()) {
+      if (!activeSlugs.has(slug)) this.openPrices.delete(slug);
+    }
 
     console.log(
-      `[refresh] наблюдаем BTC/ETH рынков: ${markets.length} ` +
-        `(${tokenIds.length} токенов, монеты: ${coinsSeen.join(", ") || "нет"}, ` +
-        `таймфреймы (мин): ${windowsSeen.join(", ") || "нет"}), ` +
-        `сделок открыто: ${this.tradesList.length}, ` +
-        `ждём резолва: ${this.pendingResolution.size}`,
+      `[refresh] наблюдаем BTC/ETH 5-мин рынков: ${markets.length} (${tokenIds.length} токенов), ` +
+        `комбо-сделок открыто: ${this.tradesList.length}, ждём резолва: ${this.pendingResolution.size}`,
     );
 
     const sameAsLastTime =
-      tokenIds.length === this.lastTokenIds.length &&
-      tokenIds.every(
-        (id, i) => id === this.lastTokenIds[i],
-      );
-
-    if (sameAsLastTime && this.watcher) {
-      return;
-    }
+      tokenIds.length === this.lastTokenIds.length && tokenIds.every((id, i) => id === this.lastTokenIds[i]);
+    if (sameAsLastTime && this.watcher) return;
 
     this.lastTokenIds = tokenIds;
-
     this.watcher?.stop();
 
     if (tokenIds.length === 0) {
@@ -460,11 +228,7 @@ class ResearchLogger {
       return;
     }
 
-    this.watcher = new PriceWatcher(
-      tokenIds,
-      (u) => this.onPriceUpdate(u),
-    );
-
+    this.watcher = new PriceWatcher(tokenIds, (u) => this.onPriceUpdate(u));
     this.watcher.start();
   }
 
@@ -472,781 +236,243 @@ class ResearchLogger {
     this.updateCount++;
 
     const info = this.tokenIndex.get(update.tokenId);
-
     if (!info) return;
-
     const { market, side } = info;
 
-    const prices = [
-      update.bestBid,
-      update.bestAsk,
-    ].filter(
-      (p): p is number => p !== null,
-    );
+    const price = update.bestBid ?? update.bestAsk;
+    if (price === null) return;
 
-    if (prices.length === 0) return;
+    // Дешёвая проверка первой: коридор цены токена — общий для ВСЕХ комбинаций.
+    if (price < PRICE_LOW || price > PRICE_HIGH) return;
 
-    const price = Math.max(...prices);
-
-    const spread =
-      update.bestAsk !== null &&
-      update.bestBid !== null
-        ? update.bestAsk - update.bestBid
-        : null;
-
-    // PriceWatcher сейчас НЕ передаёт bestBidSize/bestAskSize.
-    // Поэтому объём при входе пока не собираем.
-    const bestSize: number | null = null;
+    const feed = PRICE_FEEDS[market.coin];
+    if (!feed) return;
 
     const now = Date.now();
+    const secToClose = (market.closeTimeMs - now) / 1000;
+    if (secToClose < 0) return;
 
-    for (const spec of STRATEGIES) {
-      const key =
-        `${spec.name}:${market.eventSlug}:${side}`;
+    // Цена монеты на момент открытия окна — считаем один раз на рынок,
+    // не на комбинацию (не зависит от порога/окна).
+    let openPrice = this.openPrices.get(market.eventSlug);
+    if (openPrice === undefined) {
+      const openTimeMs = market.closeTimeMs - market.windowMinutes * 60 * 1000;
+      const p = feed.getPriceAt(openTimeMs);
+      if (p === null) return; // фид ещё не накопил данные на момент открытия окна
+      openPrice = p;
+      this.openPrices.set(market.eventSlug, openPrice);
+    }
+    const coinNow = feed.getLatestPrice();
+    if (coinNow === null) return;
+    const pctMove = (coinNow - openPrice) / openPrice;
 
-      const existing = this.trades.get(key);
+    for (const windowSec of WINDOWS_SEC) {
+      if (secToClose > windowSec) continue; // ещё не дошли до окна входа этой комбинации
 
-      if (existing) {
-        if (existing.determined) continue;
+      for (const pctThreshold of THRESHOLDS) {
+        const passesMove =
+          side === "Up" ? pctMove >= pctThreshold : pctMove <= -pctThreshold;
+        if (!passesMove) continue;
 
-        // Обновляем максимальную просадку
-        if (price < existing.minPriceSinceEntry) {
-          existing.minPriceSinceEntry = price;
-          existing.msToMinPrice =
-            now - existing.entryTimestamp;
-        }
+        const key = `${pctThreshold}_${windowSec}:${market.eventSlug}:${side}`;
+        if (this.trades.has(key)) continue; // уже зафиксирован вход для этой комбинации
 
-        // Проверяем падение минимум вдвое
-        if (
-          !existing._crashHalfRecorded &&
-          price <= existing.entryLevel / 2
-        ) {
-          existing.msToHalfCrash =
-            now - existing.entryTimestamp;
-
-          existing._crashHalfRecorded = true;
-        }
-
-        // Считаем отскоки
-        if (price < existing.entryLevel) {
-          existing._lastPriceBelowLevel = true;
-        } else if (
-          existing._lastPriceBelowLevel
-        ) {
-          existing.bounceCount++;
-          existing._lastPriceBelowLevel = false;
-        }
-
-        // Досрочная победа
-        if (
-          spec.winEarlyLevel !== null &&
-          price >= spec.winEarlyLevel
-        ) {
-          existing.determined = true;
-          existing.won = true;
-          existing.wonEarly = true;
-        }
-
-        continue;
+        const trade: ComboTradeEvent = {
+          pctThreshold,
+          windowSec,
+          eventSlug: market.eventSlug,
+          coin: market.coin,
+          side,
+          entryTimestamp: now,
+          determined: false,
+          won: null,
+        };
+        this.trades.set(key, trade);
+        this.tradesList.push(trade);
       }
-
-      // Цена ещё не достигла уровня входа
-      if (price < spec.entryLevel) continue;
-
-      const secToClose =
-        (market.closeTimeMs - now) / 1000;
-
-      const trade: TradeEvent = {
-        strategy: spec.name,
-        entryLevel: spec.entryLevel,
-        eventSlug: market.eventSlug,
-        coin: market.coin,
-        side,
-
-        windowMinutes: market.windowMinutes,
-
-        entryTimestamp: now,
-
-        secToCloseAtEntry: secToClose,
-
-        minPriceSinceEntry: price,
-
-        determined: false,
-
-        won: null,
-
-        wonEarly: false,
-
-        spreadAtEntry: spread,
-
-        bestSizeAtEntry: bestSize,
-
-        entryHourUtc: new Date(now).getUTCHours(),
-
-        msToMinPrice: 0,
-
-        msToHalfCrash: null,
-
-        bounceCount: 0,
-
-        _crashHalfRecorded: false,
-
-        _lastPriceBelowLevel: false,
-      };
-
-      this.trades.set(key, trade);
-
-      this.tradesList.push(trade);
     }
   }
 
   async checkResolutions(): Promise<void> {
     const now = Date.now();
-
     const toCheck: string[] = [];
 
-    for (const [
-      slug,
-      info,
-    ] of this.pendingResolution) {
-      if (
-        now - info.closeTimeMs >=
-        RESOLVE_CHECK_DELAY_SEC * 1000
-      ) {
+    for (const [slug, info] of this.pendingResolution) {
+      if (now - info.closeTimeMs >= RESOLVE_CHECK_DELAY_SEC * 1000) {
         toCheck.push(slug);
       }
     }
 
     for (const slug of toCheck) {
       try {
-        const resp = await fetch(
-          `${GAMMA_HOST}/events/slug/${slug}`,
-        );
-
+        const resp = await fetch(`${GAMMA_HOST}/events/slug/${slug}`);
         if (!resp.ok) continue;
-
         const event = await resp.json();
-
-        const market =
-          (event.markets ?? [])[0];
-
+        const market = (event.markets ?? [])[0];
         if (!market) continue;
 
         let outcomes: string[];
         let outcomePrices: string[];
-
         try {
-          outcomes = JSON.parse(
-            market.outcomes ?? "[]",
-          );
-
-          outcomePrices = JSON.parse(
-            market.outcomePrices ?? "[]",
-          );
+          outcomes = JSON.parse(market.outcomes ?? "[]");
+          outcomePrices = JSON.parse(market.outcomePrices ?? "[]");
         } catch {
           continue;
         }
+        if (outcomes.length !== 2 || outcomePrices.length !== 2) continue;
 
-        if (
-          outcomes.length !== 2 ||
-          outcomePrices.length !== 2
-        ) {
-          continue;
-        }
+        const upIdx = outcomes.findIndex((o) => /^up$/i.test(o.trim()));
+        const downIdx = outcomes.findIndex((o) => /^down$/i.test(o.trim()));
+        if (upIdx === -1 || downIdx === -1) continue;
 
-        const upIdx = outcomes.findIndex(
-          (o) => /^up$/i.test(o.trim()),
-        );
+        const upPrice = Number(outcomePrices[upIdx]);
+        const downPrice = Number(outcomePrices[downIdx]);
+        if (upPrice > 0.05 && upPrice < 0.95) continue;
 
-        const downIdx = outcomes.findIndex(
-          (o) => /^down$/i.test(o.trim()),
-        );
+        const winner: "Up" | "Down" = upPrice > downPrice ? "Up" : "Down";
 
-        if (
-          upIdx === -1 ||
-          downIdx === -1
-        ) {
-          continue;
-        }
-
-        const upPrice = Number(
-          outcomePrices[upIdx],
-        );
-
-        const downPrice = Number(
-          outcomePrices[downIdx],
-        );
-
-        if (
-          upPrice > 0.05 &&
-          upPrice < 0.95
-        ) {
-          continue;
-        }
-
-        const winner: "Up" | "Down" =
-          upPrice > downPrice
-            ? "Up"
-            : "Down";
-
-        for (const spec of STRATEGIES) {
-          for (const side of [
-            "Up",
-            "Down",
-          ] as const) {
-            const t = this.trades.get(
-              `${spec.name}:${slug}:${side}`,
-            );
-
-            if (t && !t.determined) {
-              t.determined = true;
-
-              t.won =
-                side === winner;
-
-              t.wonEarly = false;
-            }
+        for (const t of this.tradesList) {
+          if (t.eventSlug === slug && !t.determined) {
+            t.determined = true;
+            t.won = t.side === winner;
           }
         }
 
         this.pendingResolution.delete(slug);
-
-        // Сохраняем сразу после каждого резолва — так свежий
-        // результат не потеряется, даже если рестарт случится
-        // через секунду после этого.
         this.saveState();
       } catch (err) {
-        console.error(
-          `[resolve] ошибка проверки ${slug}:`,
-          (err as Error).message,
-        );
+        console.error(`[resolve] ошибка проверки ${slug}:`, (err as Error).message);
       }
     }
   }
 
-  /**
-   * Строит блок отчёта для одной стратегии на ОДНОМ конкретном
-   * таймфрейме (windowMinutes). Раньше все таймфреймы одной стратегии
-   * суммировались в один блок — теперь каждый таймфрейм полностью
-   * изолирован: винрейт, просадка, крах, микроструктура, тайминги —
-   * всё считается только на сделках именно этого таймфрейма.
-   */
-  private buildStrategyTimeframeReport(
-    spec: StrategySpec,
-    windowMinutes: number,
-  ): string[] {
-    const lines: string[] = [];
-
-    const all = this.tradesList.filter(
-      (t) =>
-        t.strategy === spec.name &&
-        t.windowMinutes === windowMinutes,
-    );
-
-    lines.push(
-      `<b>── ${spec.name} | ${timeframeLabel(windowMinutes)} ──</b>`,
-    );
-
-    if (all.length === 0) {
-      lines.push("  сделок пока нет");
-      lines.push("");
-      return lines;
-    }
-
-    const determined = all.filter(
-      (t) => t.determined,
-    );
-
-    const pending =
-      all.length - determined.length;
-
-    const wins = determined.filter(
-      (t) => t.won,
-    );
-
-    const losses = determined.filter(
-      (t) => !t.won,
-    );
-
-    lines.push(
-      `Всего сделок: ${all.length} ` +
-        `(резолвнуто: ${determined.length}, ` +
-        `ждём: ${pending})`,
-    );
-
-    if (determined.length > 0) {
-      const winRate =
-        (wins.length / determined.length) *
-        100;
-
-      const earlyWins = wins.filter(
-        (t) => t.wonEarly,
-      ).length;
-
-      const earlyNote =
-        spec.winEarlyLevel !== null
-          ? `, из них ранних по ${spec.winEarlyLevel}: ${earlyWins}`
-          : "";
-
-      lines.push(
-        `Win rate: ${wins.length}/${determined.length} ` +
-          `(${winRate.toFixed(1)}%)${earlyNote}`,
-      );
-    }
-
-    // Разбивка по монетам (BTC / ETH) внутри этого таймфрейма.
-    if (determined.length > 0) {
-      lines.push(
-        `  <b>Win rate по монете</b>`,
-      );
-
-      const byCoin = new Map<
-        string,
-        { win: number; total: number }
-      >();
-
-      for (const t of determined) {
-        const s =
-          byCoin.get(t.coin) ??
-          { win: 0, total: 0 };
-
-        s.total++;
-
-        if (t.won) s.win++;
-
-        byCoin.set(t.coin, s);
-      }
-
-      for (
-        const [coin, s] of [
-          ...byCoin.entries(),
-        ].sort((a, b) => b[1].total - a[1].total)
-      ) {
-        const pct =
-          (s.win / s.total) * 100;
-
-        lines.push(
-          `    ${coin}: ${s.win}/${s.total} ` +
-            `(${pct.toFixed(0)}%)`,
-        );
+  /** Сводка по одной монете: win/total на каждую комбинацию (только резолвнутые). */
+  private gridForCoin(coin: string): Map<string, { win: number; total: number }> {
+    const grid = new Map<string, { win: number; total: number }>();
+    for (const pctThreshold of THRESHOLDS) {
+      for (const windowSec of WINDOWS_SEC) {
+        grid.set(`${pctThreshold}_${windowSec}`, { win: 0, total: 0 });
       }
     }
-
-    lines.push("");
-
-    const drawdownReport = (
-      label: string,
-      list: TradeEvent[],
-    ) => {
-      if (list.length === 0) return;
-
-      const dds = list.map(drawdownOf);
-
-      const avg =
-        dds.reduce(
-          (a, b) => a + b,
-          0,
-        ) / dds.length;
-
-      const worst = Math.max(...dds);
-
-      lines.push(
-        `  <b>Просадка — ${label} (${list.length})</b>`,
-      );
-
-      lines.push(
-        `    средняя: ${avg.toFixed(4)}, ` +
-          `максимальная: ${worst.toFixed(4)}`,
-      );
-
-      const buckets =
-        new Map<string, number>();
-
-      for (const dd of dds) {
-        const b = drawdownBucket(dd);
-
-        buckets.set(
-          b,
-          (buckets.get(b) ?? 0) + 1,
-        );
-      }
-
-      for (
-        const b of DRAWDOWN_BUCKET_ORDER
-      ) {
-        const c = buckets.get(b);
-
-        if (!c) continue;
-
-        const pct =
-          (c / list.length) * 100;
-
-        lines.push(
-          `      ${b}: ${c} (${pct.toFixed(0)}%)`,
-        );
-      }
-    };
-
-    drawdownReport(
-      "выигрышные",
-      wins,
-    );
-
-    drawdownReport(
-      "проигрышные",
-      losses,
-    );
-
-    lines.push("");
-
-    // Скорость крушения
-    const crashReport = (
-      label: string,
-      list: TradeEvent[],
-    ) => {
-      if (list.length === 0) return;
-
-      const withCrash =
-        list.filter(
-          (t) =>
-            t.msToHalfCrash !== null,
-        );
-
-      const pct =
-        (withCrash.length /
-          list.length) *
-        100;
-
-      lines.push(
-        `  <b>Крах вдвое (${label}, ${list.length})</b>: ` +
-          `было у ${withCrash.length} ` +
-          `(${pct.toFixed(0)}%)`,
-      );
-
-      if (withCrash.length > 0) {
-        const avgMs =
-          withCrash.reduce(
-            (s, t) =>
-              s +
-              (t.msToHalfCrash ?? 0),
-            0,
-          ) / withCrash.length;
-
-        const minMs = Math.min(
-          ...withCrash.map(
-            (t) =>
-              t.msToHalfCrash ?? 0,
-          ),
-        );
-
-        lines.push(
-          `    среднее время до краха: ` +
-            `${(avgMs / 1000).toFixed(1)}с, ` +
-            `самое быстрое: ` +
-            `${(minMs / 1000).toFixed(1)}с`,
-        );
-      }
-    };
-
-    crashReport(
-      "выигрышные",
-      wins,
-    );
-
-    crashReport(
-      "проигрышные",
-      losses,
-    );
-
-    lines.push("");
-
-    // Отскоки, спред, объём
-    const microReport = (
-      label: string,
-      list: TradeEvent[],
-    ) => {
-      if (list.length === 0) return;
-
-      const avgBounce =
-        list.reduce(
-          (s, t) =>
-            s + t.bounceCount,
-          0,
-        ) / list.length;
-
-      const spreads = list
-        .map(
-          (t) =>
-            t.spreadAtEntry,
-        )
-        .filter(
-          (s): s is number =>
-            s !== null,
-        );
-
-      const avgSpread =
-        spreads.length
-          ? spreads.reduce(
-              (a, b) => a + b,
-              0,
-            ) / spreads.length
-          : null;
-
-      const sizes = list
-        .map(
-          (t) =>
-            t.bestSizeAtEntry,
-        )
-        .filter(
-          (s): s is number =>
-            s !== null,
-        );
-
-      const avgSize =
-        sizes.length
-          ? sizes.reduce(
-              (a, b) => a + b,
-              0,
-            ) / sizes.length
-          : null;
-
-      lines.push(
-        `  <b>Микроструктура — ${label}</b>: ` +
-          `отскоков в среднем ${avgBounce.toFixed(2)}` +
-          (
-            avgSpread !== null
-              ? `, спред при входе ${avgSpread.toFixed(4)}`
-              : ""
-          ) +
-          (
-            avgSize !== null
-              ? `, объём при входе ${avgSize.toFixed(1)}`
-              : ""
-          ),
-      );
-    };
-
-    microReport(
-      "выигрышные",
-      wins,
-    );
-
-    microReport(
-      "проигрышные",
-      losses,
-    );
-
-    lines.push("");
-
-    if (determined.length > 0) {
-      lines.push(
-        `  <b>Win rate по времени до закрытия на входе</b>`,
-      );
-
-      const byBucket =
-        new Map<
-          string,
-          {
-            win: number;
-            total: number;
-          }
-        >();
-
-      for (const t of determined) {
-        const b =
-          timeBucketLabel(
-            t.secToCloseAtEntry,
-          );
-
-        const s =
-          byBucket.get(b) ??
-          {
-            win: 0,
-            total: 0,
-          };
-
-        s.total++;
-
-        if (t.won) {
-          s.win++;
-        }
-
-        byBucket.set(b, s);
-      }
-
-      for (
-        const [b, s] of [
-          ...byBucket.entries(),
-        ].sort()
-      ) {
-        const pct =
-          (s.win / s.total) *
-          100;
-
-        lines.push(
-          `    ${b} до закрытия: ` +
-            `${s.win}/${s.total} ` +
-            `(${pct.toFixed(0)}%)`,
-        );
-      }
-
-      lines.push("");
-
-      lines.push(
-        `  <b>Win rate по часу UTC на входе</b>`,
-      );
-
-      const byHour =
-        new Map<
-          string,
-          {
-            win: number;
-            total: number;
-          }
-        >();
-
-      for (const t of determined) {
-        const b =
-          hourBucketLabel(
-            t.entryHourUtc,
-          );
-
-        const s =
-          byHour.get(b) ??
-          {
-            win: 0,
-            total: 0,
-          };
-
-        s.total++;
-
-        if (t.won) {
-          s.win++;
-        }
-
-        byHour.set(b, s);
-      }
-
-      for (const b of [
-        "0-6 UTC",
-        "6-12 UTC",
-        "12-18 UTC",
-        "18-24 UTC",
-      ]) {
-        const s =
-          byHour.get(b);
-
-        if (!s) continue;
-
-        const pct =
-          (s.win / s.total) *
-          100;
-
-        lines.push(
-          `    ${b}: ${s.win}/${s.total} ` +
-            `(${pct.toFixed(0)}%)`,
-        );
-      }
+    for (const t of this.tradesList) {
+      if (t.coin !== coin || !t.determined) continue;
+      const key = `${t.pctThreshold}_${t.windowSec}`;
+      const s = grid.get(key);
+      if (!s) continue;
+      s.total++;
+      if (t.won) s.win++;
     }
-
-    lines.push("");
-
-    return lines;
+    return grid;
   }
 
-  buildReport(): string {
+  /** Компактный отчёт (вариант Б): топ-5 по винрейту + лучшая по частоте при высоком винрейте, для каждой монеты. */
+  buildCompactReport(): string {
     const lines: string[] = [];
-
-    lines.push(
-      `<b>📊 Отчёт BTC/ETH — сравнение стратегий (v4, по таймфреймам отдельно)</b>`,
-    );
-
-    lines.push(
-      `Всего сделок по всем стратегиям: ${this.tradesList.length}`,
-    );
-
+    lines.push(`<b>📊 Отчёт: сетка порог×окно (BTC/ETH, 5м, коридор ${PRICE_LOW}-${PRICE_HIGH}, держим до резолва)</b>`);
+    lines.push(`Уникальных рынков обработано: ${this.marketsSeen.size} | Комбо-сделок всего: ${this.tradesList.length}`);
     lines.push("");
 
-    for (const spec of STRATEGIES) {
-      lines.push(
-        `<b>═══════════ ${spec.name} ═══════════</b>`,
-      );
+    for (const coin of INCLUDED_COINS) {
+      const grid = this.gridForCoin(coin);
 
+      const entries = [...grid.entries()]
+        .map(([key, s]) => {
+          const [pctStr, winStr] = key.split("_");
+          return {
+            pctThreshold: Number(pctStr),
+            windowSec: Number(winStr),
+            win: s.win,
+            total: s.total,
+            winRate: s.total > 0 ? s.win / s.total : 0,
+          };
+        })
+        .filter((e) => e.total > 0);
+
+      lines.push(`<b>── ${coin}: топ-5 комбинаций по винрейту (мин. ${MIN_TRADES_FOR_TOP} сделок) ──</b>`);
+      const top = entries
+        .filter((e) => e.total >= MIN_TRADES_FOR_TOP)
+        .sort((a, b) => b.winRate - a.winRate || b.total - a.total)
+        .slice(0, 5);
+
+      if (top.length === 0) {
+        lines.push(`  пока недостаточно данных (нужно ≥${MIN_TRADES_FOR_TOP} сделок на комбинацию)`);
+      } else {
+        top.forEach((e, i) => {
+          lines.push(
+            `  ${i + 1}. ${thresholdLabel(e.pctThreshold)} / ${e.windowSec}с — ${(e.winRate * 100).toFixed(0)}% (${e.win}/${e.total})`,
+          );
+        });
+      }
       lines.push("");
 
-      for (const tf of TIMEFRAMES_TO_DISCOVER) {
-        lines.push(
-          ...this.buildStrategyTimeframeReport(
-            spec,
-            tf.minutes,
-          ),
-        );
+      const highWinrateCandidates = entries
+        .filter((e) => e.winRate >= HIGH_WINRATE_BAR && e.total >= MIN_TRADES_FOR_TOP)
+        .sort((a, b) => b.total - a.total);
+
+      lines.push(`<b>── ${coin}: больше всего сделок при винрейте ≥${(HIGH_WINRATE_BAR * 100).toFixed(0)}% ──</b>`);
+      if (highWinrateCandidates.length === 0) {
+        lines.push(`  пока нет комбинации с винрейтом ≥${(HIGH_WINRATE_BAR * 100).toFixed(0)}% и ≥${MIN_TRADES_FOR_TOP} сделками`);
+      } else {
+        const best = highWinrateCandidates[0];
+        lines.push(`  ${thresholdLabel(best.pctThreshold)} / ${best.windowSec}с — ${best.total} сделок, ${(best.winRate * 100).toFixed(0)}%`);
       }
+      lines.push("");
+    }
+
+    lines.push(`Полная таблица по запросу: напиши "${FULL_GRID_TRIGGERS[0]}"`);
+
+    return lines.join("\n");
+  }
+
+  /** Полная таблица (вариант А) — все комбинации, по монетам отдельно. */
+  buildFullGridReport(): string {
+    const lines: string[] = [];
+    lines.push(`<b>📊 Полная таблица: сетка порог×окно (BTC/ETH, 5м, коридор ${PRICE_LOW}-${PRICE_HIGH})</b>`);
+    lines.push("");
+
+    for (const coin of INCLUDED_COINS) {
+      const grid = this.gridForCoin(coin);
+      lines.push(`<b>═══ ${coin} ═══</b>`);
+      lines.push("");
+
+      const header = "Порог\\Окно  " + WINDOWS_SEC.map((w) => `${w}с`.padEnd(11)).join("");
+      lines.push(`<pre>${header}</pre>`);
+
+      for (const pctThreshold of THRESHOLDS) {
+        const cells = WINDOWS_SEC.map((windowSec) => {
+          const s = grid.get(`${pctThreshold}_${windowSec}`)!;
+          const cell = s.total > 0 ? `${s.win}/${s.total} ${(100 * s.win / s.total).toFixed(0)}%` : "—";
+          return cell.padEnd(11);
+        }).join("");
+        lines.push(`<pre>${thresholdLabel(pctThreshold).padEnd(11)}${cells}</pre>`);
+      }
+      lines.push("");
     }
 
     return lines.join("\n");
   }
 
   start(): void {
-    // Сначала пытаемся восстановить прошлую статистику с диска.
     this.loadState();
-
     this.refreshMarkets();
-
-    setInterval(
-      () => this.refreshMarkets(),
-      MARKET_REFRESH_MS,
-    );
-
-    setInterval(
-      () => this.checkResolutions(),
-      30 * 1000,
-    );
-
-    setInterval(
-      () => {
-        console.log(
-          `--- статус: апдейтов цены ${this.updateCount}, ` +
-            `сделок ${this.tradesList.length} ---`,
-        );
-      },
-      60 * 1000,
-    );
-
-    // Автосохранение на диск раз в минуту (плюс сохранение
-    // сразу после каждого резолва — см. checkResolutions).
-    setInterval(
-      () => this.saveState(),
-      AUTOSAVE_INTERVAL_MS,
-    );
+    setInterval(() => this.refreshMarkets(), MARKET_REFRESH_MS);
+    setInterval(() => this.checkResolutions(), 30 * 1000);
+    setInterval(() => {
+      console.log(`--- статус: апдейтов ${this.updateCount}, комбо-сделок ${this.tradesList.length} ---`);
+    }, 60 * 1000);
+    setInterval(() => this.saveState(), AUTOSAVE_INTERVAL_MS);
   }
 }
 
 // Telegram не принимает сообщения длиннее ~4096 символов.
-// Берём с запасом, чтобы не упереться в лимит с учётом HTML-тегов.
 const TELEGRAM_MAX_CHUNK = 3500;
 
-/**
- * Режет длинный отчёт на части по границам строк (не разрывая
- * строку/тег посередине — каждая строка отчёта содержит
- * самодостаточные <b>...</b> пары, так что резать между строками
- * безопасно для HTML-разметки).
- */
-function splitReportIntoChunks(
-  report: string,
-  maxLen: number = TELEGRAM_MAX_CHUNK,
-): string[] {
+function splitReportIntoChunks(report: string, maxLen: number = TELEGRAM_MAX_CHUNK): string[] {
   const lines = report.split("\n");
-
   const chunks: string[] = [];
-
   let current = "";
-
   for (const line of lines) {
-    const candidate = current
-      ? `${current}\n${line}`
-      : line;
-
+    const candidate = current ? `${current}\n${line}` : line;
     if (candidate.length > maxLen && current) {
       chunks.push(current);
       current = line;
@@ -1254,46 +480,23 @@ function splitReportIntoChunks(
       current = candidate;
     }
   }
-
-  if (current) {
-    chunks.push(current);
-  }
-
+  if (current) chunks.push(current);
   return chunks.length > 0 ? chunks : [""];
 }
 
-/**
- * Отправляет отчёт в Telegram, разбивая его на несколько сообщений,
- * если он не влезает в один. header добавляется только к первой части.
- */
 async function sendReportToTelegram(
-  telegram: ReturnType<
-    typeof createTelegramNotifier
-  >,
+  telegram: ReturnType<typeof createTelegramNotifier>,
   header: string,
   report: string,
 ): Promise<void> {
   const chunks = splitReportIntoChunks(report);
-
   for (let i = 0; i < chunks.length; i++) {
-    const partLabel =
-      chunks.length > 1
-        ? ` (часть ${i + 1}/${chunks.length})`
-        : "";
-
-    const text =
-      i === 0
-        ? `${header}${partLabel}\n\n${chunks[i]}`
-        : `<b>...продолжение${partLabel}</b>\n\n${chunks[i]}`;
-
+    const partLabel = chunks.length > 1 ? ` (часть ${i + 1}/${chunks.length})` : "";
+    const text = i === 0 ? `${header}${partLabel}\n\n${chunks[i]}` : `<b>...продолжение${partLabel}</b>\n\n${chunks[i]}`;
     try {
       await telegram?.send(text);
     } catch (err) {
-      console.error(
-        "[sendReportToTelegram] ошибка отправки части " +
-          `${i + 1}/${chunks.length}:`,
-        (err as Error).message,
-      );
+      console.error(`[sendReportToTelegram] ошибка отправки части ${i + 1}/${chunks.length}:`, (err as Error).message);
     }
   }
 }
@@ -1301,202 +504,93 @@ async function sendReportToTelegram(
 async function pollTelegramCommands(
   botToken: string,
   chatId: string,
-  telegram: ReturnType<
-    typeof createTelegramNotifier
-  >,
-  research: ResearchLogger,
+  telegram: ReturnType<typeof createTelegramNotifier>,
+  research: ResearchGridLogger,
 ): Promise<void> {
   let offset = 0;
-
-  const apiUrl =
-    `https://api.telegram.org/bot${botToken}/getUpdates`;
+  const apiUrl = `https://api.telegram.org/bot${botToken}/getUpdates`;
 
   for (;;) {
     try {
-      const resp = await fetch(
-        `${apiUrl}?offset=${offset}&timeout=25`,
-      );
-
+      const resp = await fetch(`${apiUrl}?offset=${offset}&timeout=25`);
       if (!resp.ok) {
-        await new Promise(
-          (r) => setTimeout(r, 5000),
-        );
-
+        await new Promise((r) => setTimeout(r, 5000));
         continue;
       }
+      const data = await resp.json();
+      for (const update of data.result ?? []) {
+        offset = update.update_id + 1;
+        const msg = update.message;
+        if (!msg?.text || String(msg.chat?.id) !== String(chatId)) continue;
+        const text = msg.text.toLowerCase();
 
-      const data =
-        await resp.json();
-
-      for (
-        const update of data.result ?? []
-      ) {
-        offset =
-          update.update_id + 1;
-
-        const msg =
-          update.message;
-
-        if (
-          !msg?.text ||
-          String(msg.chat?.id) !==
-            String(chatId)
-        ) {
+        if (COMPACT_REPORT_TRIGGERS.some((p) => text.includes(p.toLowerCase()))) {
+          console.log(`[telegram] Запрос компактного отчёта: "${msg.text}"`);
+          await sendReportToTelegram(telegram, "<b>📊 Отчёт по запросу</b>", research.buildCompactReport());
           continue;
         }
 
-        const text =
-          msg.text.toLowerCase();
-
-        const matched =
-          REPORT_TRIGGER_PHRASES.some(
-            (p) =>
-              text.includes(
-                p.toLowerCase(),
-              ),
-          );
-
-        if (matched) {
-          console.log(
-            `[telegram] Запрос отчёта получен: "${msg.text}"`,
-          );
-
-          await sendReportToTelegram(
-            telegram,
-            "<b>📊 Отчёт по запросу</b>",
-            research.buildReport(),
-          );
+        if (FULL_GRID_TRIGGERS.some((p) => text.includes(p.toLowerCase()))) {
+          console.log(`[telegram] Запрос полной таблицы: "${msg.text}"`);
+          await sendReportToTelegram(telegram, "<b>📊 Полная таблица по запросу</b>", research.buildFullGridReport());
+          continue;
         }
       }
     } catch (err) {
-      console.error(
-        "[telegram poll] ошибка:",
-        (err as Error).message,
-      );
-
-      await new Promise(
-        (r) => setTimeout(r, 5000),
-      );
+      console.error("[telegram poll] ошибка:", (err as Error).message);
+      await new Promise((r) => setTimeout(r, 5000));
     }
   }
 }
 
 async function main() {
-  console.log(
-    "Исследовательский логгер запущен " +
-      "(BTC и ETH, таймфреймы 5м/15м/1ч/4ч, 2 стратегии, " +
-      "только сбор статистики).",
-  );
+  console.log("Исследовательский логгер СЕТКА запущен (BTC и ETH, 5м, только сбор статистики).");
+  console.log("Пороги (%):", THRESHOLDS.map(thresholdLabel).join(", "));
+  console.log("Окна входа (с):", WINDOWS_SEC.join(", "));
+  console.log(`Комбинаций на монету: ${THRESHOLDS.length * WINDOWS_SEC.length}, монет: ${INCLUDED_COINS.length}`);
 
-  console.log(
-    "Отслеживаемые монеты:",
-    INCLUDED_COINS.join(", "),
-  );
+  // запускаем оба фида цены (нужны для расчёта % движения)
+  btcPriceFeed.start();
+  ethPriceFeed.start();
 
-  console.log(
-    "Таймфреймы (мин):",
-    TARGET_WINDOW_MINUTES_LIST.join(", "),
-  );
+  const logger = createLogger(false);
+  const telegram = createTelegramNotifier(process.env.TELEGRAM_BOT_TOKEN, process.env.TELEGRAM_CHAT_ID, logger);
 
-  console.log(
-    "Стратегии:",
-    STRATEGIES
-      .map((s) => s.name)
-      .join(", "),
-  );
-
-  const logger =
-    createLogger(false);
-
-  const telegram =
-    createTelegramNotifier(
-      process.env.TELEGRAM_BOT_TOKEN,
-      process.env.TELEGRAM_CHAT_ID,
-      logger,
-    );
-
-  const research =
-    new ResearchLogger();
-
+  const research = new ResearchGridLogger();
   research.start();
 
-  if (
-    telegram &&
-    process.env.TELEGRAM_BOT_TOKEN &&
-    process.env.TELEGRAM_CHAT_ID
-  ) {
+  if (telegram && process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
     console.log(
-      `Telegram включён — напиши боту "${REPORT_TRIGGER_PHRASES[0]}" в любой момент, чтобы получить сводку.`,
+      `Telegram включён — напиши "${COMPACT_REPORT_TRIGGERS[0]}" для краткой сводки или "${FULL_GRID_TRIGGERS[0]}" для полной таблицы.`,
     );
+    pollTelegramCommands(process.env.TELEGRAM_BOT_TOKEN, process.env.TELEGRAM_CHAT_ID, telegram, research);
 
-    pollTelegramCommands(
-      process.env.TELEGRAM_BOT_TOKEN,
-      process.env.TELEGRAM_CHAT_ID,
-      telegram,
-      research,
-    );
-
-    console.log(
-      `Автоотчёт включён — сводка будет прилетать в Telegram ` +
-        `каждые ${AUTO_REPORT_INTERVAL_MS / 60000} минут.`,
-    );
-
+    console.log(`Автоотчёт (краткий) включён — каждые ${AUTO_REPORT_INTERVAL_MS / 60000} минут.`);
     setInterval(async () => {
       try {
-        await sendReportToTelegram(
-          telegram,
-          "<b>⏰ Автоотчёт (каждые 30 мин)</b>",
-          research.buildReport(),
-        );
+        await sendReportToTelegram(telegram, "<b>⏰ Автоотчёт (каждые 30 мин)</b>", research.buildCompactReport());
       } catch (err) {
-        console.error(
-          "[autoReport] ошибка отправки:",
-          (err as Error).message,
-        );
+        console.error("[autoReport] ошибка отправки:", (err as Error).message);
       }
     }, AUTO_REPORT_INTERVAL_MS);
   } else {
-    console.log(
-      "Telegram не настроен — отчёт будет только в консоли.",
-    );
+    console.log("Telegram не настроен — отчёт будет только в консоли.");
   }
 
   const sendFinal = async () => {
-    console.log(
-      "\n" + research.buildReport(),
-    );
-
-    // Сохраняем на диск перед выходом — если это рестарт
-    // (Railway шлёт SIGTERM), статистика не потеряется.
+    console.log("\n" + research.buildCompactReport());
     research.saveState();
-
     if (telegram) {
-      await sendReportToTelegram(
-        telegram,
-        "<b>🌙 Финальный отчёт за ночь</b>",
-        research.buildReport(),
-      );
+      await sendReportToTelegram(telegram, "<b>🌙 Финальный отчёт за ночь</b>", research.buildCompactReport());
     }
-
     process.exit(0);
   };
 
-  process.on(
-    "SIGINT",
-    sendFinal,
-  );
-
-  process.on(
-    "SIGTERM",
-    sendFinal,
-  );
+  process.on("SIGINT", sendFinal);
+  process.on("SIGTERM", sendFinal);
 }
 
 main().catch((err) => {
-  console.error(
-    "Фатальная ошибка:",
-    err,
-  );
-
+  console.error("Фатальная ошибка:", err);
   process.exit(1);
 });
