@@ -11,7 +11,13 @@
  *
  * Пороги:  0.10%, 0.13%, 0.14%, 0.15%, 0.20%, 0.30%
  * Окна:    10с, 30с, 60с, 90с, 120с, 180с, 300с
- * = 42 комбинации на каждую монету (BTC/ETH отдельно), 84 всего.
+ * = 42 комбинации на монету, монеты: BTC, ETH, SOL, XRP, DOGE — 210 всего.
+ *
+ * ВАЖНО: пороги ОДНИ И ТЕ ЖЕ для всех монет — намеренно. Идея не в том,
+ * чтобы заранее гадать разную волатильность альткоинов, а в том, чтобы
+ * дать этой же сетке параметров показать, какой порог реально работает
+ * для КАЖДОЙ монеты по отдельности (отчёт всегда разбит по монетам) —
+ * подбирать вручную заранее нет смысла, когда это можно измерить.
  *
  * Условие "сделки" (как в боевом боте, держим до резолва, без раннего выхода):
  *   1. Цена токена (Up/Down) в коридоре 0.97-0.98.
@@ -42,6 +48,9 @@ import {
 import { PriceWatcher, PriceUpdate } from "./priceWatcher.js";
 import { btcPriceFeed } from "./btcPriceFeed.js";
 import { ethPriceFeed } from "./ethPriceFeed.js";
+import { solPriceFeed } from "./solPriceFeed.js";
+import { xrpPriceFeed } from "./xrpPriceFeed.js";
+import { dogePriceFeed } from "./dogePriceFeed.js";
 import { createTelegramNotifier } from "./telegram.js";
 import { createLogger } from "./logger.js";
 
@@ -72,8 +81,11 @@ interface CoinPriceFeed {
 const PRICE_FEEDS: Record<string, CoinPriceFeed> = {
   Bitcoin: btcPriceFeed,
   Ethereum: ethPriceFeed,
+  Solana: solPriceFeed,
+  XRP: xrpPriceFeed,
+  Dogecoin: dogePriceFeed,
 };
-const INCLUDED_COINS = Object.keys(PRICE_FEEDS); // ["Bitcoin", "Ethereum"]
+const INCLUDED_COINS = Object.keys(PRICE_FEEDS); // ["Bitcoin", "Ethereum", "Solana", "XRP", "Dogecoin"]
 
 const MARKET_REFRESH_MS = 30 * 1000;
 const AUTO_REPORT_INTERVAL_MS = 30 * 60 * 1000;
@@ -212,7 +224,7 @@ class ResearchGridLogger {
     }
 
     console.log(
-      `[refresh] наблюдаем BTC/ETH 5-мин рынков: ${markets.length} (${tokenIds.length} токенов), ` +
+      `[refresh] наблюдаем (${INCLUDED_COINS.join("/")}) 5-мин рынков: ${markets.length} (${tokenIds.length} токенов), ` +
         `комбо-сделок открыто: ${this.tradesList.length}, ждём резолва: ${this.pendingResolution.size}`,
     );
 
@@ -368,7 +380,7 @@ class ResearchGridLogger {
   /** Компактный отчёт (вариант Б): топ-5 по винрейту + лучшая по частоте при высоком винрейте, для каждой монеты. */
   buildCompactReport(): string {
     const lines: string[] = [];
-    lines.push(`<b>📊 Отчёт: сетка порог×окно (BTC/ETH, 5м, коридор ${PRICE_LOW}-${PRICE_HIGH}, держим до резолва)</b>`);
+    lines.push(`<b>📊 Отчёт: сетка порог×окно (${INCLUDED_COINS.join("/")}, 5м, коридор ${PRICE_LOW}-${PRICE_HIGH}, держим до резолва)</b>`);
     lines.push(`Уникальных рынков обработано: ${this.marketsSeen.size} | Комбо-сделок всего: ${this.tradesList.length}`);
     lines.push("");
 
@@ -427,7 +439,7 @@ class ResearchGridLogger {
   /** Полная таблица (вариант А) — все комбинации, по монетам отдельно. */
   buildFullGridReport(): string {
     const lines: string[] = [];
-    lines.push(`<b>📊 Полная таблица: сетка порог×окно (BTC/ETH, 5м, коридор ${PRICE_LOW}-${PRICE_HIGH})</b>`);
+    lines.push(`<b>📊 Полная таблица: сетка порог×окно (${INCLUDED_COINS.join("/")}, 5м, коридор ${PRICE_LOW}-${PRICE_HIGH})</b>`);
     lines.push("");
 
     for (const coin of INCLUDED_COINS) {
@@ -552,6 +564,9 @@ async function main() {
   // запускаем оба фида цены (нужны для расчёта % движения)
   btcPriceFeed.start();
   ethPriceFeed.start();
+  solPriceFeed.start();
+  xrpPriceFeed.start();
+  dogePriceFeed.start();
 
   const logger = createLogger(false);
   const telegram = createTelegramNotifier(process.env.TELEGRAM_BOT_TOKEN, process.env.TELEGRAM_CHAT_ID, logger);
