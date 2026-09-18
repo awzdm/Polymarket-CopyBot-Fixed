@@ -46,7 +46,7 @@ class DogePriceFeed {
     this.ws = new WebSocket(WS_URL);
 
     this.ws.on("open", () => {
-      condogee.log("[dogePriceFeed] подключено к Polymarket RTDS (Chainlink TWAP 30s)");
+      console.log("[dogePriceFeed] подключено к Polymarket RTDS (Chainlink TWAP 30s)");
       const subscribeMsg = {
         action: "subscribe",
         subscriptions: [
@@ -81,13 +81,13 @@ class DogePriceFeed {
 
     this.ws.on("close", () => {
       if (this.stopped) return;
-      condogee.log(`[dogePriceFeed] соединение закрыто, переподключение через ${RECONNECT_MS}мс`);
+      console.log(`[dogePriceFeed] соединение закрыто, переподключение через ${RECONNECT_MS}мс`);
       this.stopPing();
       setTimeout(() => this.connect(), RECONNECT_MS);
     });
 
     this.ws.on("error", (err) => {
-      condogee.error("[dogePriceFeed] ошибка:", err.message);
+      console.error("[dogePriceFeed] ошибка:", err.message);
     });
   }
 
