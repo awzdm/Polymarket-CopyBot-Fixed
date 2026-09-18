@@ -46,7 +46,7 @@ class XrpPriceFeed {
     this.ws = new WebSocket(WS_URL);
 
     this.ws.on("open", () => {
-      conxrpe.log("[xrpPriceFeed] подключено к Polymarket RTDS (Chainlink TWAP 30s)");
+      console.log("[xrpPriceFeed] подключено к Polymarket RTDS (Chainlink TWAP 30s)");
       const subscribeMsg = {
         action: "subscribe",
         subscriptions: [
@@ -81,13 +81,13 @@ class XrpPriceFeed {
 
     this.ws.on("close", () => {
       if (this.stopped) return;
-      conxrpe.log(`[xrpPriceFeed] соединение закрыто, переподключение через ${RECONNECT_MS}мс`);
+      console.log(`[xrpPriceFeed] соединение закрыто, переподключение через ${RECONNECT_MS}мс`);
       this.stopPing();
       setTimeout(() => this.connect(), RECONNECT_MS);
     });
 
     this.ws.on("error", (err) => {
-      conxrpe.error("[xrpPriceFeed] ошибка:", err.message);
+      console.error("[xrpPriceFeed] ошибка:", err.message);
     });
   }
 
