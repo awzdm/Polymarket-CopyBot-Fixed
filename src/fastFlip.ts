@@ -26,6 +26,9 @@ import { discoverCryptoUpDownMarkets, CryptoUpDownMarket } from "./cryptoMarketD
 import { PriceWatcher, PriceUpdate } from "./priceWatcher.js";
 import { btcPriceFeed } from "./btcPriceFeed.js";
 import { ethPriceFeed } from "./ethPriceFeed.js";
+import { solPriceFeed } from "./solPriceFeed.js";
+import { xrpPriceFeed } from "./xrpPriceFeed.js";
+import { dogePriceFeed } from "./dogePriceFeed.js";
 import { ClobService } from "./clob.js";
 import { userStream } from "./userStream.js";
 import { RedeemService } from "./redeem.js";
@@ -37,9 +40,9 @@ const DRY_RUN = (process.env.FASTFLIP_DRY_RUN ?? "true").toLowerCase() !== "fals
 const AUTO_REDEEM = (process.env.FASTFLIP_AUTO_REDEEM ?? "true").toLowerCase() !== "false";
 const TRADE_SIZE_USD = Number(process.env.FASTFLIP_TRADE_SIZE_USD ?? "5");
 
-// v6.7: список торгуемых монет. Каждая монета обязана иметь свой фид
-// в PRICE_FEEDS ниже.
-const COINS = ["Bitcoin", "Ethereum"];
+// v6.8: список торгуемых монет. Каждая монета обязана иметь свой фид
+// в PRICE_FEEDS ниже и свой порог движения в DEFAULT_PCT_THRESHOLDS.
+const COINS = ["Bitcoin", "Ethereum", "Solana", "XRP", "Dogecoin"];
 const TARGET_WINDOW_MINUTES = 5;
 
 const TIMEFRAMES_TO_DISCOVER = [{ suffixes: ["up-or-down-5m"], minutes: TARGET_WINDOW_MINUTES }];
@@ -66,7 +69,7 @@ const TRADE_CONFIRMATION_TIMEOUT_MS = 60 * 1000;
 const GAMMA_HOST = "https://gamma-api.polymarket.com";
 const REDEEM_POLL_MS = 60 * 1000;
 
-// v6.7: соответствие монета -> её фид цены. Оба фида запускаются в main().
+// v6.7: соответствие монета -> её фид цены. Все фиды запускаются в main().
 interface CoinPriceFeed {
   getPriceAt(ts: number): number | null;
   getLatestPrice(): number | null;
@@ -74,6 +77,21 @@ interface CoinPriceFeed {
 const PRICE_FEEDS: Record<string, CoinPriceFeed> = {
   Bitcoin: btcPriceFeed,
   Ethereum: ethPriceFeed,
+  Solana: solPriceFeed,
+  XRP: xrpPriceFeed,
+  Dogecoin: dogePriceFeed,
+};
+
+// v6.8: пороги движения — ИНДИВИДУАЛЬНЫЕ на монету, а не один общий.
+// Подобраны по данным research-сетки (researchGrid.ts): BTC/ETH дают
+// чистый винрейт уже на низких порогах, SOL/XRP заметно шумнее и
+// требуют более высокого порога, DOGE — где-то посередине.
+const DEFAULT_PCT_THRESHOLDS: Record<string, number> = {
+  Bitcoin: 0.0013,
+  Ethereum: 0.0013,
+  Solana: 0.0027,
+  XRP: 0.0027,
+  Dogecoin: 0.0018,
 };
 
 // ─── Настройки, которые можно менять на лету через Telegram ───
@@ -82,11 +100,11 @@ const settings = {
   maxEntryPrice: Number(process.env.FASTFLIP_MAX_ENTRY_PRICE ?? "0.98"),
   entryWindowSec: Number(process.env.FASTFLIP_ENTRY_WINDOW_SEC ?? "90"),
   // v6.7: квота фактически снята — 999 в час не является реальным
-  // ограничением, частоту сделок теперь регулирует только pctMoveThreshold.
+  // ограничением, частоту сделок теперь регулирует только пороги движения.
   quotaPerHour: Math.max(1, Number(process.env.FASTFLIP_QUOTA_PER_HOUR ?? "999")),
-  // минимальное % отклонение цены монеты от цены открытия окна,
-  // необходимое для входа (в нужную сторону). 0.002 = 0.2%.
-  pctMoveThreshold: Number(process.env.FASTFLIP_PCT_MOVE_THRESHOLD ?? "0.002"),
+  // v6.8: пороги движения — на монету отдельно (см. DEFAULT_PCT_THRESHOLDS).
+  // Можно менять на лету командой "движение <монета> <значение>" в Telegram.
+  pctMoveThresholds: { ...DEFAULT_PCT_THRESHOLDS } as Record<string, number>,
 };
 
 interface TokenInfo {
@@ -209,7 +227,7 @@ class FastFlipMarketBot {
     return (
       `Режим: рыночный вход, держим ДО РЕЗОЛВА (без выхода по лимитке), монеты: ${COINS.join(", ")}\n` +
       `Вход: ${settings.entryPrice}–${settings.maxEntryPrice} | Окно входа: последние ${settings.entryWindowSec}с до закрытия\n` +
-      `Фильтр движения: мин. ${(settings.pctMoveThreshold * 100).toFixed(2)}% от цены открытия окна\n` +
+      `Фильтр движения по монетам: ${COINS.map((c) => `${c} ${(settings.pctMoveThresholds[c] * 100).toFixed(2)}%`).join(", ")}\n` +
       `Квота: ${this.tradesThisHour}/${settings.quotaPerHour} сделок в этом часе\n` +
       `Сейчас отслеживается активных 5-мин рынков: ${watchedMarkets}\n` +
       `Всего сделок с запуска: ${this.tradesTotal}\n` +
@@ -321,6 +339,10 @@ class FastFlipMarketBot {
     const feed = PRICE_FEEDS[market.coin];
     if (!feed) return; // на всякий случай — монета без фида просто игнорируется
 
+    // v6.8: порог движения — свой на каждую монету
+    const pctThreshold = settings.pctMoveThresholds[market.coin];
+    if (pctThreshold === undefined) return; // монета без настроенного порога — пропускаем
+
     // Фильтр по реальному движению цены монеты от цены открытия окна.
     const openTimeMs = market.closeTimeMs - market.windowMinutes * 60 * 1000;
     let openPrice = this.openPrices.get(market.eventSlug);
@@ -334,8 +356,8 @@ class FastFlipMarketBot {
     if (coinNow === null) return;
     const pctMove = (coinNow - openPrice) / openPrice;
 
-    if (side === "Up" && pctMove < settings.pctMoveThreshold) return;
-    if (side === "Down" && pctMove > -settings.pctMoveThreshold) return;
+    if (side === "Up" && pctMove < pctThreshold) return;
+    if (side === "Down" && pctMove > -pctThreshold) return;
 
     if (price < settings.entryPrice) return;
     if (price > settings.maxEntryPrice) return;
@@ -425,7 +447,7 @@ class FastFlipMarketBot {
     console.log(
       `\n⚡ ВХОД ПО РЫНКУ: [${market.coin} / 5мин] "${market.title}"\n` +
         `   Сторона: ${side} | Цена сейчас: ~${priceAtEntry} (коридор ${settings.entryPrice}-${settings.maxEntryPrice}) | До закрытия: ${secToClose.toFixed(1)}с\n` +
-        `   Движение ${market.coin} от открытия окна: ${(pctMove * 100).toFixed(3)}% (порог ${(settings.pctMoveThreshold * 100).toFixed(2)}%)\n` +
+        `   Движение ${market.coin} от открытия окна: ${(pctMove * 100).toFixed(3)}% (порог ${((settings.pctMoveThresholds[market.coin] ?? 0) * 100).toFixed(2)}%)\n` +
         `   Покупаем: ${size.toFixed(2)} акций рыночным ордером (~$${TRADE_SIZE_USD}) — держим до резолва`,
     );
 
@@ -663,12 +685,37 @@ async function pollTelegramCommands(
           continue;
         }
 
-        const moveMatch = text.match(/^движение\s+([\d.]+)$/);
-        if (moveMatch) {
-          settings.pctMoveThreshold = Number(moveMatch[1]);
+        // v6.8: "движение <монета> <значение>" — задать порог конкретной монете.
+        // Алиасы: btc/бтс/биткоин -> Bitcoin, eth/эфир -> Ethereum,
+        // sol/солана -> Solana, xrp/рипл -> XRP, doge/дож/доге -> Dogecoin.
+        const moveCoinMatch = text.match(/^движение\s+(\S+)\s+([\d.]+)$/);
+        if (moveCoinMatch) {
+          const alias = moveCoinMatch[1].toLowerCase();
+          const COIN_ALIASES: Record<string, string> = {
+            btc: "Bitcoin", бтс: "Bitcoin", биткоин: "Bitcoin", bitcoin: "Bitcoin",
+            eth: "Ethereum", эфир: "Ethereum", ethereum: "Ethereum",
+            sol: "Solana", солана: "Solana", solana: "Solana",
+            xrp: "XRP", рипл: "XRP",
+            doge: "Dogecoin", дож: "Dogecoin", доге: "Dogecoin", dogecoin: "Dogecoin",
+          };
+          const coin = COIN_ALIASES[alias];
+          if (!coin) {
+            await telegram?.send(`Не узнал монету "${moveCoinMatch[1]}". Варианты: btc, eth, sol, xrp, doge.`);
+            continue;
+          }
+          settings.pctMoveThresholds[coin] = Number(moveCoinMatch[2]);
           await telegram?.send(
-            `Порог движения установлен: ${(settings.pctMoveThreshold * 100).toFixed(2)}%`,
+            `Порог движения для ${coin} установлен: ${(settings.pctMoveThresholds[coin] * 100).toFixed(2)}%`,
           );
+          continue;
+        }
+
+        // Без указания монеты — задать ОДИН порог сразу всем монетам разом.
+        const moveAllMatch = text.match(/^движение\s+([\d.]+)$/);
+        if (moveAllMatch) {
+          const value = Number(moveAllMatch[1]);
+          for (const c of COINS) settings.pctMoveThresholds[c] = value;
+          await telegram?.send(`Порог движения установлен для всех монет: ${(value * 100).toFixed(2)}%`);
           continue;
         }
       }
@@ -682,17 +729,22 @@ async function pollTelegramCommands(
 async function main() {
   // МЕТКА ВЕРСИИ — если в логах при старте бота НЕТ этой строки,
   // значит запущен не этот файл (старая сборка / другой процесс).
-  console.log("=== FASTFLIP BUILD: v6.7 — BTC+ETH, БЕЗ КВОТЫ, ФИЛЬТР ДВИЖЕНИЯ 0.2%, ДЕРЖИМ ДО РЕЗОЛВА ===");
+  console.log("=== FASTFLIP BUILD: v6.8 — BTC/ETH/SOL/XRP/DOGE, ПОРОГИ ПО МОНЕТАМ, БЕЗ КВОТЫ, ДЕРЖИМ ДО РЕЗОЛВА ===");
   console.log(`Режим: ${DRY_RUN ? "DRY_RUN (без реальных сделок, полная симуляция)" : "⚠️  LIVE — РЕАЛЬНЫЕ ДЕНЬГИ"}`);
   console.log(
     `Монеты: ${COINS.join(", ")} | Вход: ${settings.entryPrice}-${settings.maxEntryPrice} (рынком, окно ${settings.entryWindowSec}с) | ` +
-      `Выход: только официальный резолв | Квота: ${settings.quotaPerHour}/час | ` +
-      `Фильтр движения: ${(settings.pctMoveThreshold * 100).toFixed(2)}%`,
+      `Выход: только официальный резолв | Квота: ${settings.quotaPerHour}/час`,
+  );
+  console.log(
+    `Пороги движения по монетам: ${COINS.map((c) => `${c} ${(settings.pctMoveThresholds[c] * 100).toFixed(2)}%`).join(", ")}`,
   );
 
-  // запускаем оба фида цены (Polymarket RTDS, Chainlink TWAP) до старта самого бота
+  // запускаем все фиды цены (Polymarket RTDS, Chainlink TWAP) до старта самого бота
   btcPriceFeed.start();
   ethPriceFeed.start();
+  solPriceFeed.start();
+  xrpPriceFeed.start();
+  dogePriceFeed.start();
 
   let clob: ClobService | null = null;
   if (!DRY_RUN) {
@@ -727,7 +779,7 @@ async function main() {
   bot.start();
 
   if (telegram && process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
-    console.log("Telegram-команды включены: цена X / цена_макс X / окно X / квота X / движение X / статус");
+    console.log("Telegram-команды включены: цена X / цена_макс X / окно X / квота X / движение <монета> X / движение X (всем) / статус");
     pollTelegramCommands(process.env.TELEGRAM_BOT_TOKEN, process.env.TELEGRAM_CHAT_ID, telegram, bot);
   }
 
