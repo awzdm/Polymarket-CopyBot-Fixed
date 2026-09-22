@@ -29,10 +29,15 @@
  * (никакого раннего выхода/лимитки — так же, как в боевом боте).
  *
  * Раз в 30 мин шлёт КОМПАКТНЫЙ отчёт в Telegram: топ-5 комбинаций по
- * винрейту (с минимальным числом сделок) для BTC и ETH отдельно, плюс
- * "больше всего сделок при винрейте ≥98%". Полную таблицу (все 42×2
- * комбинации) можно запросить отдельной фразой — присылается отдельно,
- * с разбивкой на части (Telegram режет длинные сообщения).
+ * винрейту (с минимальным числом сделок) для каждой монеты, плюс
+ * "больше всего сделок при винрейте ≥98%". Полную таблицу (вся сетка)
+ * можно запросить отдельной фразой.
+ *
+ * ДОПОЛНИТЕЛЬНО (v2): для каждого входа фиксируется дисбаланс объёма
+ * купли/продажи (реальные исполненные сделки на токене, не цена) за
+ * последние 90с и 120с до момента входа — через tradeFlowTracker.ts,
+ * публичный канал Polymarket (last_trade_price). Отчёт по объёму —
+ * отдельной фразой ("объём").
  *
  * Работает НЕЗАВИСИМО от fastFlip.ts — отдельный процесс, ничего не
  * покупает, только смотрит. Свой файл состояния (research-grid-state.json).
@@ -51,6 +56,7 @@ import { ethPriceFeed } from "./ethPriceFeed.js";
 import { solPriceFeed } from "./solPriceFeed.js";
 import { xrpPriceFeed } from "./xrpPriceFeed.js";
 import { dogePriceFeed } from "./dogePriceFeed.js";
+import { tradeFlowTracker } from "./tradeFlowTracker.js";
 import { createTelegramNotifier } from "./telegram.js";
 import { createLogger } from "./logger.js";
 
@@ -94,6 +100,25 @@ const GAMMA_HOST = "https://gamma-api.polymarket.com";
 
 const COMPACT_REPORT_TRIGGERS = ["крипта итог", "crypto report", "/report"];
 const FULL_GRID_TRIGGERS = ["полная таблица", "full grid", "/grid"];
+const VOLUME_REPORT_TRIGGERS = ["объем", "объём", "volume report", "/volume"];
+
+// Окна для замера дисбаланса объёма купли/продажи перед входом.
+const VOLUME_WINDOWS_MS = [90 * 1000, 120 * 1000];
+
+// Бакеты дисбаланса: (buyVol-sellVol)/(buyVol+sellVol), от -1 до 1.
+const IMBALANCE_BUCKETS: { label: string; min: number; max: number }[] = [
+  { label: "Сильная продажа (<-50%)", min: -1, max: -0.5 },
+  { label: "Продажа (-50%..-10%)", min: -0.5, max: -0.1 },
+  { label: "Нейтрально (-10%..+10%)", min: -0.1, max: 0.1 },
+  { label: "Покупка (+10%..+50%)", min: 0.1, max: 0.5 },
+  { label: "Сильная покупка (>+50%)", min: 0.5, max: 1 },
+];
+function imbalanceBucketLabel(imbalance: number): string {
+  for (const b of IMBALANCE_BUCKETS) {
+    if (imbalance >= b.min && imbalance < b.max) return b.label;
+  }
+  return IMBALANCE_BUCKETS[IMBALANCE_BUCKETS.length - 1].label; // ровно 1.0 попадает в последний
+}
 
 interface ComboTradeEvent {
   pctThreshold: number;
@@ -104,6 +129,9 @@ interface ComboTradeEvent {
   entryTimestamp: number;
   determined: boolean;
   won: boolean | null;
+  // Дисбаланс объёма купли/продажи на токене за N мс до входа (null,
+  // если tradeFlowTracker ещё не успел накопить данные по этому токену).
+  volumeImbalance: Record<number, number | null>; // ключ: окно в мс (из VOLUME_WINDOWS_MS)
 }
 
 interface TokenInfo {
@@ -171,6 +199,13 @@ class ResearchGridLogger {
       const data = JSON.parse(raw);
 
       this.tradesList = data.tradesList ?? [];
+
+      // Бэкфилл для записей, сохранённых до появления учёта объёма —
+      // без этого доступ к t.volumeImbalance[...] упал бы на undefined.
+      for (const t of this.tradesList as ComboTradeEvent[]) {
+        if (!t.volumeImbalance) t.volumeImbalance = {};
+      }
+
       this.trades = new Map();
       for (const t of this.tradesList as ComboTradeEvent[]) {
         const key = `${t.pctThreshold}_${t.windowSec}:${t.eventSlug}:${t.side}`;
@@ -227,6 +262,11 @@ class ResearchGridLogger {
       `[refresh] наблюдаем (${INCLUDED_COINS.join("/")}) 5-мин рынков: ${markets.length} (${tokenIds.length} токенов), ` +
         `комбо-сделок открыто: ${this.tradesList.length}, ждём резолва: ${this.pendingResolution.size}`,
     );
+
+    // tradeFlowTracker сам разберётся, что добавить/убрать из подписки —
+    // вызываем всегда, независимо от того, поменялся ли набор токенов
+    // для основного PriceWatcher.
+    tradeFlowTracker.updateTokenIds(tokenIds);
 
     const sameAsLastTime =
       tokenIds.length === this.lastTokenIds.length && tokenIds.every((id, i) => id === this.lastTokenIds[i]);
@@ -289,6 +329,13 @@ class ResearchGridLogger {
         const key = `${pctThreshold}_${windowSec}:${market.eventSlug}:${side}`;
         if (this.trades.has(key)) continue; // уже зафиксирован вход для этой комбинации
 
+        const tokenId = side === "Up" ? market.upTokenId : market.downTokenId;
+        const volumeImbalance: Record<number, number | null> = {};
+        for (const windowMs of VOLUME_WINDOWS_MS) {
+          const vi = tradeFlowTracker.getVolumeImbalance(tokenId, now, windowMs);
+          volumeImbalance[windowMs] = vi ? vi.imbalance : null;
+        }
+
         const trade: ComboTradeEvent = {
           pctThreshold,
           windowSec,
@@ -298,6 +345,7 @@ class ResearchGridLogger {
           entryTimestamp: now,
           determined: false,
           won: null,
+          volumeImbalance,
         };
         this.trades.set(key, trade);
         this.tradesList.push(trade);
@@ -464,6 +512,60 @@ class ResearchGridLogger {
     return lines.join("\n");
   }
 
+  /** Отчёт по дисбалансу объёма купли/продажи перед входом — по монетам и окнам замера. */
+  buildVolumeReport(): string {
+    const lines: string[] = [];
+    lines.push(`<b>📊 Отчёт: объём покупок/продаж перед входом (окна ${VOLUME_WINDOWS_MS.map((ms) => `${ms / 1000}с`).join(" и ")})</b>`);
+    lines.push("");
+
+    for (const coin of INCLUDED_COINS) {
+      for (const windowMs of VOLUME_WINDOWS_MS) {
+        const windowSec = windowMs / 1000;
+        lines.push(`<b>── ${coin}: винрейт по дисбалансу объёма — окно ${windowSec}с ──</b>`);
+
+        // Берём каждую (eventSlug, side) только ОДИН раз — иначе одна и
+        // та же рыночная ситуация посчитается многократно (по разу на
+        // каждую комбинацию порог/окно, у которых разное entryTimestamp).
+        // Для отчёта по объёму берём САМЫЙ РАННИЙ определившийся вход.
+        const seen = new Map<string, ComboTradeEvent>();
+        for (const t of this.tradesList) {
+          if (t.coin !== coin || !t.determined) continue;
+          const vi = t.volumeImbalance[windowMs];
+          if (vi === null || vi === undefined) continue;
+          const dedupeKey = `${t.eventSlug}:${t.side}`;
+          const existing = seen.get(dedupeKey);
+          if (!existing || t.entryTimestamp < existing.entryTimestamp) {
+            seen.set(dedupeKey, t);
+          }
+        }
+
+        const buckets = new Map<string, { win: number; total: number }>();
+        for (const b of IMBALANCE_BUCKETS) buckets.set(b.label, { win: 0, total: 0 });
+
+        for (const t of seen.values()) {
+          const vi = t.volumeImbalance[windowMs] as number;
+          const label = imbalanceBucketLabel(vi);
+          const s = buckets.get(label)!;
+          s.total++;
+          if (t.won) s.win++;
+        }
+
+        let anyData = false;
+        for (const b of IMBALANCE_BUCKETS) {
+          const s = buckets.get(b.label)!;
+          if (s.total === 0) continue;
+          anyData = true;
+          const pct = (100 * s.win) / s.total;
+          lines.push(`  ${b.label.padEnd(28)} ${String(s.win).padStart(4)}/${String(s.total).padEnd(5)} ${pct.toFixed(0)}%`);
+        }
+        if (!anyData) lines.push("  пока недостаточно данных");
+        lines.push("");
+      }
+    }
+
+    return lines.join("\n");
+  }
+
   start(): void {
     this.loadState();
     this.refreshMarkets();
@@ -547,6 +649,12 @@ async function pollTelegramCommands(
           await sendReportToTelegram(telegram, "<b>📊 Полная таблица по запросу</b>", research.buildFullGridReport());
           continue;
         }
+
+        if (VOLUME_REPORT_TRIGGERS.some((p) => text.includes(p.toLowerCase()))) {
+          console.log(`[telegram] Запрос отчёта по объёму: "${msg.text}"`);
+          await sendReportToTelegram(telegram, "<b>📊 Отчёт по объёму по запросу</b>", research.buildVolumeReport());
+          continue;
+        }
       }
     } catch (err) {
       console.error("[telegram poll] ошибка:", (err as Error).message);
@@ -567,6 +675,7 @@ async function main() {
   solPriceFeed.start();
   xrpPriceFeed.start();
   dogePriceFeed.start();
+  tradeFlowTracker.start();
 
   const logger = createLogger(false);
   const telegram = createTelegramNotifier(process.env.TELEGRAM_BOT_TOKEN, process.env.TELEGRAM_CHAT_ID, logger);
@@ -576,7 +685,7 @@ async function main() {
 
   if (telegram && process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
     console.log(
-      `Telegram включён — напиши "${COMPACT_REPORT_TRIGGERS[0]}" для краткой сводки или "${FULL_GRID_TRIGGERS[0]}" для полной таблицы.`,
+      `Telegram включён — напиши "${COMPACT_REPORT_TRIGGERS[0]}" для краткой сводки, "${FULL_GRID_TRIGGERS[0]}" для полной таблицы, "${VOLUME_REPORT_TRIGGERS[0]}" для отчёта по объёму.`,
     );
     pollTelegramCommands(process.env.TELEGRAM_BOT_TOKEN, process.env.TELEGRAM_CHAT_ID, telegram, research);
 
