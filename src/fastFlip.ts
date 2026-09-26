@@ -110,6 +110,7 @@ interface EntryProfile {
   name: string;
   entryWindowSec: number;
   pctMoveThresholds: Record<string, number>;
+  sizeUsd: number; // размер ставки в USD именно для сделок этого профиля
 }
 
 function makeUniformThresholds(value: number): Record<string, number> {
@@ -130,11 +131,13 @@ const settings = {
       name: "Профиль 1 (основной)",
       entryWindowSec: Number(process.env.FASTFLIP_ENTRY_WINDOW_SEC ?? "90"),
       pctMoveThresholds: { ...PROFILE_1_DEFAULT_THRESHOLDS },
+      sizeUsd: TRADE_SIZE_USD,
     },
     {
       name: "Профиль 2",
       entryWindowSec: 60,
       pctMoveThresholds: makeUniformThresholds(0.0013), // 0.13% всем монетам
+      sizeUsd: TRADE_SIZE_USD,
     },
   ] as EntryProfile[],
 };
@@ -263,7 +266,7 @@ class FastFlipMarketBot {
     const profilesLines = settings.profiles
       .map(
         (p, i) =>
-          `  [${i + 1}] ${p.name} — окно ${p.entryWindowSec}с, пороги: ` +
+          `  [${i + 1}] ${p.name} — окно ${p.entryWindowSec}с, размер $${p.sizeUsd}, пороги: ` +
           COINS.map((c) => `${c} ${((p.pctMoveThresholds[c] ?? 0) * 100).toFixed(2)}%`).join(", "),
       )
       .join("\n");
@@ -491,14 +494,14 @@ class FastFlipMarketBot {
     pctMove: number,
     profile: EntryProfile,
   ): Promise<void> {
-    const size = TRADE_SIZE_USD / settings.entryPrice;
+    const size = profile.sizeUsd / settings.entryPrice;
     const thresholdUsed = profile.pctMoveThresholds[market.coin] ?? 0;
 
     console.log(
       `\n⚡ ВХОД ПО РЫНКУ [${profile.name}]: [${market.coin} / 5мин] "${market.title}"\n` +
         `   Сторона: ${side} | Цена сейчас: ~${priceAtEntry} (коридор ${settings.entryPrice}-${settings.maxEntryPrice}) | До закрытия: ${secToClose.toFixed(1)}с (окно профиля: ${profile.entryWindowSec}с)\n` +
         `   Движение ${market.coin} от открытия окна: ${(pctMove * 100).toFixed(3)}% (порог профиля: ${(thresholdUsed * 100).toFixed(2)}%)\n` +
-        `   Покупаем: ${size.toFixed(2)} акций рыночным ордером (~$${TRADE_SIZE_USD}) — держим до резолва`,
+        `   Покупаем: ${size.toFixed(2)} акций рыночным ордером (~$${profile.sizeUsd}) — держим до резолва`,
     );
 
     const result = await this.placeMarketOrder({ tokenId, side: "BUY", size, nominalPrice: priceAtEntry });
@@ -785,6 +788,19 @@ async function pollTelegramCommands(
           continue;
         }
 
+        const profileSizeMatch = text.match(/^профиль\s+(\d+)\s+объем\s+([\d.]+)$/);
+        if (profileSizeMatch) {
+          const idx = Number(profileSizeMatch[1]) - 1;
+          const profile = settings.profiles[idx];
+          if (!profile) {
+            await telegram?.send(`Нет профиля №${profileSizeMatch[1]}. Всего профилей: ${settings.profiles.length}.`);
+            continue;
+          }
+          profile.sizeUsd = Number(profileSizeMatch[2]);
+          await telegram?.send(`[${profile.name}] размер ставки установлен: $${profile.sizeUsd}`);
+          continue;
+        }
+
         // ─── Старые команды без "профиль N" — обратная совместимость,
         // адресуются ПРОФИЛЮ 1 (основному) ───
         const windowMatch = text.match(/^окно\s+(\d+)$/);
@@ -835,7 +851,7 @@ async function main() {
   console.log(`Коридор входа (общий на все профили): ${settings.entryPrice}-${settings.maxEntryPrice} | Квота: ${settings.quotaPerHour}/час`);
   for (const [i, p] of settings.profiles.entries()) {
     console.log(
-      `  Профиль ${i + 1} "${p.name}": окно ${p.entryWindowSec}с, пороги: ` +
+      `  Профиль ${i + 1} "${p.name}": окно ${p.entryWindowSec}с, размер $${p.sizeUsd}, пороги: ` +
         COINS.map((c) => `${c} ${((p.pctMoveThresholds[c] ?? 0) * 100).toFixed(2)}%`).join(", "),
     );
   }
@@ -882,7 +898,7 @@ async function main() {
   if (telegram && process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
     console.log(
       "Telegram-команды включены: цена X / цена_макс X / квота X / статус / " +
-        "профиль N окно X / профиль N движение <монета> X / профиль N движение X (всем монетам профиля) / " +
+        "профиль N окно X / профиль N объем X / профиль N движение <монета> X / профиль N движение X (всем монетам профиля) / " +
         "окно X и движение ... без номера профиля — адресуются профилю 1",
     );
     pollTelegramCommands(process.env.TELEGRAM_BOT_TOKEN, process.env.TELEGRAM_CHAT_ID, telegram, bot);
