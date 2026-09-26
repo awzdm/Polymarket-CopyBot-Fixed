@@ -1,23 +1,33 @@
 /**
- * "Быстрый флип" v6.7 — РЫНОЧНЫЕ ордера на ВХОД, держим ДО ОФИЦИАЛЬНОГО
+ * "Быстрый флип" v7.0 — РЫНОЧНЫЕ ордера на ВХОД, держим ДО ОФИЦИАЛЬНОГО
  * РЕЗОЛВА. Никаких лимиток на выход и никаких продаж по тику цены.
  *
- * v6.7 (относительно v6.6): ДОБАВЛЕН ETHEREUM РЯДОМ С BTC.
+ * v7.0 (относительно v6.8): ДОБАВЛЕНА ПОДДЕРЖКА НЕСКОЛЬКИХ ПРОФИЛЕЙ ВХОДА.
  *
- * Раньше бот торговал только Bitcoin. Теперь список монет расширен на
- * Ethereum — у каждой монеты СВОЙ отдельный фид цены (btcPriceFeed.ts /
- * ethPriceFeed.ts, оба через Polymarket RTDS / Chainlink TWAP), и при
- * входе бот выбирает нужный фид по полю market.coin. Логика входа
- * (коридор цены токена + фильтр движения) не изменилась — просто теперь
- * применяется к вдвое большему числу окон в час (12 BTC + 12 ETH),
- * что даёт больше шансов поймать подходящий момент без ослабления
- * самого порога.
+ * Раньше был один-единственный набор настроек (окно входа + пороги
+ * движения по монетам). Теперь можно держать НЕСКОЛЬКО таких наборов
+ * одновременно ("профилей") — бот на каждом апдейте цены проверяет ИХ ВСЕ
+ * по очереди, и если хотя бы ОДИН профиль полностью совпал (окно + порог
+ * движения монеты + коридор цены токена — коридор общий на все профили),
+ * бот входит. Это НЕ "или-или" в смысле выбора одной стратегии — это
+ * буквально "любой профиль может дать сигнал", то есть суммарно сделок
+ * должно стать больше, а не просто по-другому фильтроваться те же самые.
  *
- * Также по итогам статистики и обсуждения: квота по факту снята
- * (дефолт поднят до 999 — то есть не ограничивает), окно входа сужено
- * до 90с (более поздний вход показывал чуть более высокий винрейт),
- * порог движения возвращён на 0.2% (на нём не было ни одного лосса
- * в наблюдениях).
+ * Сделка всё ещё одна за раз (openPosition) — профили не открывают
+ * параллельные позиции, они просто расширяют условия, при которых боту
+ * разрешено войти в СЛЕДУЮЩУЮ сделку.
+ *
+ * По умолчанию заведено 2 профиля:
+ *   Профиль 1 (основной): окно 90с, пороги по монетам как раньше
+ *   Профиль 2 (новый):    окно 60с, порог 0.13% для всех монет
+ *
+ * Управление профилями через Telegram:
+ *   профиль <N> окно <секунды>
+ *   профиль <N> движение <монета> <значение>
+ *   профиль <N> движение <значение>              (всем монетам профиля N разом)
+ * Старые команды без "профиль N" (окно X / движение ...) по-прежнему
+ * работают и адресуются ПРОФИЛЮ 1 — для обратной совместимости с
+ * привычками управления.
  */
 
 import "dotenv/config";
@@ -40,8 +50,8 @@ const DRY_RUN = (process.env.FASTFLIP_DRY_RUN ?? "true").toLowerCase() !== "fals
 const AUTO_REDEEM = (process.env.FASTFLIP_AUTO_REDEEM ?? "true").toLowerCase() !== "false";
 const TRADE_SIZE_USD = Number(process.env.FASTFLIP_TRADE_SIZE_USD ?? "5");
 
-// v6.8: список торгуемых монет. Каждая монета обязана иметь свой фид
-// в PRICE_FEEDS ниже и свой порог движения в DEFAULT_PCT_THRESHOLDS.
+// Список торгуемых монет. Каждая монета обязана иметь свой фид в
+// PRICE_FEEDS ниже и свой порог движения в каждом профиле.
 const COINS = ["Bitcoin", "Ethereum", "Solana", "XRP", "Dogecoin"];
 const TARGET_WINDOW_MINUTES = 5;
 
@@ -69,7 +79,7 @@ const TRADE_CONFIRMATION_TIMEOUT_MS = 60 * 1000;
 const GAMMA_HOST = "https://gamma-api.polymarket.com";
 const REDEEM_POLL_MS = 60 * 1000;
 
-// v6.7: соответствие монета -> её фид цены. Все фиды запускаются в main().
+// Соответствие монета -> её фид цены. Все фиды запускаются в main().
 interface CoinPriceFeed {
   getPriceAt(ts: number): number | null;
   getLatestPrice(): number | null;
@@ -82,29 +92,51 @@ const PRICE_FEEDS: Record<string, CoinPriceFeed> = {
   Dogecoin: dogePriceFeed,
 };
 
-// v6.8: пороги движения — ИНДИВИДУАЛЬНЫЕ на монету, а не один общий.
-// Подобраны по данным research-сетки (researchGrid.ts): BTC/ETH дают
-// чистый винрейт уже на низких порогах, SOL/XRP заметно шумнее и
-// требуют более высокого порога, DOGE — где-то посередине.
-const DEFAULT_PCT_THRESHOLDS: Record<string, number> = {
+// Пороги движения ПРОФИЛЯ 1 (основного) — те же, что были раньше единственными.
+const PROFILE_1_DEFAULT_THRESHOLDS: Record<string, number> = {
   Bitcoin: 0.0013,
-  Ethereum: 0.0013,
-  Solana: 0.0027,
-  XRP: 0.0027,
-  Dogecoin: 0.0018,
+  Ethereum: 0.0014,
+  Solana: 0.005,
+  XRP: 0.0015,
+  Dogecoin: 0.0027,
 };
+
+// ─── Профили входа ───
+// Профиль — это самостоятельный набор (окно входа + пороги по монетам).
+// Коридор цены токена (entryPrice/maxEntryPrice) ОБЩИЙ на все профили —
+// его не имеет смысла разводить по профилям, это не про движение монеты,
+// а про то, насколько рынок уже уверен в исходе.
+interface EntryProfile {
+  name: string;
+  entryWindowSec: number;
+  pctMoveThresholds: Record<string, number>;
+}
+
+function makeUniformThresholds(value: number): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const c of COINS) out[c] = value;
+  return out;
+}
 
 // ─── Настройки, которые можно менять на лету через Telegram ───
 const settings = {
   entryPrice: Number(process.env.FASTFLIP_ENTRY_PRICE ?? "0.97"),
   maxEntryPrice: Number(process.env.FASTFLIP_MAX_ENTRY_PRICE ?? "0.98"),
-  entryWindowSec: Number(process.env.FASTFLIP_ENTRY_WINDOW_SEC ?? "90"),
-  // v6.7: квота фактически снята — 999 в час не является реальным
-  // ограничением, частоту сделок теперь регулирует только пороги движения.
+  // Квота фактически снята — 999 в час не является реальным ограничением,
+  // частоту сделок регулируют только профили.
   quotaPerHour: Math.max(1, Number(process.env.FASTFLIP_QUOTA_PER_HOUR ?? "999")),
-  // v6.8: пороги движения — на монету отдельно (см. DEFAULT_PCT_THRESHOLDS).
-  // Можно менять на лету командой "движение <монета> <значение>" в Telegram.
-  pctMoveThresholds: { ...DEFAULT_PCT_THRESHOLDS } as Record<string, number>,
+  profiles: [
+    {
+      name: "Профиль 1 (основной)",
+      entryWindowSec: Number(process.env.FASTFLIP_ENTRY_WINDOW_SEC ?? "90"),
+      pctMoveThresholds: { ...PROFILE_1_DEFAULT_THRESHOLDS },
+    },
+    {
+      name: "Профиль 2",
+      entryWindowSec: 60,
+      pctMoveThresholds: makeUniformThresholds(0.0013), // 0.13% всем монетам
+    },
+  ] as EntryProfile[],
 };
 
 interface TokenInfo {
@@ -222,12 +254,23 @@ class FastFlipMarketBot {
     private telegram: ReturnType<typeof createTelegramNotifier>,
   ) {}
 
+  private maxEntryWindowSec(): number {
+    return Math.max(...settings.profiles.map((p) => p.entryWindowSec));
+  }
+
   getStatus(): string {
     const watchedMarkets = this.tokenIndex.size / 2;
+    const profilesLines = settings.profiles
+      .map(
+        (p, i) =>
+          `  [${i + 1}] ${p.name} — окно ${p.entryWindowSec}с, пороги: ` +
+          COINS.map((c) => `${c} ${((p.pctMoveThresholds[c] ?? 0) * 100).toFixed(2)}%`).join(", "),
+      )
+      .join("\n");
     return (
       `Режим: рыночный вход, держим ДО РЕЗОЛВА (без выхода по лимитке), монеты: ${COINS.join(", ")}\n` +
-      `Вход: ${settings.entryPrice}–${settings.maxEntryPrice} | Окно входа: последние ${settings.entryWindowSec}с до закрытия\n` +
-      `Фильтр движения по монетам: ${COINS.map((c) => `${c} ${(settings.pctMoveThresholds[c] * 100).toFixed(2)}%`).join(", ")}\n` +
+      `Коридор входа (общий на все профили): ${settings.entryPrice}–${settings.maxEntryPrice}\n` +
+      `Профили входа (сигнал ЛЮБОГО из них достаточен для входа):\n${profilesLines}\n` +
       `Квота: ${this.tradesThisHour}/${settings.quotaPerHour} сделок в этом часе\n` +
       `Сейчас отслеживается активных 5-мин рынков: ${watchedMarkets}\n` +
       `Всего сделок с запуска: ${this.tradesTotal}\n` +
@@ -250,7 +293,7 @@ class FastFlipMarketBot {
 
   private hasCriticalMarket(): boolean {
     const now = Date.now();
-    const criticalMs = (settings.entryWindowSec + REFRESH_SAFETY_BUFFER_SEC) * 1000;
+    const criticalMs = (this.maxEntryWindowSec() + REFRESH_SAFETY_BUFFER_SEC) * 1000;
     for (const info of this.tokenIndex.values()) {
       const msToClose = info.market.closeTimeMs - now;
       if (msToClose >= 0 && msToClose <= criticalMs) return true;
@@ -331,19 +374,17 @@ class FastFlipMarketBot {
 
     if (this.tradesThisHour >= settings.quotaPerHour) return; // квота часа выполнена — ждём новый час
 
+    // Коридор цены токена — общий для ВСЕХ профилей, проверяем один раз.
+    if (price < settings.entryPrice || price > settings.maxEntryPrice) return;
+
     const secToClose = (market.closeTimeMs - Date.now()) / 1000;
+    if (secToClose < 0) return;
 
-    if (secToClose > settings.entryWindowSec || secToClose < 0) return;
-
-    // v6.7: фид цены выбирается по монете конкретного рынка
     const feed = PRICE_FEEDS[market.coin];
     if (!feed) return; // на всякий случай — монета без фида просто игнорируется
 
-    // v6.8: порог движения — свой на каждую монету
-    const pctThreshold = settings.pctMoveThresholds[market.coin];
-    if (pctThreshold === undefined) return; // монета без настроенного порога — пропускаем
-
-    // Фильтр по реальному движению цены монеты от цены открытия окна.
+    // Цена монеты на момент открытия окна — считаем один раз на рынок,
+    // не зависит от профиля.
     const openTimeMs = market.closeTimeMs - market.windowMinutes * 60 * 1000;
     let openPrice = this.openPrices.get(market.eventSlug);
     if (openPrice === undefined) {
@@ -356,15 +397,22 @@ class FastFlipMarketBot {
     if (coinNow === null) return;
     const pctMove = (coinNow - openPrice) / openPrice;
 
-    if (side === "Up" && pctMove < pctThreshold) return;
-    if (side === "Down" && pctMove > -pctThreshold) return;
+    // Проверяем профили по очереди — первый, который полностью совпал
+    // (окно + порог движения в сторону токена), даёт сигнал на вход.
+    for (const profile of settings.profiles) {
+      if (secToClose > profile.entryWindowSec) continue; // этот профиль ещё не "открылся" по времени
 
-    if (price < settings.entryPrice) return;
-    if (price > settings.maxEntryPrice) return;
+      const pctThreshold = profile.pctMoveThresholds[market.coin];
+      if (pctThreshold === undefined) continue; // монета без настроенного порога в этом профиле — пропускаем
 
-    this.attemptInProgress = true;
-    const tokenId = side === "Up" ? market.upTokenId : market.downTokenId;
-    this.executeMarketEntry(market, side, tokenId, price, secToClose, pctMove);
+      const passesMove = side === "Up" ? pctMove >= pctThreshold : pctMove <= -pctThreshold;
+      if (!passesMove) continue;
+
+      this.attemptInProgress = true;
+      const tokenId = side === "Up" ? market.upTokenId : market.downTokenId;
+      this.executeMarketEntry(market, side, tokenId, price, secToClose, pctMove, profile);
+      return; // сигнал найден — дальше профили не проверяем
+    }
   }
 
   private async placeMarketOrder(params: {
@@ -441,13 +489,15 @@ class FastFlipMarketBot {
     priceAtEntry: number,
     secToClose: number,
     pctMove: number,
+    profile: EntryProfile,
   ): Promise<void> {
     const size = TRADE_SIZE_USD / settings.entryPrice;
+    const thresholdUsed = profile.pctMoveThresholds[market.coin] ?? 0;
 
     console.log(
-      `\n⚡ ВХОД ПО РЫНКУ: [${market.coin} / 5мин] "${market.title}"\n` +
-        `   Сторона: ${side} | Цена сейчас: ~${priceAtEntry} (коридор ${settings.entryPrice}-${settings.maxEntryPrice}) | До закрытия: ${secToClose.toFixed(1)}с\n` +
-        `   Движение ${market.coin} от открытия окна: ${(pctMove * 100).toFixed(3)}% (порог ${((settings.pctMoveThresholds[market.coin] ?? 0) * 100).toFixed(2)}%)\n` +
+      `\n⚡ ВХОД ПО РЫНКУ [${profile.name}]: [${market.coin} / 5мин] "${market.title}"\n` +
+        `   Сторона: ${side} | Цена сейчас: ~${priceAtEntry} (коридор ${settings.entryPrice}-${settings.maxEntryPrice}) | До закрытия: ${secToClose.toFixed(1)}с (окно профиля: ${profile.entryWindowSec}с)\n` +
+        `   Движение ${market.coin} от открытия окна: ${(pctMove * 100).toFixed(3)}% (порог профиля: ${(thresholdUsed * 100).toFixed(2)}%)\n` +
         `   Покупаем: ${size.toFixed(2)} акций рыночным ордером (~$${TRADE_SIZE_USD}) — держим до резолва`,
     );
 
@@ -475,7 +525,7 @@ class FastFlipMarketBot {
 
     if (this.telegram) {
       await this.telegram.send(
-        `💰 Куплено по рынку: ${market.title}\nСторона: ${side}\nЦена: ${result.avgPrice.toFixed(4)} | Размер: ${result.filledSize.toFixed(2)}\nДвижение ${market.coin} от открытия окна: ${(pctMove * 100).toFixed(3)}%\nДержим до официального резолва (сделка ${this.tradesThisHour + 1}/${settings.quotaPerHour} в этом часе).`,
+        `💰 Куплено по рынку [${profile.name}]: ${market.title}\nСторона: ${side}\nЦена: ${result.avgPrice.toFixed(4)} | Размер: ${result.filledSize.toFixed(2)}\nДвижение ${market.coin} от открытия окна: ${(pctMove * 100).toFixed(3)}% (порог профиля: ${(thresholdUsed * 100).toFixed(2)}%)\nДержим до официального резолва (сделка ${this.tradesThisHour + 1}/${settings.quotaPerHour} в этом часе).`,
       );
     }
 
@@ -628,6 +678,14 @@ async function redeemLoop(): Promise<void> {
   }
 }
 
+const COIN_ALIASES: Record<string, string> = {
+  btc: "Bitcoin", бтс: "Bitcoin", биткоин: "Bitcoin", bitcoin: "Bitcoin",
+  eth: "Ethereum", эфир: "Ethereum", ethereum: "Ethereum",
+  sol: "Solana", солана: "Solana", solana: "Solana",
+  xrp: "XRP", рипл: "XRP",
+  doge: "Dogecoin", дож: "Dogecoin", доге: "Dogecoin", dogecoin: "Dogecoin",
+};
+
 /** Слушает команды в Telegram и меняет settings на лету. */
 async function pollTelegramCommands(
   botToken: string,
@@ -660,21 +718,14 @@ async function pollTelegramCommands(
         const priceMatch = text.match(/^цена\s+([\d.]+)$/);
         if (priceMatch) {
           settings.entryPrice = Number(priceMatch[1]);
-          await telegram?.send(`Нижняя цена входа установлена: ${settings.entryPrice}`);
+          await telegram?.send(`Нижняя цена входа установлена (общая на все профили): ${settings.entryPrice}`);
           continue;
         }
 
         const maxPriceMatch = text.match(/^цена_макс\s+([\d.]+)$/);
         if (maxPriceMatch) {
           settings.maxEntryPrice = Number(maxPriceMatch[1]);
-          await telegram?.send(`Верхняя цена входа установлена: ${settings.maxEntryPrice}`);
-          continue;
-        }
-
-        const windowMatch = text.match(/^окно\s+(\d+)$/);
-        if (windowMatch) {
-          settings.entryWindowSec = Number(windowMatch[1]);
-          await telegram?.send(`Окно входа установлено: последние ${settings.entryWindowSec}с перед закрытием`);
+          await telegram?.send(`Верхняя цена входа установлена (общая на все профили): ${settings.maxEntryPrice}`);
           continue;
         }
 
@@ -685,37 +736,87 @@ async function pollTelegramCommands(
           continue;
         }
 
-        // v6.8: "движение <монета> <значение>" — задать порог конкретной монете.
-        // Алиасы: btc/бтс/биткоин -> Bitcoin, eth/эфир -> Ethereum,
-        // sol/солана -> Solana, xrp/рипл -> XRP, doge/дож/доге -> Dogecoin.
+        // ─── Команды, адресованные КОНКРЕТНОМУ профилю: "профиль N ..." ───
+        const profileWindowMatch = text.match(/^профиль\s+(\d+)\s+окно\s+(\d+)$/);
+        if (profileWindowMatch) {
+          const idx = Number(profileWindowMatch[1]) - 1;
+          const profile = settings.profiles[idx];
+          if (!profile) {
+            await telegram?.send(`Нет профиля №${profileWindowMatch[1]}. Всего профилей: ${settings.profiles.length}.`);
+            continue;
+          }
+          profile.entryWindowSec = Number(profileWindowMatch[2]);
+          await telegram?.send(`[${profile.name}] окно входа установлено: последние ${profile.entryWindowSec}с перед закрытием`);
+          continue;
+        }
+
+        const profileMoveCoinMatch = text.match(/^профиль\s+(\d+)\s+движение\s+(\S+)\s+([\d.]+)$/);
+        if (profileMoveCoinMatch) {
+          const idx = Number(profileMoveCoinMatch[1]) - 1;
+          const profile = settings.profiles[idx];
+          if (!profile) {
+            await telegram?.send(`Нет профиля №${profileMoveCoinMatch[1]}. Всего профилей: ${settings.profiles.length}.`);
+            continue;
+          }
+          const alias = profileMoveCoinMatch[2].toLowerCase();
+          const coin = COIN_ALIASES[alias];
+          if (!coin) {
+            await telegram?.send(`Не узнал монету "${profileMoveCoinMatch[2]}". Варианты: btc, eth, sol, xrp, doge.`);
+            continue;
+          }
+          profile.pctMoveThresholds[coin] = Number(profileMoveCoinMatch[3]);
+          await telegram?.send(
+            `[${profile.name}] порог движения для ${coin} установлен: ${(profile.pctMoveThresholds[coin] * 100).toFixed(2)}%`,
+          );
+          continue;
+        }
+
+        const profileMoveAllMatch = text.match(/^профиль\s+(\d+)\s+движение\s+([\d.]+)$/);
+        if (profileMoveAllMatch) {
+          const idx = Number(profileMoveAllMatch[1]) - 1;
+          const profile = settings.profiles[idx];
+          if (!profile) {
+            await telegram?.send(`Нет профиля №${profileMoveAllMatch[1]}. Всего профилей: ${settings.profiles.length}.`);
+            continue;
+          }
+          const value = Number(profileMoveAllMatch[2]);
+          for (const c of COINS) profile.pctMoveThresholds[c] = value;
+          await telegram?.send(`[${profile.name}] порог движения установлен для всех монет: ${(value * 100).toFixed(2)}%`);
+          continue;
+        }
+
+        // ─── Старые команды без "профиль N" — обратная совместимость,
+        // адресуются ПРОФИЛЮ 1 (основному) ───
+        const windowMatch = text.match(/^окно\s+(\d+)$/);
+        if (windowMatch) {
+          const profile = settings.profiles[0];
+          profile.entryWindowSec = Number(windowMatch[1]);
+          await telegram?.send(`[${profile.name}] окно входа установлено: последние ${profile.entryWindowSec}с перед закрытием`);
+          continue;
+        }
+
         const moveCoinMatch = text.match(/^движение\s+(\S+)\s+([\d.]+)$/);
         if (moveCoinMatch) {
+          const profile = settings.profiles[0];
           const alias = moveCoinMatch[1].toLowerCase();
-          const COIN_ALIASES: Record<string, string> = {
-            btc: "Bitcoin", бтс: "Bitcoin", биткоин: "Bitcoin", bitcoin: "Bitcoin",
-            eth: "Ethereum", эфир: "Ethereum", ethereum: "Ethereum",
-            sol: "Solana", солана: "Solana", solana: "Solana",
-            xrp: "XRP", рипл: "XRP",
-            doge: "Dogecoin", дож: "Dogecoin", доге: "Dogecoin", dogecoin: "Dogecoin",
-          };
           const coin = COIN_ALIASES[alias];
           if (!coin) {
             await telegram?.send(`Не узнал монету "${moveCoinMatch[1]}". Варианты: btc, eth, sol, xrp, doge.`);
             continue;
           }
-          settings.pctMoveThresholds[coin] = Number(moveCoinMatch[2]);
+          profile.pctMoveThresholds[coin] = Number(moveCoinMatch[2]);
           await telegram?.send(
-            `Порог движения для ${coin} установлен: ${(settings.pctMoveThresholds[coin] * 100).toFixed(2)}%`,
+            `[${profile.name}] порог движения для ${coin} установлен: ${(profile.pctMoveThresholds[coin] * 100).toFixed(2)}%`,
           );
           continue;
         }
 
-        // Без указания монеты — задать ОДИН порог сразу всем монетам разом.
         const moveAllMatch = text.match(/^движение\s+([\d.]+)$/);
         if (moveAllMatch) {
+          const profile = settings.profiles[0];
           const value = Number(moveAllMatch[1]);
-          for (const c of COINS) settings.pctMoveThresholds[c] = value;
-          await telegram?.send(`Порог движения установлен для всех монет: ${(value * 100).toFixed(2)}%`);
+          for (const c of COINS) profile.pctMoveThresholds[c] = value;
+          await telegram?.send(`[${profile.name}] порог движения установлен для всех монет: ${(value * 100).toFixed(2)}%`);
           continue;
         }
       }
@@ -729,15 +830,15 @@ async function pollTelegramCommands(
 async function main() {
   // МЕТКА ВЕРСИИ — если в логах при старте бота НЕТ этой строки,
   // значит запущен не этот файл (старая сборка / другой процесс).
-  console.log("=== FASTFLIP BUILD: v6.8 — BTC/ETH/SOL/XRP/DOGE, ПОРОГИ ПО МОНЕТАМ, БЕЗ КВОТЫ, ДЕРЖИМ ДО РЕЗОЛВА ===");
+  console.log("=== FASTFLIP BUILD: v7.0 — НЕСКОЛЬКО ПРОФИЛЕЙ ВХОДА ОДНОВРЕМЕННО ===");
   console.log(`Режим: ${DRY_RUN ? "DRY_RUN (без реальных сделок, полная симуляция)" : "⚠️  LIVE — РЕАЛЬНЫЕ ДЕНЬГИ"}`);
-  console.log(
-    `Монеты: ${COINS.join(", ")} | Вход: ${settings.entryPrice}-${settings.maxEntryPrice} (рынком, окно ${settings.entryWindowSec}с) | ` +
-      `Выход: только официальный резолв | Квота: ${settings.quotaPerHour}/час`,
-  );
-  console.log(
-    `Пороги движения по монетам: ${COINS.map((c) => `${c} ${(settings.pctMoveThresholds[c] * 100).toFixed(2)}%`).join(", ")}`,
-  );
+  console.log(`Коридор входа (общий на все профили): ${settings.entryPrice}-${settings.maxEntryPrice} | Квота: ${settings.quotaPerHour}/час`);
+  for (const [i, p] of settings.profiles.entries()) {
+    console.log(
+      `  Профиль ${i + 1} "${p.name}": окно ${p.entryWindowSec}с, пороги: ` +
+        COINS.map((c) => `${c} ${((p.pctMoveThresholds[c] ?? 0) * 100).toFixed(2)}%`).join(", "),
+    );
+  }
 
   // запускаем все фиды цены (Polymarket RTDS, Chainlink TWAP) до старта самого бота
   btcPriceFeed.start();
@@ -779,7 +880,11 @@ async function main() {
   bot.start();
 
   if (telegram && process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
-    console.log("Telegram-команды включены: цена X / цена_макс X / окно X / квота X / движение <монета> X / движение X (всем) / статус");
+    console.log(
+      "Telegram-команды включены: цена X / цена_макс X / квота X / статус / " +
+        "профиль N окно X / профиль N движение <монета> X / профиль N движение X (всем монетам профиля) / " +
+        "окно X и движение ... без номера профиля — адресуются профилю 1",
+    );
     pollTelegramCommands(process.env.TELEGRAM_BOT_TOKEN, process.env.TELEGRAM_CHAT_ID, telegram, bot);
   }
 
