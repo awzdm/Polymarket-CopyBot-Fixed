@@ -872,15 +872,15 @@ async function pollTelegramCommands(
           continue;
         }
 
-        if (ADAPTIVE_REPORT_TRIGGERS.some((p) => text.includes(p.toLowerCase()))) {
-          console.log(`[telegram] Запрос компактного отчёта (adaptive): "${msg.text}"`);
-          await sendReportToTelegram(telegram, "<b>📊 Adaptive-отчёт по запросу</b>", research.buildAdaptiveCompactReport());
-          continue;
-        }
-
         if (ADAPTIVE_FULL_GRID_TRIGGERS.some((p) => text.includes(p.toLowerCase()))) {
           console.log(`[telegram] Запрос полной таблицы (adaptive): "${msg.text}"`);
           await sendReportToTelegram(telegram, "<b>📊 Полная adaptive-таблица по запросу</b>", research.buildAdaptiveFullGridReport());
+          continue;
+        }
+
+        if (ADAPTIVE_REPORT_TRIGGERS.some((p) => text.includes(p.toLowerCase()))) {
+          console.log(`[telegram] Запрос компактного отчёта (adaptive): "${msg.text}"`);
+          await sendReportToTelegram(telegram, "<b>📊 Adaptive-отчёт по запросу</b>", research.buildAdaptiveCompactReport());
           continue;
         }
 
