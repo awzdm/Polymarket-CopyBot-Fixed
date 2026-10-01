@@ -162,9 +162,9 @@ function formatCorridorLabel(p: EntryProfile): string {
   const high = p.priceHigh ?? settings.maxEntryPrice;
   switch (p.priceMode) {
     case "touch-drop":
-      return `touch≥${p.touchAbove}→${low}-${high}`;
+      return `касание выше ${p.touchAbove} → ${low}-${high}`;
     case "retouch":
-      return `${low}-${high}→откат<${p.retouchDropBelow}→повтор ${low}-${high}`;
+      return `${low}-${high} → откат ниже ${p.retouchDropBelow} → повтор ${low}-${high}`;
     case "none":
       return "без проверки цены";
     default:
@@ -426,7 +426,7 @@ class FastFlipMarketBot {
           COINS.map((c) => `${c}(${p.entryWindowSec[c] ?? "?"}с/${formatParamValue(p, c)})`).join(", "),
       )
       .join("\n");
-    return (
+    const text =
       `Режим: рыночный вход, держим ДО РЕЗОЛВА (без выхода по лимитке), монеты: ${COINS.join(", ")}\n` +
       `Коридор по умолчанию (если у профиля свой не задан): ${settings.entryPrice}–${settings.maxEntryPrice}\n` +
       `Профили входа (сигнал ЛЮБОГО из них достаточен для входа):\n${profilesLines}\n` +
@@ -437,8 +437,8 @@ class FastFlipMarketBot {
         this.openPosition
           ? `${this.openPosition.market.title} (${this.openPosition.side}), цена входа ${this.openPosition.buyPrice.toFixed(4)}, держим до резолва`
           : "нет"
-      }`
-    );
+      }`;
+    return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
 
   private checkHourlyReset(): void {
@@ -1106,7 +1106,7 @@ async function pollTelegramCommands(
 async function main() {
   // МЕТКА ВЕРСИИ — если в логах при старте бота НЕТ этой строки,
   // значит запущен не этот файл (старая сборка / другой процесс).
-  console.log("=== FASTFLIP BUILD: v7.4 — ДОБАВЛЕНЫ ПРОФИЛИ 4 (L4) И 5 (L5) + КАП ЦЕНЫ ИСПОЛНЕНИЯ ===");
+  console.log("=== FASTFLIP BUILD: v7.5 — ФИКС КОМАНДЫ СТАТУС (символ < в HTML-режиме Telegram) ===");
   console.log(`Режим: ${DRY_RUN ? "DRY_RUN (без реальных сделок, полная симуляция)" : "⚠️  LIVE — РЕАЛЬНЫЕ ДЕНЬГИ"}`);
   console.log(`Коридор по умолчанию (если у профиля свой не задан): ${settings.entryPrice}-${settings.maxEntryPrice} | Квота: ${settings.quotaPerHour}/час`);
   for (const [i, p] of settings.profiles.entries()) {
