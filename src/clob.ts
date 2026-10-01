@@ -199,9 +199,15 @@ export class ClobService {
    *      a number that might already be gone.
    *   2. Never pay above 0.999 (or sell below 0.001) no matter what.
    *
-   * It's still a FAK (fill-and-kill) order: it fills as much as it can
-   * immediately and kills the rest — nothing is left resting on the book,
-   * so no funds get tied up waiting.
+   * v2: ТРЕТЬЕ жёсткое правило — maxBuyPrice (опционально). Раньше бот
+   * "догонял" уходящую вверх цену буфером slippage — из-за этого дважды
+   * реальное исполнение получалось по 0.99 вместо задуманных 0.97-0.98,
+   * что резко режет реальный запас прибыли (0.99 требует ~99% винрейта
+   * просто для безубыточности вместо 97-98%). Теперь, если ПЕРЕД самой
+   * отправкой ордера живая цена в стакане (bestAsk для BUY) уже выше
+   * maxBuyPrice — сделка просто НЕ отправляется (бросаем ошибку, вызывающий
+   * код трактует это как "не исполнилось", продолжает мониторинг), вместо
+   * того чтобы покупать по более высокой и менее выгодной цене.
    *
    * Возвращает также orderId — нужен, чтобы затем дождаться финального
    * ончейн-подтверждения через userStream.waitForConfirmation(orderId, ...).
@@ -209,13 +215,23 @@ export class ClobService {
   async placeLimitOrder(params: {
     tokenId: string;
     side: Side;
-    price: number; // trader's execution price — used ONLY as a fallback if the live book is empty on that side
+    price: number; // trader's execution price — используется как fallback, если живой стакан пуст
     size: number;
-    maxSlippagePct?: number; // now used as the small buffer added past the live best ask/bid, default 0.5%
+    maxSlippagePct?: number; // буфер сверх живого best ask/bid, default 0.5%
+    maxBuyPrice?: number; // ЖЁСТКИЙ потолок для BUY — не покупать, если живой ask уже выше
   }): Promise<{ status: string; filledSize?: string; filledUsdc?: string; orderId?: string | null }> {
     const { tokenId, side, size } = params;
 
     const book = await this.getTopOfBook(tokenId);
+
+    // Жёсткий кап ДО расчёта буфера — не "догоняем" цену сверх задуманного
+    // профилем предела, просто отменяем вход. Для SELL кап не применяется
+    // (бот только покупает, SELL тут не используется в текущей стратегии).
+    if (side === Side.BUY && params.maxBuyPrice !== undefined && book.bestAsk !== null && book.bestAsk > params.maxBuyPrice) {
+      throw new Error(
+        `Живая цена в стакане (bestAsk=${book.bestAsk}) уже выше допустимого предела (${params.maxBuyPrice}) — вход отменён, чтобы не переплачивать.`,
+      );
+    }
 
     const liveRef =
       side === Side.BUY
@@ -231,11 +247,18 @@ export class ClobService {
     // Hard ceiling/floor — Polymarket's actual valid price range. This is
     // the absolute rule: never above 0.999, never below 0.001, no matter
     // what the live book or buffer says.
-    const cappedPrice = this.roundToTick(
+    let cappedPrice = this.roundToTick(
       Math.min(0.999, Math.max(0.001, rawCap)),
       book.tickSize,
       side,
     );
+
+    // Если задан maxBuyPrice — итоговая цена ордера (с учётом буфера) тоже
+    // не должна его превышать, даже когда сам bestAsk был чуть ниже предела,
+    // а буфер slippage вытолкнул расчётную цену выше. Обрезаем сверху.
+    if (side === Side.BUY && params.maxBuyPrice !== undefined) {
+      cappedPrice = Math.min(cappedPrice, this.roundToTick(params.maxBuyPrice, book.tickSize, side));
+    }
 
     if (size < book.minOrderSize) {
       throw new Error(
@@ -283,6 +306,7 @@ export class ClobService {
       amount,
       liveRef,
       cappedPrice,
+      maxBuyPrice: params.maxBuyPrice,
       traderPrice: params.price,
       size,
       response: resp,
