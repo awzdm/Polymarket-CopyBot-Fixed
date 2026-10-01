@@ -156,6 +156,22 @@ function formatParamValue(profile: EntryProfile, coin: string): string {
   return profile.mode === "adaptive" ? `${v.toFixed(1)}x` : `${(v * 100).toFixed(2)}%`;
 }
 
+/** Текстовое описание ценового условия профиля — единое место для getStatus() и стартового лога. */
+function formatCorridorLabel(p: EntryProfile): string {
+  const low = p.priceLow ?? settings.entryPrice;
+  const high = p.priceHigh ?? settings.maxEntryPrice;
+  switch (p.priceMode) {
+    case "touch-drop":
+      return `touch≥${p.touchAbove}→${low}-${high}`;
+    case "retouch":
+      return `${low}-${high}→откат<${p.retouchDropBelow}→повтор ${low}-${high}`;
+    case "none":
+      return "без проверки цены";
+    default:
+      return `${low}-${high}`;
+  }
+}
+
 const volTracker = new VolatilityTracker(PRICE_FEEDS);
 
 // ─── Настройки, которые можно менять на лету через Telegram ───
@@ -222,6 +238,50 @@ const settings = {
       priceHigh: 0.993,
       pctMoveThresholds: makeUniformThresholds(0.001), // 0.10% всем монетам
       sizeUsd: Number(process.env.FASTFLIP_PROFILE3_SIZE_USD ?? "2"),
+    },
+    {
+      // L4 из research-grid-levels: "без цены, только % + время". Цена
+      // токена вообще не проверяется — чистый тест движения монеты. Пороги
+      // подобраны по самой большой доступной 100%-выборке на монету.
+      name: "Профиль 4 (L4 без цены)",
+      entryWindowSec: {
+        Bitcoin: 60,
+        Ethereum: 60,
+        Solana: 30,
+        XRP: 30,
+        Dogecoin: 60,
+      },
+      mode: "fixed",
+      priceMode: "none",
+      pctMoveThresholds: {
+        Bitcoin: 0.001, // 0.10%
+        Ethereum: 0.003, // 0.30%
+        Solana: 0.0014, // 0.14%
+        XRP: 0.0014, // 0.14%
+        Dogecoin: 0.003, // 0.30%
+      },
+      sizeUsd: Number(process.env.FASTFLIP_PROFILE4_SIZE_USD ?? "2"),
+    },
+    {
+      // L5 из research-grid-levels: "повторное касание 97-98". Первое
+      // касание коридора игнорируется, нужен реальный откат ниже 0.90,
+      // вход только на повторном заходе в коридор. Выборки ПОКА маленькие
+      // (6-16 сделок) — событие само по себе редкое, размер ставки минимальный.
+      name: "Профиль 5 (L5 повторное касание)",
+      entryWindowSec: {
+        Bitcoin: 180,
+        Ethereum: 90,
+        Solana: 120,
+        XRP: 120,
+        Dogecoin: 120,
+      },
+      mode: "fixed",
+      priceMode: "retouch",
+      priceLow: 0.97,
+      priceHigh: 0.98,
+      retouchDropBelow: 0.90,
+      pctMoveThresholds: makeUniformThresholds(0.001), // 0.10% всем монетам
+      sizeUsd: Number(process.env.FASTFLIP_PROFILE5_SIZE_USD ?? "2"),
     },
   ] as EntryProfile[],
 };
@@ -336,9 +396,13 @@ class FastFlipMarketBot {
   // зафиксированная цена монеты на момент открытия окна, по eventSlug
   private openPrices: Map<string, number> = new Map();
 
-  // Для профилей с priceMode="touch-drop" (L1): было ли уже касание
-  // touchAbove по этому рынку/стороне. Ключ: `${profileIdx}:${eventSlug}:${side}`.
-  private touchStates: Map<string, boolean> = new Map();
+  // Состояние "памяти" для профилей с priceMode="touch-drop" (L1) или
+  // "retouch" (L5). Ключ: `${profileIdx}:${eventSlug}:${side}`.
+  //  touchedHigh      — для touch-drop: было ли касание touchAbove
+  //  touchedCorridor  — для retouch: было ли первое (игнорируемое) касание коридора
+  //  leftAfterTouch   — для retouch: откатывала ли цена ниже retouchDropBelow после первого касания
+  private touchStates: Map<string, { touchedHigh: boolean; touchedCorridor: boolean; leftAfterTouch: boolean }> =
+    new Map();
 
   constructor(
     private clob: ClobService | null,
@@ -356,15 +420,11 @@ class FastFlipMarketBot {
   getStatus(): string {
     const watchedMarkets = this.tokenIndex.size / 2;
     const profilesLines = settings.profiles
-      .map((p, i) => {
-        const low = p.priceLow ?? settings.entryPrice;
-        const high = p.priceHigh ?? settings.maxEntryPrice;
-        const corridorLabel = p.priceMode === "touch-drop" ? `touch≥${p.touchAbove}→${low}-${high}` : `${low}-${high}`;
-        return (
-          `  [${i + 1}] ${p.name} — размер $${p.sizeUsd}, режим ${p.mode}, коридор ${corridorLabel}, монета(окно/порог): ` +
-          COINS.map((c) => `${c}(${p.entryWindowSec[c] ?? "?"}с/${formatParamValue(p, c)})`).join(", ")
-        );
-      })
+      .map(
+        (p, i) =>
+          `  [${i + 1}] ${p.name} — размер $${p.sizeUsd}, режим ${p.mode}, коридор ${formatCorridorLabel(p)}, монета(окно/порог): ` +
+          COINS.map((c) => `${c}(${p.entryWindowSec[c] ?? "?"}с/${formatParamValue(p, c)})`).join(", "),
+      )
       .join("\n");
     return (
       `Режим: рыночный вход, держим ДО РЕЗОЛВА (без выхода по лимитке), монеты: ${COINS.join(", ")}\n` +
@@ -463,15 +523,30 @@ class FastFlipMarketBot {
     const price = update.bestBid ?? update.bestAsk;
     if (price === null) return;
 
-    // Обновляем touch-state для профилей с priceMode="touch-drop" ВСЕГДА,
-    // даже если сейчас открыта другая позиция — иначе можем пропустить
-    // момент касания touchAbove, пока бот занят другой сделкой.
+    // Обновляем "память" состояния для профилей с priceMode="touch-drop"
+    // ИЛИ "retouch" ВСЕГДА, даже если сейчас открыта другая позиция —
+    // иначе можем пропустить момент касания/отката, пока бот занят другой сделкой.
     for (let idx = 0; idx < settings.profiles.length; idx++) {
       const profile = settings.profiles[idx];
-      if (profile.priceMode !== "touch-drop") continue;
-      const touchAbove = profile.touchAbove ?? 0.995;
-      if (price >= touchAbove) {
-        this.touchStates.set(`${idx}:${market.eventSlug}:${side}`, true);
+      if (profile.priceMode !== "touch-drop" && profile.priceMode !== "retouch") continue;
+
+      const key = `${idx}:${market.eventSlug}:${side}`;
+      let state = this.touchStates.get(key);
+      if (!state) {
+        state = { touchedHigh: false, touchedCorridor: false, leftAfterTouch: false };
+        this.touchStates.set(key, state);
+      }
+
+      if (profile.priceMode === "touch-drop") {
+        const touchAbove = profile.touchAbove ?? 0.995;
+        if (price >= touchAbove) state.touchedHigh = true;
+      } else {
+        // retouch: запоминаем первое касание коридора, затем — реальный откат ниже порога
+        const low = profile.priceLow ?? settings.entryPrice;
+        const high = profile.priceHigh ?? settings.maxEntryPrice;
+        const dropBelow = profile.retouchDropBelow ?? 0.90;
+        if (price >= low && price <= high) state.touchedCorridor = true;
+        if (state.touchedCorridor && price < dropBelow) state.leftAfterTouch = true;
       }
     }
 
@@ -523,11 +598,22 @@ class FastFlipMarketBot {
       const priceHigh = profile.priceHigh ?? settings.maxEntryPrice;
 
       let priceOk: boolean;
-      if (profile.priceMode === "touch-drop") {
-        const touched = this.touchStates.get(`${profileIdx}:${market.eventSlug}:${side}`) ?? false;
-        priceOk = touched && price >= priceLow && price <= priceHigh;
+      if (profile.priceMode === "none") {
+        priceOk = true; // L4 — цена токена вообще не проверяется, только движение монеты и время
+      } else if (profile.priceMode === "touch-drop") {
+        const state = this.touchStates.get(`${profileIdx}:${market.eventSlug}:${side}`);
+        priceOk = (state?.touchedHigh ?? false) && price >= priceLow && price <= priceHigh;
+      } else if (profile.priceMode === "retouch") {
+        const state = this.touchStates.get(`${profileIdx}:${market.eventSlug}:${side}`);
+        // Входим только когда было И первое касание коридора, И реальный откат ниже
+        // retouchDropBelow ПОСЛЕ него, И сейчас цена СНОВА в коридоре (повторное касание).
+        priceOk =
+          (state?.touchedCorridor ?? false) &&
+          (state?.leftAfterTouch ?? false) &&
+          price >= priceLow &&
+          price <= priceHigh;
       } else {
-        priceOk = price >= priceLow && price <= priceHigh;
+        priceOk = price >= priceLow && price <= priceHigh; // "corridor" — обычная проверка
       }
       if (!priceOk) continue;
 
@@ -1020,15 +1106,12 @@ async function pollTelegramCommands(
 async function main() {
   // МЕТКА ВЕРСИИ — если в логах при старте бота НЕТ этой строки,
   // значит запущен не этот файл (старая сборка / другой процесс).
-  console.log("=== FASTFLIP BUILD: v7.3 — ДОБАВЛЕН ПРОФИЛЬ 3 (L1, touch-drop механика) ===");
+  console.log("=== FASTFLIP BUILD: v7.4 — ДОБАВЛЕНЫ ПРОФИЛИ 4 (L4) И 5 (L5) + КАП ЦЕНЫ ИСПОЛНЕНИЯ ===");
   console.log(`Режим: ${DRY_RUN ? "DRY_RUN (без реальных сделок, полная симуляция)" : "⚠️  LIVE — РЕАЛЬНЫЕ ДЕНЬГИ"}`);
   console.log(`Коридор по умолчанию (если у профиля свой не задан): ${settings.entryPrice}-${settings.maxEntryPrice} | Квота: ${settings.quotaPerHour}/час`);
   for (const [i, p] of settings.profiles.entries()) {
-    const low = p.priceLow ?? settings.entryPrice;
-    const high = p.priceHigh ?? settings.maxEntryPrice;
-    const corridorLabel = p.priceMode === "touch-drop" ? `touch≥${p.touchAbove}→${low}-${high}` : `${low}-${high}`;
     console.log(
-      `  Профиль ${i + 1} "${p.name}" [${p.mode}], коридор ${corridorLabel}, размер $${p.sizeUsd}, монета(окно/порог): ` +
+      `  Профиль ${i + 1} "${p.name}" [${p.mode}], коридор ${formatCorridorLabel(p)}, размер $${p.sizeUsd}, монета(окно/порог): ` +
         COINS.map((c) => `${c}(${p.entryWindowSec[c] ?? "?"}с/${formatParamValue(p, c)})`).join(", "),
     );
   }
