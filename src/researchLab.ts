@@ -1,9 +1,23 @@
 /**
- * LAB — новый исследовательский парсер (НЕ торгует, только собирает статистику).
+ * LAB v2 — исследовательский парсер идей (НЕ торгует, только собирает статистику).
  * Работает отдельным процессом, свой файл состояния (research-lab-state.json),
  * свои команды в Telegram (все начинаются со слова "лаб").
  *
- * Что собирает (все входы считаются КАК В БОТЕ: цена входа = лучший ask,
+ * ЧТО ИЗМЕНИЛОСЬ В v2 (исправление устаревших цен):
+ *  В v1 цена ask бралась из памяти: последнее значение, пришедшее по websocket. А websocket
+ *  присылает стакан только после сделок, поэтому на тихих рынках ask в памяти мог быть старым.
+ *  Из-за этого "дешёвые" входы (0.85-0.90) и арбитраж могли быть ложными.
+ *  Теперь:
+ *   - Перед записью ЛЮБОГО входа парсер запрашивает живой стакан (REST /book) и пересчитывает
+ *     все условия по свежим bid/ask. Если по живым ценам условие не выполняется — вход не пишется.
+ *   - Арбитраж считается только по живым стаканам: раз в 5 секунд берём стакан обеих сторон.
+ *     Заодно пишем, сколько акций доступно по лучшим ask.
+ *   - Парсер считает, как часто цена в памяти отличалась от живой на 0.02 и больше
+ *     (это прямой ответ на вопрос "были ли цены устаревшими").
+ *  Старый файл состояния (v1) переименовывается в research-lab-state.v1.json, статистика
+ *  начинается с нуля — старые цифры по цене/доходности были недостоверными.
+ *
+ * Что собирает (все входы считаются КАК В БОТЕ: цена входа = лучший ask по живому стакану,
  * итог определяется только официальным резолвом Gamma API, держим до резолва):
  *
  *  1. «Запас» вместо порога — один параметр z на все монеты:
@@ -43,6 +57,8 @@ import { createLogger } from "./logger.js";
 // ─────────────────────────── Общие настройки ───────────────────────────
 
 const STATE_FILE = path.resolve(process.cwd(), "research-lab-state.json");
+const STATE_FILE_V1 = path.resolve(process.cwd(), "research-lab-state.v1.json");
+const STATE_VERSION = 2;
 const AUTOSAVE_INTERVAL_MS = 60 * 1000;
 
 const TARGET_WINDOW_MINUTES = 5;
@@ -52,6 +68,12 @@ const MARKET_REFRESH_MS = 30 * 1000;
 const RESOLVE_CHECK_DELAY_SEC = 180;
 const RESOLVE_GIVE_UP_MS = 60 * 60 * 1000;
 const GAMMA_HOST = "https://gamma-api.polymarket.com";
+const CLOB_HOST = process.env.CLOB_HOST ?? "https://clob.polymarket.com";
+
+const VERIFY_COOLDOWN_MS = 3 * 1000; // не чаще 1 проверки живым стаканом на токен раз в 3с
+const ARB_SAMPLE_MS = 5 * 1000; // замер арбитража живыми стаканами раз в 5с
+const FETCH_TIMEOUT_MS = 4 * 1000;
+const STALE_DIFF = 0.02; // насколько ask в памяти должен отличаться от живого, чтобы считать его устаревшим
 
 const MIN_TRADES_FOR_TOP = 10; // минимум записей, чтобы комбинация попала в топ
 const MAX_SETTLED_REMEMBERED = 3000;
@@ -111,9 +133,6 @@ const IMPULSE_WINDOWS = [60, 120, 180];
 const IMPULSE_ASK_MIN = 0.6;
 const IMPULSE_ASK_MAX = 0.98;
 
-// 5. «Арбитраж»
-const ARB_THRESHOLDS = [0.99, 0.98, 0.97, 0.95];
-
 // 6. «Подтверждение другими монетами»
 const CONFIRM_LEVEL_1 = 0.0005; // 0.05%
 const CONFIRM_LEVEL_2 = 0.001; // 0.10%
@@ -147,8 +166,8 @@ const BOT_PROFILES: BotProfile[] = [
     id: 2,
     mode: "adaptive",
     priceMode: "corridor",
-    windowSec: { Bitcoin: 120, Ethereum: 120, Solana: 60, XRP: 30, Dogecoin: 60 },
-    param: { Bitcoin: 1.5, Ethereum: 1.5, Solana: 0.7, XRP: 0.3, Dogecoin: 0.5 },
+    windowSec: { Bitcoin: 120, Ethereum: 30, Solana: 60, XRP: 30, Dogecoin: 60 },
+    param: { Bitcoin: 3.0, Ethereum: 0.3, Solana: 0.7, XRP: 0.3, Dogecoin: 1.0 },
   },
   {
     id: 3,
@@ -201,7 +220,7 @@ interface LabEntry {
   coin: string;
   side: "Up" | "Down";
   ts: number;
-  price: number; // цена входа = ask
+  price: number; // цена входа = живой ask
   sec: number; // секунд до закрытия в момент входа
   c05: number; // сколько других монет идут в ту же сторону >= 0.05%
   c10: number; // то же для >= 0.10%
@@ -210,6 +229,7 @@ interface LabEntry {
 interface ArbMarketInfo {
   minSum: number;
   sec99: number | null;
+  size99: number | null; // сколько акций доступно по лучшим ask в момент первой суммы <= 0.99
 }
 
 interface PendingMarket {
@@ -227,6 +247,7 @@ interface ArbAgg {
   h97: number;
   h95: number;
   sec99Sum: number;
+  size99Sum: number;
 }
 
 interface TokenInfo {
@@ -237,6 +258,17 @@ interface TokenInfo {
 interface Quote {
   bid: number | null;
   ask: number | null;
+}
+
+interface FreshBook {
+  bid: number | null;
+  ask: number | null;
+  bidSize: number;
+  askSize: number;
+}
+
+function newArbAgg(): ArbAgg {
+  return { total: 0, minSumTotal: 0, h99: 0, h98: 0, h97: 0, h95: 0, sec99Sum: 0, size99Sum: 0 };
 }
 
 function buildTokenIndex(markets: CryptoUpDownMarket[]): Map<string, TokenInfo> {
@@ -280,6 +312,49 @@ function findBand(bands: [number, number][], price: number): [number, number] | 
   return null;
 }
 
+/** Живой стакан токена через REST (то же самое, что делает бот перед покупкой). */
+async function fetchBook(tokenId: string): Promise<FreshBook | null> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const resp = await fetch(`${CLOB_HOST}/book?token_id=${tokenId}`, { signal: ctrl.signal });
+    if (!resp.ok) return null;
+    const ob: any = await resp.json();
+
+    let bestAsk: number | null = null;
+    let askSize = 0;
+    for (const o of ob.asks ?? []) {
+      const p = Number(o.price);
+      const s = Number(o.size);
+      if (!Number.isFinite(p)) continue;
+      if (bestAsk === null || p < bestAsk) {
+        bestAsk = p;
+        askSize = Number.isFinite(s) ? s : 0;
+      } else if (p === bestAsk && Number.isFinite(s)) {
+        askSize += s;
+      }
+    }
+    let bestBid: number | null = null;
+    let bidSize = 0;
+    for (const o of ob.bids ?? []) {
+      const p = Number(o.price);
+      const s = Number(o.size);
+      if (!Number.isFinite(p)) continue;
+      if (bestBid === null || p > bestBid) {
+        bestBid = p;
+        bidSize = Number.isFinite(s) ? s : 0;
+      } else if (p === bestBid && Number.isFinite(s)) {
+        bidSize += s;
+      }
+    }
+    return { bid: bestBid, ask: bestAsk, bidSize, askSize };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function resolveWinner(eventSlug: string): Promise<"Up" | "Down" | null> {
   try {
     const resp = await fetch(`${GAMMA_HOST}/events/slug/${eventSlug}`);
@@ -318,6 +393,7 @@ async function resolveWinner(eventSlug: string): Promise<"Up" | "Down" | null> {
 class ResearchLab {
   private watcher: PriceWatcher | null = null;
   private tokenIndex = new Map<string, TokenInfo>();
+  private activeMarkets = new Map<string, CryptoUpDownMarket>();
   private lastTokenIds: string[] = [];
 
   private quotes = new Map<string, Quote>(); // tokenId -> последние известные bid/ask
@@ -326,6 +402,10 @@ class ResearchLab {
   private touchStates = new Map<string, { touchedHigh: boolean; touchedCorridor: boolean; leftAfterTouch: boolean }>();
   private firedKeys = new Set<string>();
 
+  private verifying = new Set<string>(); // токены, по которым идёт проверка живым стаканом
+  private lastVerifyAt = new Map<string, number>();
+  private arbSampling = false;
+
   private pending = new Map<string, PendingMarket>();
   private settled = new Set<string>();
 
@@ -333,6 +413,12 @@ class ResearchLab {
   private conf: StatMap = {}; // `${idea}|c05|${n}` и `${idea}|c10|${n}`
   private agree: StatMap = {}; // `n|${k}` и `set|${1+2+4}`
   private arbAgg: Record<string, ArbAgg> = {};
+
+  // счётчики честности цен
+  private staleSampled = 0; // сколько раз сравнили ask в памяти с живым (замеры арбитража)
+  private staleShifted = 0; // из них ask в памяти отличался на STALE_DIFF и больше (или пропал)
+  private verifyConfirmed = 0; // кандидат подтвердился по живому стакану
+  private verifyRejected = 0; // кандидат отклонён по живому стакану
 
   private marketsSeenCount = 0;
   private resolvedCount = 0;
@@ -343,6 +429,7 @@ class ResearchLab {
   saveState(): void {
     try {
       const data = {
+        version: STATE_VERSION,
         savedAt: Date.now(),
         agg: this.agg,
         conf: this.conf,
@@ -353,6 +440,10 @@ class ResearchLab {
         marketsSeenCount: this.marketsSeenCount,
         resolvedCount: this.resolvedCount,
         updateCount: this.updateCount,
+        staleSampled: this.staleSampled,
+        staleShifted: this.staleShifted,
+        verifyConfirmed: this.verifyConfirmed,
+        verifyRejected: this.verifyRejected,
       };
       const tmpFile = `${STATE_FILE}.tmp`;
       fs.writeFileSync(tmpFile, JSON.stringify(data), "utf-8");
@@ -369,6 +460,13 @@ class ResearchLab {
     }
     try {
       const data = JSON.parse(fs.readFileSync(STATE_FILE, "utf-8"));
+      if (data.version !== STATE_VERSION) {
+        fs.renameSync(STATE_FILE, STATE_FILE_V1);
+        console.log(
+          "[loadState] найден файл состояния старой версии (v1): сохранён как research-lab-state.v1.json, статистика начинается с нуля.",
+        );
+        return;
+      }
       this.agg = data.agg ?? {};
       this.conf = data.conf ?? {};
       this.agree = data.agree ?? {};
@@ -378,6 +476,10 @@ class ResearchLab {
       this.marketsSeenCount = data.marketsSeenCount ?? 0;
       this.resolvedCount = data.resolvedCount ?? 0;
       this.updateCount = data.updateCount ?? 0;
+      this.staleSampled = data.staleSampled ?? 0;
+      this.staleShifted = data.staleShifted ?? 0;
+      this.verifyConfirmed = data.verifyConfirmed ?? 0;
+      this.verifyRejected = data.verifyRejected ?? 0;
 
       for (const [slug, p] of this.pending) {
         for (const e of p.entries) this.firedKeys.add(`${e.idea}|${e.combo}|${slug}|${e.side}`);
@@ -431,6 +533,7 @@ class ResearchLab {
     );
 
     this.tokenIndex = buildTokenIndex(markets);
+    this.activeMarkets = new Map(markets.map((m) => [m.eventSlug, m]));
     const tokenIds = [...this.tokenIndex.keys()].sort();
 
     for (const m of markets) this.ensurePending(m);
@@ -450,6 +553,9 @@ class ResearchLab {
     }
     for (const tokenId of this.quotes.keys()) {
       if (!this.tokenIndex.has(tokenId)) this.quotes.delete(tokenId);
+    }
+    for (const tokenId of this.lastVerifyAt.keys()) {
+      if (!this.tokenIndex.has(tokenId)) this.lastVerifyAt.delete(tokenId);
     }
 
     console.log(
@@ -472,35 +578,6 @@ class ResearchLab {
     this.watcher.start();
   }
 
-  // ───── запись входа ─────
-
-  private record(
-    p: PendingMarket,
-    idea: string,
-    combo: string,
-    market: CryptoUpDownMarket,
-    side: "Up" | "Down",
-    ask: number,
-    secToClose: number,
-    getConf: () => { c05: number; c10: number },
-  ): void {
-    const key = `${idea}|${combo}|${market.eventSlug}|${side}`;
-    if (this.firedKeys.has(key)) return;
-    this.firedKeys.add(key);
-    const c = getConf();
-    p.entries.push({
-      idea,
-      combo,
-      coin: market.coin,
-      side,
-      ts: Date.now(),
-      price: ask,
-      sec: Math.round(secToClose),
-      c05: c.c05,
-      c10: c.c10,
-    });
-  }
-
   // ───── обработка каждого апдейта цены ─────
 
   private onPriceUpdate(update: PriceUpdate): void {
@@ -512,10 +589,15 @@ class ResearchLab {
     const now = Date.now();
     const secToClose = (market.closeTimeMs - now) / 1000;
 
-    // последние известные bid/ask по токену
+    // Сообщение с хотя бы одной стороной стакана — это снимок стакана: он полностью заменяет
+    // старые bid/ask (пустая сторона = null). Сообщение без цен (сделка) ничего не меняет.
+    const hasBid = typeof update.bestBid === "number";
+    const hasAsk = typeof update.bestAsk === "number";
     const q = this.quotes.get(update.tokenId) ?? { bid: null, ask: null };
-    if (typeof update.bestBid === "number") q.bid = update.bestBid;
-    if (typeof update.bestAsk === "number") q.ask = update.bestAsk;
+    if (hasBid || hasAsk) {
+      q.bid = hasBid ? (update.bestBid as number) : null;
+      q.ask = hasAsk ? (update.bestAsk as number) : null;
+    }
     this.quotes.set(update.tokenId, q);
 
     // "цена" для условий коридора — как в боте: bestBid, иначе bestAsk
@@ -546,41 +628,86 @@ class ResearchLab {
     }
 
     if (secToClose < 0) return;
-
     const p = this.ensurePending(market);
     if (!p) return;
 
-    // арбитраж: сумма лучших ask обеих сторон
-    const upQ = this.quotes.get(market.upTokenId);
-    const downQ = this.quotes.get(market.downTokenId);
-    if (upQ && downQ && upQ.ask !== null && downQ.ask !== null && upQ.ask > 0 && downQ.ask > 0) {
-      const sum = upQ.ask + downQ.ask;
-      if (!p.arb) p.arb = { minSum: sum, sec99: null };
-      if (sum < p.arb.minSum) p.arb.minSum = sum;
-      if (sum <= 0.99 + 1e-9 && p.arb.sec99 === null) p.arb.sec99 = secToClose;
-    }
+    // Быстрый предварительный отбор по данным из памяти. Если кандидата нет — выходим.
+    // Если кандидат есть — НЕ записываем сразу, а проверяем живым стаканом.
+    if (q.ask === null) return;
+    if (this.verifying.has(update.tokenId)) return;
+    if (now - (this.lastVerifyAt.get(update.tokenId) ?? 0) < VERIFY_COOLDOWN_MS) return;
+    if (this.evaluate(market, side, p, q.ask, price, false) === 0) return;
 
-    // дальше нужен ask (по нему мы реально купили бы) и данные по монете
-    const ask = q.ask;
-    if (ask === null || ask <= 0 || ask > 0.999) return;
+    void this.verifyAndCommit(market, side, p, update.tokenId);
+  }
+
+  /** Запрашивает живой стакан токена и, если условия выполняются по живым ценам, записывает вход. */
+  private async verifyAndCommit(
+    market: CryptoUpDownMarket,
+    side: "Up" | "Down",
+    p: PendingMarket,
+    tokenId: string,
+  ): Promise<void> {
+    this.verifying.add(tokenId);
+    this.lastVerifyAt.set(tokenId, Date.now());
+    try {
+      const book = await fetchBook(tokenId);
+      if (!book) return; // сеть/ошибка — просто пропускаем, попробуем позже
+      this.quotes.set(tokenId, { bid: book.bid, ask: book.ask });
+
+      if (this.pending.get(market.eventSlug) !== p) return; // рынок уже закрыт и обработан
+
+      const price = book.bid ?? book.ask;
+      if (book.ask === null || price === null) {
+        this.verifyRejected++;
+        return;
+      }
+      const recorded = this.evaluate(market, side, p, book.ask, price, true);
+      if (recorded > 0) this.verifyConfirmed++;
+      else this.verifyRejected++;
+    } catch (err) {
+      console.error("[verify] ошибка:", (err as Error).message);
+    } finally {
+      this.verifying.delete(tokenId);
+    }
+  }
+
+  /**
+   * Проверяет условия всех идей для данной стороны рынка при заданных ask/price.
+   * commit=false — только считает, сколько новых входов записалось бы.
+   * commit=true  — записывает входы. Возвращает число (новых) входов.
+   */
+  private evaluate(
+    market: CryptoUpDownMarket,
+    side: "Up" | "Down",
+    p: PendingMarket,
+    ask: number,
+    price: number,
+    commit: boolean,
+  ): number {
+    const now = Date.now();
+    const secToClose = (market.closeTimeMs - now) / 1000;
+    if (secToClose < 0) return 0;
+    if (ask <= 0 || ask > 0.999) return 0;
 
     const feed = PRICE_FEEDS[market.coin];
-    if (!feed) return;
+    if (!feed) return 0;
 
     const openTimeMs = market.closeTimeMs - market.windowMinutes * 60 * 1000;
     let openPrice = this.openPrices.get(market.eventSlug);
     if (openPrice === undefined) {
       const op = feed.getPriceAt(openTimeMs);
-      if (op === null) return;
+      if (op === null) return 0;
       openPrice = op;
       this.openPrices.set(market.eventSlug, openPrice);
     }
     const coinNow = feed.getLatestPrice();
-    if (coinNow === null) return;
+    if (coinNow === null) return 0;
     const pctMove = (coinNow - openPrice) / openPrice;
     const dirMove = side === "Up" ? pctMove : -pctMove; // плюс = монета идёт в сторону токена
+    const peak = this.peaks.get(`${market.eventSlug}:${side}`) ?? 0;
 
-    // ленивые вычисления — один раз на апдейт
+    // ленивые вычисления
     let volCache: number | null | undefined;
     const getVol = (): number | null => {
       if (volCache === undefined) volCache = volTracker.getRecentVolatility(market.coin, now);
@@ -606,6 +733,27 @@ class ResearchLab {
       return confCache;
     };
 
+    let count = 0;
+    const emit = (idea: string, combo: string): void => {
+      const key = `${idea}|${combo}|${market.eventSlug}|${side}`;
+      if (this.firedKeys.has(key)) return;
+      count++;
+      if (!commit) return;
+      this.firedKeys.add(key);
+      const c = getConf();
+      p.entries.push({
+        idea,
+        combo,
+        coin: market.coin,
+        side,
+        ts: now,
+        price: ask,
+        sec: Math.round(secToClose),
+        c05: c.c05,
+        c10: c.c10,
+      });
+    };
+
     // ── 1. «Запас» ──
     if (price >= MARGIN_PRICE_LOW && price <= MARGIN_PRICE_HIGH && ask <= MARGIN_PRICE_HIGH && dirMove > 0) {
       const vol = getVol();
@@ -615,7 +763,7 @@ class ResearchLab {
           if (secToClose > w) continue;
           for (const zl of Z_LEVELS) {
             if (z < zl) continue;
-            this.record(p, "margin", `z≥${zl.toFixed(1)} / ${w}с`, market, side, ask, secToClose, getConf);
+            emit("margin", `z≥${zl.toFixed(1)} / ${w}с`);
           }
         }
       }
@@ -629,39 +777,21 @@ class ResearchLab {
           if (secToClose > w) continue;
           for (const thr of CHEAP_THRESHOLDS) {
             if (dirMove < thr) continue;
-            this.record(
-              p,
-              "cheap",
-              `${pctLabel(thr)} / ${w}с / ${band[0].toFixed(2)}-${band[1].toFixed(2)}`,
-              market,
-              side,
-              ask,
-              secToClose,
-              getConf,
-            );
+            emit("cheap", `${pctLabel(thr)} / ${w}с / ${band[0].toFixed(2)}-${band[1].toFixed(2)}`);
           }
         }
       }
     }
 
     // ── 3. «Паника без разворота» ──
-    if (dirMove > 0 && (this.peaks.get(peakKey) ?? 0) >= PANIC_PEAK) {
+    if (dirMove > 0 && peak >= PANIC_PEAK) {
       const band = findBand(PANIC_BANDS, ask);
       if (band) {
         for (const w of PANIC_WINDOWS) {
           if (secToClose > w) continue;
           for (const thr of PANIC_THRESHOLDS) {
             if (dirMove < thr) continue;
-            this.record(
-              p,
-              "panic",
-              `${pctLabel(thr)} / ${w}с / ${band[0].toFixed(2)}-${band[1].toFixed(2)}`,
-              market,
-              side,
-              ask,
-              secToClose,
-              getConf,
-            );
+            emit("panic", `${pctLabel(thr)} / ${w}с / ${band[0].toFixed(2)}-${band[1].toFixed(2)}`);
           }
         }
       }
@@ -679,7 +809,7 @@ class ResearchLab {
           if (secToClose > w) continue;
           for (const thr of IMPULSE_THRESHOLDS) {
             if (dirImp < thr) continue;
-            this.record(p, "impulse", `${pctLabel(thr)} за ${lb}с / ${w}с`, market, side, ask, secToClose, getConf);
+            emit("impulse", `${pctLabel(thr)} за ${lb}с / ${w}с`);
           }
         }
       }
@@ -722,7 +852,54 @@ class ResearchLab {
       const passes = side === "Up" ? pctMove >= thr : pctMove <= -thr;
       if (!passes) continue;
 
-      this.record(p, `bot${prof.id}`, "профиль", market, side, ask, secToClose, getConf);
+      emit(`bot${prof.id}`, "профиль");
+    }
+
+    return count;
+  }
+
+  // ───── арбитраж: замер живыми стаканами ─────
+
+  async sampleArb(): Promise<void> {
+    if (this.arbSampling) return;
+    this.arbSampling = true;
+    try {
+      const list = [...this.activeMarkets.values()].filter((m) => m.closeTimeMs - Date.now() > 0);
+      await Promise.all(
+        list.map(async (m) => {
+          const p = this.ensurePending(m);
+          if (!p) return;
+          const [up, down] = await Promise.all([fetchBook(m.upTokenId), fetchBook(m.downTokenId)]);
+          if (!up || !down) return;
+
+          // сравниваем ask в памяти с живым — это замер "насколько цены в памяти устаревают"
+          for (const [tok, b] of [
+            [m.upTokenId, up],
+            [m.downTokenId, down],
+          ] as const) {
+            const old = this.quotes.get(tok);
+            if (old && old.ask !== null) {
+              this.staleSampled++;
+              if (b.ask === null || Math.abs(b.ask - old.ask) >= STALE_DIFF) this.staleShifted++;
+            }
+            this.quotes.set(tok, { bid: b.bid, ask: b.ask });
+          }
+
+          if (up.ask === null || down.ask === null) return;
+          const sum = up.ask + down.ask;
+          const sec = (m.closeTimeMs - Date.now()) / 1000;
+          if (!p.arb) p.arb = { minSum: sum, sec99: null, size99: null };
+          if (sum < p.arb.minSum) p.arb.minSum = sum;
+          if (sum <= 0.99 + 1e-9 && p.arb.sec99 === null) {
+            p.arb.sec99 = sec;
+            p.arb.size99 = Math.min(up.askSize, down.askSize);
+          }
+        }),
+      );
+    } catch (err) {
+      console.error("[arb] ошибка замера:", (err as Error).message);
+    } finally {
+      this.arbSampling = false;
     }
   }
 
@@ -770,12 +947,13 @@ class ResearchLab {
 
     // арбитраж
     if (p.arb) {
-      const a = this.arbAgg[p.coin] ?? (this.arbAgg[p.coin] = { total: 0, minSumTotal: 0, h99: 0, h98: 0, h97: 0, h95: 0, sec99Sum: 0 });
+      const a = this.arbAgg[p.coin] ?? (this.arbAgg[p.coin] = newArbAgg());
       a.total++;
       a.minSumTotal += p.arb.minSum;
       if (p.arb.minSum <= 0.99 + 1e-9) {
         a.h99++;
         a.sec99Sum += p.arb.sec99 ?? 0;
+        a.size99Sum += p.arb.size99 ?? 0;
       }
       if (p.arb.minSum <= 0.98 + 1e-9) a.h98++;
       if (p.arb.minSum <= 0.97 + 1e-9) a.h97++;
@@ -849,6 +1027,7 @@ class ResearchLab {
     const lines: string[] = [];
     lines.push(`<b>📊 ${title}</b>`);
     lines.push(note);
+    lines.push("Цена входа проверяется живым стаканом (REST) перед записью.");
     lines.push(`Записей входа по всем комбинациям (после резолва): ${total}`);
     lines.push("");
     lines.push("<b>── Все монеты вместе: топ-5 ──</b>");
@@ -899,19 +1078,20 @@ class ResearchLab {
     const lines: string[] = [];
     lines.push("<b>📊 Идея «Арбитраж Up+Down»</b>");
     lines.push(
-      "Считаем, как часто сумма лучших ask обеих сторон оказывалась ≤ 0.99 / 0.98 / 0.97 / 0.95. Глубина стакана не учитывается (сколько акций доступно по этой цене — неизвестно), поэтому это верхняя оценка.",
+      "Раз в 5 секунд берём живой стакан обеих сторон (REST) и считаем сумму лучших ask: ≤ 0.99 / 0.98 / 0.97 / 0.95. Короткие окна между замерами можем пропустить, поэтому частота — нижняя оценка. Количество акций — по лучшему уровню стакана.",
     );
     lines.push("");
 
-    const all: ArbAgg = { total: 0, minSumTotal: 0, h99: 0, h98: 0, h97: 0, h95: 0, sec99Sum: 0 };
+    const all = newArbAgg();
     const rowFor = (label: string, a: ArbAgg): string[] => {
       if (a.total === 0) return [`<b>── ${label} ──</b>`, "  пока нет данных", ""];
       const pct = (n: number) => `${n} (${((100 * n) / a.total).toFixed(1)}%)`;
       const sec = a.h99 > 0 ? `, в среднем за ${(a.sec99Sum / a.h99).toFixed(0)}с до закрытия` : "";
+      const size = a.h99 > 0 ? `, доступно в среднем ${(a.size99Sum / a.h99).toFixed(0)} акций` : "";
       return [
         `<b>── ${label} ──</b>`,
         `  рынков: ${a.total}, средняя минимальная сумма: ${(a.minSumTotal / a.total).toFixed(3)}`,
-        `  сумма ≤ 0.99: ${pct(a.h99)}${sec}`,
+        `  сумма ≤ 0.99: ${pct(a.h99)}${sec}${size}`,
         `  сумма ≤ 0.98: ${pct(a.h98)}`,
         `  сумма ≤ 0.97: ${pct(a.h97)}`,
         `  сумма ≤ 0.95: ${pct(a.h95)}`,
@@ -929,11 +1109,12 @@ class ResearchLab {
         all.h97 += a.h97;
         all.h95 += a.h95;
         all.sec99Sum += a.sec99Sum;
+        all.size99Sum += a.size99Sum;
       }
     }
     lines.push(...rowFor("Все монеты", all));
     for (const coin of INCLUDED_COINS) {
-      lines.push(...rowFor(coin, this.arbAgg[coin] ?? { total: 0, minSumTotal: 0, h99: 0, h98: 0, h97: 0, h95: 0, sec99Sum: 0 }));
+      lines.push(...rowFor(coin, this.arbAgg[coin] ?? newArbAgg()));
     }
     return lines.join("\n");
   }
@@ -989,7 +1170,7 @@ class ResearchLab {
   buildProfilesReport(): string {
     const lines: string[] = [];
     lines.push("<b>📊 Профили бота и согласие профилей</b>");
-    lines.push("Моделирование 5 профилей бота: вход по ask, потолок покупки как в боте, держим до резолва.");
+    lines.push("Моделирование 5 профилей бота: вход по живому ask, потолок покупки как в боте, держим до резолва.");
     lines.push("");
     lines.push("<b>── Каждый профиль отдельно (выигрыш/всего, винрейт, доходность на $1) ──</b>");
     for (const prof of BOT_PROFILES) {
@@ -1063,7 +1244,7 @@ class ResearchLab {
       (acc, a) => ({ total: acc.total + a.total, h99: acc.h99 + a.h99 }),
       { total: 0, h99: 0 },
     );
-    lines.push("<b>── Арбитраж ──</b>");
+    lines.push("<b>── Арбитраж (живые стаканы) ──</b>");
     lines.push(
       arbAll.total > 0
         ? `  сумма ask ≤ 0.99 была на ${arbAll.h99} из ${arbAll.total} рынков (${((100 * arbAll.h99) / arbAll.total).toFixed(1)}%)`
@@ -1083,6 +1264,20 @@ class ResearchLab {
       }
       lines.push(`  Профиль ${prof.id}: ${tw}/${tt} ${winPct(tw, tt)}, доходность ${roiLabel(tr, tt)}`);
     }
+    lines.push("");
+
+    lines.push("<b>── Честность цен ──</b>");
+    lines.push(
+      this.staleSampled > 0
+        ? `  замеров цены в памяти против живого стакана: ${this.staleSampled}, ask отличался на 0.02 и больше: ${this.staleShifted} (${((100 * this.staleShifted) / this.staleSampled).toFixed(1)}%)`
+        : "  замеров пока нет",
+    );
+    const verifyTotal = this.verifyConfirmed + this.verifyRejected;
+    lines.push(
+      verifyTotal > 0
+        ? `  проверок входов живым стаканом: ${verifyTotal}, подтвердились: ${this.verifyConfirmed}, отклонены: ${this.verifyRejected}`
+        : "  проверок входов пока нет",
+    );
     lines.push("");
     lines.push('Все команды: "лаб помощь"');
     return lines.join("\n");
@@ -1108,10 +1303,11 @@ class ResearchLab {
     this.refreshMarkets();
     setInterval(() => this.refreshMarkets(), MARKET_REFRESH_MS);
     setInterval(() => this.checkResolutions(), 30 * 1000);
+    setInterval(() => this.sampleArb(), ARB_SAMPLE_MS);
     setInterval(() => this.saveState(), AUTOSAVE_INTERVAL_MS);
     setInterval(() => {
       console.log(
-        `--- статус: апдейтов ${this.updateCount}, рынков обработано ${this.resolvedCount}, ждут резолва ${this.pending.size} ---`,
+        `--- статус: апдейтов ${this.updateCount}, рынков обработано ${this.resolvedCount}, ждут резолва ${this.pending.size}, проверок входов ${this.verifyConfirmed + this.verifyRejected} ---`,
       );
     }, 60 * 1000);
   }
@@ -1237,7 +1433,7 @@ async function pollTelegramCommands(
 // ─────────────────────────── Запуск ───────────────────────────
 
 async function main() {
-  console.log("=== LAB: исследовательский парсер идей запущен (не торгует) ===");
+  console.log("=== LAB v2: исследовательский парсер идей запущен (не торгует, цены входа проверяются живым стаканом) ===");
   console.log("Идеи: запас (z), недооценка, паника без разворота, импульс, арбитраж, подтверждение монетами, согласие профилей.");
 
   btcPriceFeed.start();
