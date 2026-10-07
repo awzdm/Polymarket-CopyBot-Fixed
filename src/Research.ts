@@ -75,8 +75,10 @@ import { xrpPriceFeed } from "./xrpPriceFeed.js";
 import { dogePriceFeed } from "./dogePriceFeed.js";
 import { tradeFlowTracker } from "./tradeFlowTracker.js";
 import { VolatilityTracker } from "./volatilityTracker.js";
+import { tokenPriceHistory } from "./tokenPriceHistory.js";
 import { createTelegramNotifier } from "./telegram.js";
 import { createLogger } from "./logger.js";
+import { applyBaseline } from "./gridBaseline.js";
 
 const STATE_FILE = path.resolve(process.cwd(), "research-grid-state.json");
 const AUTOSAVE_INTERVAL_MS = 60 * 1000;
@@ -125,6 +127,17 @@ const INCLUDED_COINS = Object.keys(PRICE_FEEDS); // ["Bitcoin", "Ethereum", "Sol
 
 const volTracker = new VolatilityTracker(PRICE_FEEDS);
 
+/**
+ * Запускает volTracker (нужен для adaptive-сетки). В обычном (standalone)
+ * режиме это делает main() ниже. В комбинированном процессе (research-combined.ts)
+ * фиды/tradeFlowTracker стартуют один раз централизованно, а этот метод
+ * вызывается отдельно, чтобы не запускать volTracker дважды и не плодить
+ * путаницу — вызывать максимум один раз за весь процесс.
+ */
+export function startResearchGridInfra(): void {
+  volTracker.start();
+}
+
 const MARKET_REFRESH_MS = 30 * 1000;
 const AUTO_REPORT_INTERVAL_MS = 30 * 60 * 1000;
 const RESOLVE_CHECK_DELAY_SEC = 180;
@@ -136,6 +149,7 @@ const ADAPTIVE_REPORT_TRIGGERS = ["адаптив", "adaptive report", "/adaptiv
 const ADAPTIVE_FULL_GRID_TRIGGERS = ["полная адаптив", "full adaptive grid", "/gridadaptive"];
 const VOLUME_REPORT_TRIGGERS = ["объем", "объём", "volume report", "/volume"];
 const DECEL_REPORT_TRIGGERS = ["замедление", "decel report", "/decel"];
+const MICRO_REPORT_TRIGGERS = ["микро", "micro report", "/micro"];
 
 // Окна для замера дисбаланса объёма купли/продажи перед входом.
 const VOLUME_WINDOWS_MS = [90 * 1000, 120 * 1000];
@@ -171,11 +185,91 @@ function decelBucketLabel(ratio: number): string {
   return DECEL_BUCKETS[DECEL_BUCKETS.length - 1].label;
 }
 
+// ─── Бакеты для новых микро-метрик по токену (idea 6/7/9/10/12) ───
+const SPEED_BUCKETS: { label: string; min: number; max: number }[] = [
+  { label: "Разворот вниз (<-0.5¢/10с)", min: -Infinity, max: -0.005 },
+  { label: "Плоско (-0.5¢..+0.5¢/10с)", min: -0.005, max: 0.005 },
+  { label: "Рост слабый (0.5¢..2¢/10с)", min: 0.005, max: 0.02 },
+  { label: "Рост резкий (>2¢/10с)", min: 0.02, max: Infinity },
+];
+function speedBucketLabel(v: number): string {
+  for (const b of SPEED_BUCKETS) if (v >= b.min && v < b.max) return b.label;
+  return SPEED_BUCKETS[SPEED_BUCKETS.length - 1].label;
+}
+
+const SPREAD_SUM_BUCKETS: { label: string; min: number; max: number }[] = [
+  { label: "Сумма <0.97 (недооценка)", min: -Infinity, max: 0.97 },
+  { label: "Сумма 0.97-0.99", min: 0.97, max: 0.99 },
+  { label: "Сумма 0.99-1.01 (чисто)", min: 0.99, max: 1.01 },
+  { label: "Сумма 1.01-1.03", min: 1.01, max: 1.03 },
+  { label: "Сумма >1.03 (переоценка)", min: 1.03, max: Infinity },
+];
+function spreadSumBucketLabel(v: number): string {
+  for (const b of SPREAD_SUM_BUCKETS) if (v >= b.min && v < b.max) return b.label;
+  return SPREAD_SUM_BUCKETS[SPREAD_SUM_BUCKETS.length - 1].label;
+}
+
+const FREQ_BUCKETS: { label: string; min: number; max: number }[] = [
+  { label: "Тихо (0-2 апдейта/10с)", min: 0, max: 3 },
+  { label: "Обычно (3-5)", min: 3, max: 6 },
+  { label: "Активно (6-10)", min: 6, max: 11 },
+  { label: "Ажиотаж (>10)", min: 11, max: Infinity },
+];
+function freqBucketLabel(v: number): string {
+  for (const b of FREQ_BUCKETS) if (v >= b.min && v < b.max) return b.label;
+  return FREQ_BUCKETS[FREQ_BUCKETS.length - 1].label;
+}
+
+const ASYMMETRY_BUCKETS: { label: string; min: number; max: number }[] = [
+  { label: "Наша сторона медленнее (<0.5x)", min: -Infinity, max: 0.5 },
+  { label: "Сопоставимо (0.5x-1.2x)", min: 0.5, max: 1.2 },
+  { label: "Наша сторона быстрее (1.2x-2x)", min: 1.2, max: 2 },
+  { label: "Наша сторона намного быстрее (>2x)", min: 2, max: Infinity },
+];
+function asymmetryBucketLabel(v: number): string {
+  for (const b of ASYMMETRY_BUCKETS) if (v >= b.min && v < b.max) return b.label;
+  return ASYMMETRY_BUCKETS[ASYMMETRY_BUCKETS.length - 1].label;
+}
+
+// Симметрия половин окна использует те же пороги, что и DECEL_BUCKETS (тот же
+// смысл соотношения "второе/первое"), но с отдельными подписями для ясности.
+const SYMMETRY_BUCKETS: { label: string; min: number; max: number }[] = [
+  { label: "2-я половина намного активнее (>2x)", min: 2, max: Infinity },
+  { label: "2-я половина активнее (1.2x-2x)", min: 1.2, max: 2 },
+  { label: "Равномерно (0.8x-1.2x)", min: 0.8, max: 1.2 },
+  { label: "1-я половина активнее (0.4x-0.8x)", min: 0.4, max: 0.8 },
+  { label: "1-я половина намного активнее (<0.4x)", min: -Infinity, max: 0.4 },
+];
+function symmetryBucketLabel(v: number): string {
+  for (const b of SYMMETRY_BUCKETS) if (v >= b.min && v < b.max) return b.label;
+  return SYMMETRY_BUCKETS[SYMMETRY_BUCKETS.length - 1].label;
+}
+
 type ComboMode = "fixed" | "adaptive";
 
 interface TickDecel {
   recentMove10s: number | null; // движение монеты за 10с ДО входа
   priorMove10s: number | null; // движение монеты за 10с ДО ЭТОГО (т.е. [-20с, -10с])
+}
+
+/**
+ * Пассивные замеры по САМОМУ ТОКЕНУ (не монете) на момент входа — ничего не
+ * решают при входе, только логируются для последующего анализа отчётами.
+ *  - speedToLevel10s (idea 6): на сколько изменилась цена ТОКЕНА за 10с до входа
+ *  - spreadSum / spreadDiff (idea 7): сумма и разница цен Up+Down в момент входа
+ *  - symmetryRatio (idea 9): движение МОНЕТЫ во 2-й половине окна / в 1-й половине
+ *  - freqLast10s (idea 10): грубая частота апдейтов ордербука токена за 10с (прокси активности)
+ *  - maCross (idea 11): "up"/"down"/"none" — пересекла ли цена токена свою скользящую за 30с
+ *  - asymmetryRatio (idea 12): скорость роста цены нашей стороны / скорость падения противоположной
+ */
+interface MicroMetrics {
+  speedToLevel10s: number | null;
+  spreadSum: number | null;
+  spreadDiff: number | null;
+  symmetryRatio: number | null;
+  freqLast10s: number | null;
+  maCross: "up" | "down" | "none" | null;
+  asymmetryRatio: number | null;
 }
 
 interface ComboTradeEvent {
@@ -196,8 +290,10 @@ interface ComboTradeEvent {
   // информация (можно ли было бы отличить от adaptive-порога), для
   // adaptive — это и есть значение, из которого был выведен порог.
   volAtEntry: number | null;
-  // Пассивный лог замедления тейпа — не влияет на критерии входа.
+  // Пассивный лог замедления тейпа (движение МОНЕТЫ) — не влияет на критерии входа.
   tickDecel: TickDecel;
+  // Пассивный лог микроструктуры ТОКЕНА (скорость/спред/симметрия/частота/MA/асимметрия).
+  micro: MicroMetrics;
 }
 
 interface TokenInfo {
@@ -222,7 +318,7 @@ function observeWindowMs(windowMinutes: number): number {
   return (windowMinutes + 1) * 60 * 1000;
 }
 
-class ResearchGridLogger {
+export class ResearchGridLogger {
   private watcher: PriceWatcher | null = null;
   private tokenIndex = new Map<string, TokenInfo>();
   private lastTokenIds: string[] = [];
@@ -276,6 +372,17 @@ class ResearchGridLogger {
         if (!t.volumeImbalance) t.volumeImbalance = {};
         if (t.volAtEntry === undefined) t.volAtEntry = null;
         if (!t.tickDecel) t.tickDecel = { recentMove10s: null, priorMove10s: null };
+        if (!t.micro) {
+          t.micro = {
+            speedToLevel10s: null,
+            spreadSum: null,
+            spreadDiff: null,
+            symmetryRatio: null,
+            freqLast10s: null,
+            maCross: null,
+            asymmetryRatio: null,
+          };
+        }
       }
 
       this.trades = new Map();
@@ -342,6 +449,14 @@ class ResearchGridLogger {
 
     const sameAsLastTime =
       tokenIds.length === this.lastTokenIds.length && tokenIds.every((id, i) => id === this.lastTokenIds[i]);
+
+    // Освобождаем буфер истории токена для тех, кого больше нет в наблюдении
+    // (иначе память будет копить мёртвые токены бесконечно).
+    const newTokenIdSet = new Set(tokenIds);
+    for (const oldId of this.lastTokenIds) {
+      if (!newTokenIdSet.has(oldId)) tokenPriceHistory.forget(oldId);
+    }
+
     if (sameAsLastTime && this.watcher) return;
 
     this.lastTokenIds = tokenIds;
@@ -366,6 +481,7 @@ class ResearchGridLogger {
     volAtEntry: number | null,
     tickDecel: TickDecel,
     volumeImbalance: Record<number, number | null>,
+    micro: MicroMetrics,
   ): void {
     const key = `${mode}_${param}_${windowSec}:${market.eventSlug}:${side}`;
     if (this.trades.has(key)) return; // уже зафиксирован вход для этой комбинации
@@ -383,6 +499,7 @@ class ResearchGridLogger {
       volumeImbalance,
       volAtEntry,
       tickDecel,
+      micro,
     };
     this.trades.set(key, trade);
     this.tradesList.push(trade);
@@ -397,6 +514,10 @@ class ResearchGridLogger {
 
     const price = update.bestBid ?? update.bestAsk;
     if (price === null) return;
+
+    // Пишем в историю цены ТОКЕНА на КАЖДЫЙ апдейт, а не только при потенциальном
+    // входе — иначе метрики скорости/MA/спреда будут считаться на дырявых данных.
+    tokenPriceHistory.recordUpdate(update.tokenId, price, Date.now());
 
     // Дешёвая проверка первой: коридор цены токена — общий для ВСЕХ комбинаций.
     if (price < PRICE_LOW || price > PRICE_HIGH) return;
@@ -452,6 +573,65 @@ class ResearchGridLogger {
       return volumeImbalanceCache;
     };
 
+    let microCache: MicroMetrics | undefined;
+    const getMicroLazy = (): MicroMetrics => {
+      if (microCache !== undefined) return microCache;
+
+      const ourTokenId = side === "Up" ? market.upTokenId : market.downTokenId;
+      const otherTokenId = side === "Up" ? market.downTokenId : market.upTokenId;
+
+      // idea 6: скорость подлёта — изменение цены НАШЕГО токена за 10с до сейчас
+      const priceNow = tokenPriceHistory.getPriceAt(ourTokenId, now);
+      const price10sAgo = tokenPriceHistory.getPriceAt(ourTokenId, now - 10_000);
+      const speedToLevel10s = priceNow !== null && price10sAgo !== null ? priceNow - price10sAgo : null;
+
+      // idea 7: спред Up/Down в моменте
+      const upPrice = tokenPriceHistory.getLatestPrice(market.upTokenId);
+      const downPrice = tokenPriceHistory.getLatestPrice(market.downTokenId);
+      const spreadSum = upPrice !== null && downPrice !== null ? upPrice + downPrice : null;
+      const spreadDiff = upPrice !== null && downPrice !== null ? Math.abs(upPrice - downPrice) : null;
+
+      // idea 9: симметрия половин окна — движение МОНЕТЫ во 2-й половине / в 1-й половине
+      const openTimeMs2 = market.closeTimeMs - market.windowMinutes * 60 * 1000;
+      const midTimeMs = openTimeMs2 + (market.windowMinutes * 60 * 1000) / 2;
+      let symmetryRatio: number | null = null;
+      if (now >= midTimeMs) {
+        const pOpen = feed.getPriceAt(openTimeMs2);
+        const pMid = feed.getPriceAt(midTimeMs);
+        const pNow = feed.getLatestPrice();
+        if (pOpen !== null && pMid !== null && pNow !== null && pOpen !== 0 && pMid !== 0) {
+          const firstHalfMove = Math.abs((pMid - pOpen) / pOpen);
+          const secondHalfMove = Math.abs((pNow - pMid) / pMid);
+          symmetryRatio = firstHalfMove > 0 ? secondHalfMove / firstHalfMove : null;
+        }
+      }
+
+      // idea 10: частота апдейтов ордербука НАШЕГО токена за последние 10с (прокси активности, не точное число сделок)
+      const freqLast10s = tokenPriceHistory.getUpdateCount(ourTokenId, now, 10_000);
+
+      // idea 11: пересечение своей скользящей средней (30с) НАШИМ токеном
+      const maNow = tokenPriceHistory.getMovingAverage(ourTokenId, now, 30_000);
+      const priceJustBefore = tokenPriceHistory.getPriceAt(ourTokenId, now - 1000);
+      const maJustBefore = tokenPriceHistory.getMovingAverage(ourTokenId, now - 1000, 30_000);
+      let maCross: "up" | "down" | "none" | null = null;
+      if (maNow !== null && maJustBefore !== null && priceNow !== null && priceJustBefore !== null) {
+        const wasBelow = priceJustBefore < maJustBefore;
+        const isAbove = priceNow > maNow;
+        if (wasBelow && isAbove) maCross = "up";
+        else if (!wasBelow && !isAbove) maCross = "down";
+        else maCross = "none";
+      }
+
+      // idea 12: асимметрия скорости — наша сторона растёт быстрее, чем падает противоположная?
+      const ourSpeed = tokenPriceHistory.getSignedMoveOverWindow(ourTokenId, now, 10_000);
+      const otherSpeed = tokenPriceHistory.getSignedMoveOverWindow(otherTokenId, now, 10_000);
+      const asymmetryRatio =
+        ourSpeed !== null && otherSpeed !== null && otherSpeed !== 0 ? Math.abs(ourSpeed / otherSpeed) : null;
+
+      microCache = { speedToLevel10s, spreadSum, spreadDiff, symmetryRatio, freqLast10s, maCross, asymmetryRatio };
+      return microCache;
+    };
+
     for (const windowSec of WINDOWS_SEC) {
       if (secToClose > windowSec) continue; // ещё не дошли до окна входа этой комбинации
 
@@ -469,6 +649,7 @@ class ResearchGridLogger {
           getRecentVolLazy(),
           getTickDecelLazy(),
           getVolumeImbalanceLazy(),
+          getMicroLazy(),
         );
       }
 
@@ -489,6 +670,7 @@ class ResearchGridLogger {
             vol,
             getTickDecelLazy(),
             getVolumeImbalanceLazy(),
+            getMicroLazy(),
           );
         }
       }
@@ -568,6 +750,7 @@ class ResearchGridLogger {
       s.total++;
       if (t.won) s.win++;
     }
+    applyBaseline(grid, coin, mode, params, WINDOWS_SEC);
     return grid;
   }
 
@@ -784,6 +967,114 @@ class ResearchGridLogger {
     return lines.join("\n");
   }
 
+  /** Универсальный помощник: винрейт по числовым бакетам одной метрики, для одной монеты. Дедуп по рынку. */
+  private numericBucketLines(
+    coin: string,
+    buckets: { label: string; min: number; max: number }[],
+    labelFn: (v: number) => string,
+    getValue: (t: ComboTradeEvent) => number | null,
+  ): string[] {
+    const seen = new Map<string, ComboTradeEvent>();
+    for (const t of this.tradesList) {
+      if (t.coin !== coin || !t.determined) continue;
+      const v = getValue(t);
+      if (v === null) continue;
+      const dedupeKey = `${t.eventSlug}:${t.side}`;
+      const existing = seen.get(dedupeKey);
+      if (!existing || t.entryTimestamp < existing.entryTimestamp) seen.set(dedupeKey, t);
+    }
+
+    const bucketStats = new Map<string, { win: number; total: number }>();
+    for (const b of buckets) bucketStats.set(b.label, { win: 0, total: 0 });
+    for (const t of seen.values()) {
+      const v = getValue(t) as number;
+      const s = bucketStats.get(labelFn(v))!;
+      s.total++;
+      if (t.won) s.win++;
+    }
+
+    const lines: string[] = [];
+    let anyData = false;
+    for (const b of buckets) {
+      const s = bucketStats.get(b.label)!;
+      if (s.total === 0) continue;
+      anyData = true;
+      const pct = (100 * s.win) / s.total;
+      lines.push(`    ${b.label.padEnd(34)} ${String(s.win).padStart(4)}/${String(s.total).padEnd(5)} ${pct.toFixed(0)}%`);
+    }
+    if (!anyData) lines.push("    пока недостаточно данных");
+    return lines;
+  }
+
+  /**
+   * Единый отчёт по всем новым пассивным микро-метрикам токена (idea 6/7/9/10/11/12).
+   * Один общий отчёт вместо шести отдельных команд — компактнее и проще смотреть разом.
+   */
+  buildMicroReport(): string {
+    const lines: string[] = [];
+    lines.push("<b>📊 Отчёт: микроструктура токена (пассивный лог, ничего не решало при входе)</b>");
+    lines.push("");
+
+    for (const coin of INCLUDED_COINS) {
+      lines.push(`<b>═══ ${coin} ═══</b>`);
+
+      lines.push("  <b>Скорость подлёта к уровню (idea 6, изменение цены токена за 10с до входа):</b>");
+      lines.push(...this.numericBucketLines(coin, SPEED_BUCKETS, speedBucketLabel, (t) => t.micro.speedToLevel10s));
+
+      lines.push("  <b>Спред Up+Down (idea 7, сумма цен обеих сторон в моменте):</b>");
+      lines.push(...this.numericBucketLines(coin, SPREAD_SUM_BUCKETS, spreadSumBucketLabel, (t) => t.micro.spreadSum));
+
+      lines.push("  <b>Симметрия половин окна (idea 9, движение 2-й половины / 1-й):</b>");
+      lines.push(...this.numericBucketLines(coin, SYMMETRY_BUCKETS, symmetryBucketLabel, (t) => t.micro.symmetryRatio));
+
+      lines.push("  <b>Частота апдейтов токена (idea 10, прокси активности за 10с, НЕ точное число сделок):</b>");
+      lines.push(...this.numericBucketLines(coin, FREQ_BUCKETS, freqBucketLabel, (t) => t.micro.freqLast10s));
+
+      lines.push("  <b>Асимметрия скорости нашей/чужой стороны (idea 12):</b>");
+      lines.push(...this.numericBucketLines(coin, ASYMMETRY_BUCKETS, asymmetryBucketLabel, (t) => t.micro.asymmetryRatio));
+
+      // idea 11 — категориальная метрика (up/down/none), отдельная логика без числовых бакетов.
+      lines.push("  <b>Пересечение своей MA-30с токеном (idea 11):</b>");
+      {
+        const seen = new Map<string, ComboTradeEvent>();
+        for (const t of this.tradesList) {
+          if (t.coin !== coin || !t.determined || t.micro.maCross === null) continue;
+          const dedupeKey = `${t.eventSlug}:${t.side}`;
+          const existing = seen.get(dedupeKey);
+          if (!existing || t.entryTimestamp < existing.entryTimestamp) seen.set(dedupeKey, t);
+        }
+        const cats: Record<string, { win: number; total: number }> = {
+          up: { win: 0, total: 0 },
+          down: { win: 0, total: 0 },
+          none: { win: 0, total: 0 },
+        };
+        for (const t of seen.values()) {
+          const c = cats[t.micro.maCross as string];
+          c.total++;
+          if (t.won) c.win++;
+        }
+        const catLabels: Record<string, string> = {
+          up: "Пересекла MA снизу вверх",
+          down: "Пересекла MA сверху вниз",
+          none: "Без пересечения",
+        };
+        let anyData = false;
+        for (const key of ["up", "down", "none"]) {
+          const s = cats[key];
+          if (s.total === 0) continue;
+          anyData = true;
+          const pct = (100 * s.win) / s.total;
+          lines.push(`    ${catLabels[key].padEnd(34)} ${String(s.win).padStart(4)}/${String(s.total).padEnd(5)} ${pct.toFixed(0)}%`);
+        }
+        if (!anyData) lines.push("    пока недостаточно данных");
+      }
+
+      lines.push("");
+    }
+
+    return lines.join("\n");
+  }
+
   start(): void {
     this.loadState();
     this.refreshMarkets();
@@ -803,7 +1094,7 @@ class ResearchGridLogger {
 // Telegram не принимает сообщения длиннее ~4096 символов.
 const TELEGRAM_MAX_CHUNK = 3500;
 
-function splitReportIntoChunks(report: string, maxLen: number = TELEGRAM_MAX_CHUNK): string[] {
+export function splitReportIntoChunks(report: string, maxLen: number = TELEGRAM_MAX_CHUNK): string[] {
   const lines = report.split("\n");
   const chunks: string[] = [];
   let current = "";
@@ -820,7 +1111,7 @@ function splitReportIntoChunks(report: string, maxLen: number = TELEGRAM_MAX_CHU
   return chunks.length > 0 ? chunks : [""];
 }
 
-async function sendReportToTelegram(
+export async function sendReportToTelegram(
   telegram: ReturnType<typeof createTelegramNotifier>,
   header: string,
   report: string,
@@ -835,6 +1126,46 @@ async function sendReportToTelegram(
       console.error(`[sendReportToTelegram] ошибка отправки части ${i + 1}/${chunks.length}:`, (err as Error).message);
     }
   }
+}
+
+/**
+ * Проверяет текст сообщения на все триггеры research-grid.ts (fixed/adaptive/
+ * объём/замедление/микро) и возвращает готовый отчёт, если что-то совпало,
+ * либо null, если сообщение не про этот модуль. Порядок проверки важен —
+ * сначала более специфичные фразы (например "полная адаптив"), потом
+ * короткие (например "адаптив"), иначе короткая фраза как подстрока
+ * перехватит матч раньше времени (это и был баг, который чинили раньше).
+ * Экспортируется, чтобы её мог переиспользовать комбинированный процесс
+ * (research-combined.ts) с ОДНИМ общим Telegram-опросом на оба модуля.
+ */
+export function tryHandleResearchGridCommand(
+  rawText: string,
+  research: ResearchGridLogger,
+): { header: string; report: string } | null {
+  const text = rawText.toLowerCase();
+
+  if (ADAPTIVE_FULL_GRID_TRIGGERS.some((p) => text.includes(p.toLowerCase()))) {
+    return { header: "<b>📊 Полная adaptive-таблица по запросу</b>", report: research.buildAdaptiveFullGridReport() };
+  }
+  if (ADAPTIVE_REPORT_TRIGGERS.some((p) => text.includes(p.toLowerCase()))) {
+    return { header: "<b>📊 Adaptive-отчёт по запросу</b>", report: research.buildAdaptiveCompactReport() };
+  }
+  if (FULL_GRID_TRIGGERS.some((p) => text.includes(p.toLowerCase()))) {
+    return { header: "<b>📊 Полная таблица по запросу</b>", report: research.buildFullGridReport() };
+  }
+  if (COMPACT_REPORT_TRIGGERS.some((p) => text.includes(p.toLowerCase()))) {
+    return { header: "<b>📊 Отчёт по запросу</b>", report: research.buildCompactReport() };
+  }
+  if (VOLUME_REPORT_TRIGGERS.some((p) => text.includes(p.toLowerCase()))) {
+    return { header: "<b>📊 Отчёт по объёму по запросу</b>", report: research.buildVolumeReport() };
+  }
+  if (DECEL_REPORT_TRIGGERS.some((p) => text.includes(p.toLowerCase()))) {
+    return { header: "<b>📊 Отчёт по замедлению тейпа по запросу</b>", report: research.buildDecelReport() };
+  }
+  if (MICRO_REPORT_TRIGGERS.some((p) => text.includes(p.toLowerCase()))) {
+    return { header: "<b>📊 Отчёт по микроструктуре токена по запросу</b>", report: research.buildMicroReport() };
+  }
+  return null;
 }
 
 async function pollTelegramCommands(
@@ -858,42 +1189,11 @@ async function pollTelegramCommands(
         offset = update.update_id + 1;
         const msg = update.message;
         if (!msg?.text || String(msg.chat?.id) !== String(chatId)) continue;
-        const text = msg.text.toLowerCase();
 
-        if (COMPACT_REPORT_TRIGGERS.some((p) => text.includes(p.toLowerCase()))) {
-          console.log(`[telegram] Запрос компактного отчёта (fixed): "${msg.text}"`);
-          await sendReportToTelegram(telegram, "<b>📊 Отчёт по запросу</b>", research.buildCompactReport());
-          continue;
-        }
-
-        if (FULL_GRID_TRIGGERS.some((p) => text.includes(p.toLowerCase()))) {
-          console.log(`[telegram] Запрос полной таблицы (fixed): "${msg.text}"`);
-          await sendReportToTelegram(telegram, "<b>📊 Полная таблица по запросу</b>", research.buildFullGridReport());
-          continue;
-        }
-
-        if (ADAPTIVE_FULL_GRID_TRIGGERS.some((p) => text.includes(p.toLowerCase()))) {
-          console.log(`[telegram] Запрос полной таблицы (adaptive): "${msg.text}"`);
-          await sendReportToTelegram(telegram, "<b>📊 Полная adaptive-таблица по запросу</b>", research.buildAdaptiveFullGridReport());
-          continue;
-        }
-
-        if (ADAPTIVE_REPORT_TRIGGERS.some((p) => text.includes(p.toLowerCase()))) {
-          console.log(`[telegram] Запрос компактного отчёта (adaptive): "${msg.text}"`);
-          await sendReportToTelegram(telegram, "<b>📊 Adaptive-отчёт по запросу</b>", research.buildAdaptiveCompactReport());
-          continue;
-        }
-
-        if (VOLUME_REPORT_TRIGGERS.some((p) => text.includes(p.toLowerCase()))) {
-          console.log(`[telegram] Запрос отчёта по объёму: "${msg.text}"`);
-          await sendReportToTelegram(telegram, "<b>📊 Отчёт по объёму по запросу</b>", research.buildVolumeReport());
-          continue;
-        }
-
-        if (DECEL_REPORT_TRIGGERS.some((p) => text.includes(p.toLowerCase()))) {
-          console.log(`[telegram] Запрос отчёта по замедлению: "${msg.text}"`);
-          await sendReportToTelegram(telegram, "<b>📊 Отчёт по замедлению тейпа по запросу</b>", research.buildDecelReport());
-          continue;
+        const result = tryHandleResearchGridCommand(msg.text, research);
+        if (result) {
+          console.log(`[telegram] Запрос (research-grid): "${msg.text}"`);
+          await sendReportToTelegram(telegram, result.header, result.report);
         }
       }
     } catch (err) {
@@ -932,7 +1232,7 @@ async function main() {
     console.log(
       `Telegram включён — "${COMPACT_REPORT_TRIGGERS[0]}" (fixed кратко), "${FULL_GRID_TRIGGERS[0]}" (fixed таблица), ` +
         `"${ADAPTIVE_REPORT_TRIGGERS[0]}" (adaptive кратко), "${ADAPTIVE_FULL_GRID_TRIGGERS[0]}" (adaptive таблица), ` +
-        `"${VOLUME_REPORT_TRIGGERS[0]}" (объём), "${DECEL_REPORT_TRIGGERS[0]}" (замедление тейпа).`,
+        `"${VOLUME_REPORT_TRIGGERS[0]}" (объём), "${DECEL_REPORT_TRIGGERS[0]}" (замедление тейпа), "${MICRO_REPORT_TRIGGERS[0]}" (микроструктура токена).`,
     );
     pollTelegramCommands(process.env.TELEGRAM_BOT_TOKEN, process.env.TELEGRAM_CHAT_ID, telegram, research);
 
@@ -963,7 +1263,12 @@ async function main() {
   process.on("SIGTERM", sendFinal);
 }
 
-main().catch((err) => {
-  console.error("Фатальная ошибка:", err);
-  process.exit(1);
-});
+// Автозапуск ТОЛЬКО когда файл запущен напрямую (npx tsx src/research-grid.ts),
+// а не когда его импортирует research-combined.ts — иначе фиды/tradeFlowTracker
+// и Telegram-опрос запустились бы ДВАЖДЫ (и получили бы конфликт getUpdates).
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main().catch((err) => {
+    console.error("Фатальная ошибка:", err);
+    process.exit(1);
+  });
+}
