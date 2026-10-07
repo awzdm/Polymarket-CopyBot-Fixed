@@ -78,6 +78,7 @@ import { VolatilityTracker } from "./volatilityTracker.js";
 import { tokenPriceHistory } from "./tokenPriceHistory.js";
 import { createTelegramNotifier } from "./telegram.js";
 import { createLogger } from "./logger.js";
+import { applyBaseline } from "./gridBaseline.js";
 
 const STATE_FILE = path.resolve(process.cwd(), "research-grid-state.json");
 const AUTOSAVE_INTERVAL_MS = 60 * 1000;
@@ -749,6 +750,7 @@ export class ResearchGridLogger {
       s.total++;
       if (t.won) s.win++;
     }
+    applyBaseline(grid, coin, mode, params, WINDOWS_SEC);
     return grid;
   }
 
