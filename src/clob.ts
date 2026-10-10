@@ -209,6 +209,12 @@ export class ClobService {
    * код трактует это как "не исполнилось", продолжает мониторинг), вместо
    * того чтобы покупать по более высокой и менее выгодной цене.
    *
+   * v3: minBidPrice (опционально, только для BUY). Если живой bid в стакане
+   * ниже minBidPrice (или bid-стороны нет вообще) — вход тоже отменяется.
+   * Нужно профилям, чьё правило входа в парсере проверяется по ЖИВОМУ стакану
+   * "bid в коридоре цены" (например, «Запас»): так бот входит ровно в тех
+   * ситуациях, по которым собрана статистика.
+   *
    * Возвращает также orderId — нужен, чтобы затем дождаться финального
    * ончейн-подтверждения через userStream.waitForConfirmation(orderId, ...).
    */
@@ -219,6 +225,7 @@ export class ClobService {
     size: number;
     maxSlippagePct?: number; // буфер сверх живого best ask/bid, default 0.5%
     maxBuyPrice?: number; // ЖЁСТКИЙ потолок для BUY — не покупать, если живой ask уже выше
+    minBidPrice?: number; // для BUY — не входить, если живой bid ниже этой цены (или bid нет)
   }): Promise<{ status: string; filledSize?: string; filledUsdc?: string; orderId?: string | null }> {
     const { tokenId, side, size } = params;
 
@@ -230,6 +237,17 @@ export class ClobService {
     if (side === Side.BUY && params.maxBuyPrice !== undefined && book.bestAsk !== null && book.bestAsk > params.maxBuyPrice) {
       throw new Error(
         `Живая цена в стакане (bestAsk=${book.bestAsk}) уже выше допустимого предела (${params.maxBuyPrice}) — вход отменён, чтобы не переплачивать.`,
+      );
+    }
+
+    // Проверка живого bid (v3): bid в коридоре — как в парсере, по статистике которого торгуем.
+    if (
+      side === Side.BUY &&
+      params.minBidPrice !== undefined &&
+      (book.bestBid === null || book.bestBid < params.minBidPrice - 1e-9)
+    ) {
+      throw new Error(
+        `Живой bid в стакане (bestBid=${book.bestBid}) ниже допустимого (${params.minBidPrice}) — вход отменён, как в парсере.`,
       );
     }
 
@@ -307,6 +325,7 @@ export class ClobService {
       liveRef,
       cappedPrice,
       maxBuyPrice: params.maxBuyPrice,
+      minBidPrice: params.minBidPrice,
       traderPrice: params.price,
       size,
       response: resp,
