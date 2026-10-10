@@ -1,6 +1,11 @@
 /**
- * "Быстрый флип" v7.6 — РЫНОЧНЫЕ ордера на ВХОД, держим ДО ОФИЦИАЛЬНОГО
+ * "Быстрый флип" v7.7 — РЫНОЧНЫЕ ордера на ВХОД, держим ДО ОФИЦИАЛЬНОГО
  * РЕЗОЛВА. Никаких лимиток на выход и никаких продаж по тику цены.
+ *
+ * v7.7 (относительно v7.6): у профиля 6 «Запас» добавлена проверка ЖИВОГО bid перед
+ *  покупкой (requireLiveBid): бот входит, только если живой bid в стакане не ниже нижней
+ *  границы коридора (0.97) — ровно как в парсере LAB, по статистике которого этот профиль
+ *  подобран. Остальные профили поведение не меняют.
  *
  * v7.6 (относительно v7.5):
  *  1) ДОБАВЛЕН ПРОФИЛЬ 6 «ЗАПАС» (mode="margin"): вместо порога движения считается
@@ -148,6 +153,7 @@ interface EntryProfile {
   retouchDropBelow?: number; // только для priceMode="retouch"
   pctMoveThresholds: Record<string, number>;
   sizeUsd: number; // размер ставки в USD именно для сделок этого профиля
+  requireLiveBid?: boolean; // true — перед покупкой проверить ЖИВОЙ bid: он не должен быть ниже priceLow (как в парсере LAB)
 }
 
 function makeUniformThresholds(value: number): Record<string, number> {
@@ -317,8 +323,8 @@ const settings = {
       // (честные 100%). Новая стратегия — размер ставки намеренно небольшой.
       name: "Профиль 6 (Запас)",
       entryWindowSec: {
-        Bitcoin: 120,
-        Ethereum: 60,
+        Bitcoin: 60,
+        Ethereum: 180,
         Solana: 120,
         XRP: 180,
         Dogecoin: 120,
@@ -326,13 +332,14 @@ const settings = {
       mode: "margin",
       priceMode: "corridor",
       pctMoveThresholds: {
-        Bitcoin: 3.0,
-        Ethereum: 1.5,
+        Bitcoin: 2.0,
+        Ethereum: 4.0,
         Solana: 1.5,
         XRP: 2.0,
         Dogecoin: 1.0,
       },
       sizeUsd: Number(process.env.FASTFLIP_PROFILE6_SIZE_USD ?? "2"),
+      requireLiveBid: true, // в парсере вход записывается только при живом bid в коридоре 0.97-0.98
     },
   ] as EntryProfile[],
 };
@@ -711,6 +718,7 @@ class FastFlipMarketBot {
     size: number;
     nominalPrice: number;
     maxBuyPrice?: number; // жёсткий потолок — не покупать дороже этой цены, см. clob.ts
+    minBidPrice?: number; // не входить, если живой bid ниже этой цены, см. clob.ts
   }): Promise<MarketOrderResult> {
     if (DRY_RUN || !this.clob) {
       return { orderId: null, filledSize: params.size, avgPrice: params.nominalPrice };
@@ -724,6 +732,7 @@ class FastFlipMarketBot {
         size: params.size,
         maxSlippagePct: MARKET_ORDER_SLIPPAGE_PCT,
         maxBuyPrice: params.maxBuyPrice,
+        minBidPrice: params.minBidPrice,
       });
 
       const rawA = Number(resp.filledSize ?? 0);
@@ -806,6 +815,7 @@ class FastFlipMarketBot {
       size,
       nominalPrice: priceAtEntry,
       maxBuyPrice: profile.priceHigh ?? settings.maxEntryPrice,
+      minBidPrice: profile.requireLiveBid ? (profile.priceLow ?? settings.entryPrice) : undefined,
     });
 
     if (result.filledSize <= 0) {
@@ -1174,7 +1184,7 @@ async function pollTelegramCommands(
 async function main() {
   // МЕТКА ВЕРСИИ — если в логах при старте бота НЕТ этой строки,
   // значит запущен не этот файл (старая сборка / другой процесс).
-  console.log("=== FASTFLIP BUILD: v7.6 — ПРОФИЛЬ 6 «ЗАПАС» + НАСТРОЙКИ ПРОФИЛЕЙ ВШИТЫ В КОД ===");
+  console.log("=== FASTFLIP BUILD: v7.7 — ПРОФИЛЬ 6 «ЗАПАС» (проверка живого bid) + НАСТРОЙКИ ВШИТЫ В КОД ===");
   console.log(`Режим: ${DRY_RUN ? "DRY_RUN (без реальных сделок, полная симуляция)" : "⚠️  LIVE — РЕАЛЬНЫЕ ДЕНЬГИ"}`);
   console.log(`Коридор по умолчанию (если у профиля свой не задан): ${settings.entryPrice}-${settings.maxEntryPrice} | Квота: ${settings.quotaPerHour}/час`);
   for (const [i, p] of settings.profiles.entries()) {
