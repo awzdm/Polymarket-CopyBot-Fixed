@@ -1,6 +1,12 @@
 /**
- * "Быстрый флип" v7.7 — РЫНОЧНЫЕ ордера на ВХОД, держим ДО ОФИЦИАЛЬНОГО
+ * "Быстрый флип" v7.8 — РЫНОЧНЫЕ ордера на ВХОД, держим ДО ОФИЦИАЛЬНОГО
  * РЕЗОЛВА. Никаких лимиток на выход и никаких продаж по тику цены.
+ *
+ * v7.8 (относительно v7.7): ИСПРАВЛЕН РЕЗОЛВ. Раньше бот сам угадывал победителя по ценам
+ *  токенов через 3 минуты после закрытия и мог ошибиться (писал ПРИБЫЛЬ, когда на деле был
+ *  убыток). Теперь победитель берётся только после официального закрытия рынка, из поля
+ *  winner в CLOB; запасной вариант — только совсем крайние цены (0.99 / 0.01).
+ *  Больше НИЧЕГО в логике торговли не менялось.
  *
  * v7.7 (относительно v7.6): у профиля 6 «Запас» добавлена проверка ЖИВОГО bid перед
  *  покупкой (requireLiveBid): бот входит, только если живой bid в стакане не ниже нижней
@@ -369,7 +375,11 @@ function buildTokenIndex(markets: CryptoUpDownMarket[]): Map<string, TokenInfo> 
   return idx;
 }
 
-/** Официальный резолв рынка через Gamma API. Это ЕДИНСТВЕННЫЙ способ закрыть сделку. */
+/**
+ * Официальный резолв рынка. Это ЕДИНСТВЕННЫЙ способ закрыть сделку.
+ * v7.8: победитель берётся только когда рынок официально закрыт, из поля winner в CLOB.
+ * Запасной вариант — только совсем крайние цены (0.99 / 0.01).
+ */
 async function resolveWinner(eventSlug: string): Promise<"Up" | "Down" | null> {
   try {
     const resp = await fetch(`${GAMMA_HOST}/events/slug/${eventSlug}`);
@@ -378,6 +388,30 @@ async function resolveWinner(eventSlug: string): Promise<"Up" | "Down" | null> {
     const market = (event.markets ?? [])[0];
     if (!market) return null;
 
+    // 1. Рынок должен быть официально закрыт и подтверждён
+    if (market.closed !== true) return null;
+    if (typeof market.umaResolutionStatus === "string" && market.umaResolutionStatus !== "resolved") return null;
+
+    // 2. Главный источник — официальное поле winner в CLOB
+    if (market.conditionId) {
+      try {
+        const r = await fetch(`https://clob.polymarket.com/markets/${market.conditionId}`);
+        if (r.ok) {
+          const m: any = await r.json();
+          const win = (m.tokens ?? []).find((t: any) => t.winner === true);
+          if (win) {
+            const o = String(win.outcome).trim().toLowerCase();
+            console.log(`[resolve] ${eventSlug}: CLOB winner = ${o}`);
+            if (o === "up") return "Up";
+            if (o === "down") return "Down";
+          }
+        }
+      } catch {
+        // упало — идём по запасному варианту ниже
+      }
+    }
+
+    // 3. Запасной вариант: цены, но только совсем крайние (0.99 / 0.01)
     let outcomes: string[];
     let outcomePrices: string[];
     try {
@@ -387,16 +421,15 @@ async function resolveWinner(eventSlug: string): Promise<"Up" | "Down" | null> {
       return null;
     }
     if (outcomes.length !== 2 || outcomePrices.length !== 2) return null;
-
     const upIdx = outcomes.findIndex((o) => /^up$/i.test(o.trim()));
     const downIdx = outcomes.findIndex((o) => /^down$/i.test(o.trim()));
     if (upIdx === -1 || downIdx === -1) return null;
-
     const upPrice = Number(outcomePrices[upIdx]);
     const downPrice = Number(outcomePrices[downIdx]);
-    if (upPrice > 0.05 && upPrice < 0.95) return null; // ещё не устаканилось
-
-    return upPrice > downPrice ? "Up" : "Down";
+    console.log(`[resolve] ${eventSlug}: по ценам Up=${upPrice} Down=${downPrice}`);
+    if (upPrice >= 0.99 && downPrice <= 0.01) return "Up";
+    if (downPrice >= 0.99 && upPrice <= 0.01) return "Down";
+    return null;
   } catch (err) {
     console.error(`[resolve] ошибка ${eventSlug}:`, (err as Error).message);
     return null;
@@ -1184,7 +1217,7 @@ async function pollTelegramCommands(
 async function main() {
   // МЕТКА ВЕРСИИ — если в логах при старте бота НЕТ этой строки,
   // значит запущен не этот файл (старая сборка / другой процесс).
-  console.log("=== FASTFLIP BUILD: v7.7 — ПРОФИЛЬ 6 «ЗАПАС» (проверка живого bid) + НАСТРОЙКИ ВШИТЫ В КОД ===");
+  console.log("=== FASTFLIP BUILD: v7.8 — ИСПРАВЛЕН РЕЗОЛВ (официальный winner из CLOB) ===");
   console.log(`Режим: ${DRY_RUN ? "DRY_RUN (без реальных сделок, полная симуляция)" : "⚠️  LIVE — РЕАЛЬНЫЕ ДЕНЬГИ"}`);
   console.log(`Коридор по умолчанию (если у профиля свой не задан): ${settings.entryPrice}-${settings.maxEntryPrice} | Квота: ${settings.quotaPerHour}/час`);
   for (const [i, p] of settings.profiles.entries()) {
