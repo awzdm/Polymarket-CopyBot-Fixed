@@ -1,7 +1,18 @@
 /**
- * LAB v2 — исследовательский парсер идей (НЕ торгует, только собирает статистику).
+ * LAB v2.1 — исследовательский парсер идей (НЕ торгует, только собирает статистику).
  * Работает отдельным процессом, свой файл состояния (research-lab-state.json),
  * свои команды в Telegram (все начинаются со слова "лаб").
+ *
+ * ЧТО НОВОГО В v2.1 (всё добавлено сверху, старые идеи и их статистика не тронуты):
+ *  - Идея 8 «Модель цены» (команда "лаб модель"): для каждой комбинации
+ *    сила движения × секунды до закрытия × цена токена считаем реальный винрейт
+ *    и сравниваем с ценой. Показывает, где выгодно покупать НЕ только на 0.97-0.98.
+ *  - Идея 9 «Пила» (команда "лаб пила"): к каждому входу профилей бота пишем, сколько раз
+ *    монета пересекла цену открытия окна за последние 3 минуты. Отчёт показывает,
+ *    помогает ли фильтр "не входить при N+ пересечениях" и с какого N.
+ *  - В BOT_PROFILES добавлен Профиль 6 «Запас» (как в боте v7.7, с проверкой живого bid).
+ *  - Окно Solana в Профиле 1 приведено к боту: 90с (было 120с).
+ *  Файл состояния совместим со старым (версия осталась 2), статистика не сбрасывается.
  *
  * ЧТО ИЗМЕНИЛОСЬ В v2 (исправление устаревших цен):
  *  В v1 цена ask бралась из памяти: последнее значение, пришедшее по websocket. А websocket
@@ -29,8 +40,10 @@
  *  5. «Арбитраж Up+Down» — как часто сумма лучших ask обеих сторон ≤ 0.99 / 0.98 / 0.97 / 0.95.
  *  6. «Подтверждение другими монетами» — к каждому входу пишется, сколько ДРУГИХ монет
  *     в этот момент идут в ту же сторону (порог 0.05% и 0.10% от открытия окна).
- *  7. «Согласие профилей» — внутри парсера моделируются 5 профилей бота (настройки ниже,
+ *  7. «Согласие профилей» — внутри парсера моделируются 6 профилей бота (настройки ниже,
  *     BOT_PROFILES). Смотрим, как меняется винрейт, когда сигнал дали сразу несколько профилей.
+ *  8. «Модель цены» — см. выше.
+ *  9. «Пила» — см. выше.
  *
  * ВАЖНО: если меняешь настройки профилей в боте — поменяй их и в BOT_PROFILES ниже.
  *
@@ -137,18 +150,71 @@ const IMPULSE_ASK_MAX = 0.98;
 const CONFIRM_LEVEL_1 = 0.0005; // 0.05%
 const CONFIRM_LEVEL_2 = 0.001; // 0.10%
 
+// 8. «Модель цены»: сила движения (z) × секунды до закрытия × цена токена (ask).
+// Корзины НЕ пересекаются: в каждый момент ситуация попадает ровно в одну корзину по каждой оси.
+const MODEL_Z_BANDS: [number, number][] = [
+  [0.5, 1],
+  [1, 1.5],
+  [1.5, 2],
+  [2, 3],
+  [3, 99],
+];
+const MODEL_SEC_BANDS: [number, number][] = [
+  [0, 30],
+  [30, 60],
+  [60, 120],
+  [120, 180],
+  [180, 240],
+];
+const MODEL_PRICE_BANDS: [number, number][] = [
+  [0.6, 0.7],
+  [0.7, 0.8],
+  [0.8, 0.85],
+  [0.85, 0.9],
+  [0.9, 0.93],
+  [0.93, 0.96],
+  [0.96, 0.97],
+  [0.97, 0.98],
+  [0.98, 0.99],
+];
+const MODEL_ASK_MIN = 0.6;
+const MODEL_ASK_MAX = 0.99;
+const MODEL_MAX_SEC = 240;
+const MODEL_MIN_TRADES = 30; // минимум записей на комбинацию для общего топа
+const MODEL_MIN_COIN = 15; // минимум записей на комбинацию для отчёта по монете
+
+function zLabel(b: [number, number]): string {
+  return `сила ${b[1] >= 99 ? `${b[0]}+` : `${b[0]}-${b[1]}`}`;
+}
+function secLabel(b: [number, number]): string {
+  return b[0] === 0 ? `до ${b[1]}с` : `${b[0]}-${b[1]}с`;
+}
+function priceLabel(b: [number, number]): string {
+  return `${b[0].toFixed(2)}-${b[1].toFixed(2)}`;
+}
+
+// 9. «Пила»: сколько раз монета пересекла цену открытия окна за последние N секунд до входа
+const SAW_LOOKBACK_SEC = 180;
+const SAW_STEP_SEC = 5;
+const SAW_BUCKETS = [0, 1, 2, 3]; // 3 = «3 и больше»
+
+function sawLabel(n: number): string {
+  return n >= 3 ? "3+" : String(n);
+}
+
 // ─────────────────────────── Профили бота (моделирование) ───────────────────────────
 
 interface BotProfile {
   id: number;
-  mode: "fixed" | "adaptive";
+  mode: "fixed" | "adaptive" | "margin";
   priceMode: "corridor" | "touch-drop" | "none" | "retouch";
   priceLow?: number;
   priceHigh?: number;
   touchAbove?: number;
   retouchDropBelow?: number;
+  requireLiveBid?: boolean; // как в боте: живой bid не ниже priceLow
   windowSec: Record<string, number>;
-  param: Record<string, number>; // fixed: доля (0.0015 = 0.15%), adaptive: множитель
+  param: Record<string, number>; // fixed: доля (0.0015 = 0.15%), adaptive: множитель, margin: минимальный z
 }
 
 const DEFAULT_LOW = 0.97;
@@ -159,7 +225,7 @@ const BOT_PROFILES: BotProfile[] = [
     id: 1,
     mode: "fixed",
     priceMode: "corridor",
-    windowSec: { Bitcoin: 180, Ethereum: 180, Solana: 120, XRP: 180, Dogecoin: 90 },
+    windowSec: { Bitcoin: 180, Ethereum: 180, Solana: 90, XRP: 180, Dogecoin: 90 },
     param: { Bitcoin: 0.0015, Ethereum: 0.002, Solana: 0.002, XRP: 0.003, Dogecoin: 0.0015 },
   },
   {
@@ -196,6 +262,16 @@ const BOT_PROFILES: BotProfile[] = [
     windowSec: { Bitcoin: 180, Ethereum: 180, Solana: 180, XRP: 180, Dogecoin: 120 },
     param: { Bitcoin: 0.001, Ethereum: 0.0013, Solana: 0.002, XRP: 0.001, Dogecoin: 0.001 },
   },
+  {
+    // Профиль 6 «Запас» — как в боте v7.7: z вместо порога, коридор 0.97-0.98,
+    // вход только при живом bid не ниже 0.97.
+    id: 6,
+    mode: "margin",
+    priceMode: "corridor",
+    requireLiveBid: true,
+    windowSec: { Bitcoin: 60, Ethereum: 180, Solana: 120, XRP: 180, Dogecoin: 120 },
+    param: { Bitcoin: 2.0, Ethereum: 4.0, Solana: 1.5, XRP: 2.0, Dogecoin: 1.0 },
+  },
 ];
 
 // ─────────────────────────── Типы и хелперы ───────────────────────────
@@ -204,18 +280,20 @@ interface Stat {
   w: number;
   t: number;
   roi: number; // сумма доходностей на $1 ставки
+  px?: number; // сумма цен входа (чтобы считать среднюю цену)
 }
 type StatMap = Record<string, Stat>;
 
-function bump(m: StatMap, key: string, won: boolean, roi: number): void {
+function bump(m: StatMap, key: string, won: boolean, roi: number, price?: number): void {
   const s = m[key] ?? (m[key] = { w: 0, t: 0, roi: 0 });
   s.t++;
   if (won) s.w++;
   s.roi += roi;
+  if (price !== undefined) s.px = (s.px ?? 0) + price;
 }
 
 interface LabEntry {
-  idea: string; // "margin" | "cheap" | "panic" | "impulse" | "bot1".."bot5"
+  idea: string; // "margin" | "cheap" | "panic" | "impulse" | "model" | "bot1".."bot6"
   combo: string;
   coin: string;
   side: "Up" | "Down";
@@ -224,6 +302,7 @@ interface LabEntry {
   sec: number; // секунд до закрытия в момент входа
   c05: number; // сколько других монет идут в ту же сторону >= 0.05%
   c10: number; // то же для >= 0.10%
+  xings?: number; // сколько раз монета пересекла цену открытия за последние 3 мин (только для bot-входов)
 }
 
 interface ArbMarketInfo {
@@ -267,6 +346,23 @@ interface FreshBook {
   askSize: number;
 }
 
+interface PooledRow {
+  combo: string;
+  w: number;
+  t: number;
+  roi: number;
+  px: number;
+}
+
+interface ModelRow extends PooledRow {
+  wr: number; // реальный винрейт
+  avgPx: number; // средняя цена входа
+  lo: number; // осторожная оценка винрейта (нижняя граница Уилсона)
+  edge: number; // винрейт минус цена
+  roiAvg: number; // средняя прибыль на $1
+  verdict: "✅" | "⚠️" | "❌";
+}
+
 function newArbAgg(): ArbAgg {
   return { total: 0, minSumTotal: 0, h99: 0, h98: 0, h97: 0, h95: 0, sec99Sum: 0, size99Sum: 0 };
 }
@@ -305,11 +401,49 @@ function roiLabel(roiSum: number, t: number): string {
   return `${r >= 0 ? "+" : ""}${r.toFixed(1)}%`;
 }
 
+function signedPct(v: number): string {
+  const r = v * 100;
+  return `${r >= 0 ? "+" : ""}${r.toFixed(1)}%`;
+}
+
+/** Осторожная оценка винрейта: нижняя граница интервала Уилсона (95%). Чем меньше записей — тем она ниже. */
+function wilsonLower(w: number, t: number): number {
+  if (t <= 0) return 0;
+  const z = 1.96;
+  const p = w / t;
+  const d = 1 + (z * z) / t;
+  const c = p + (z * z) / (2 * t);
+  const m = z * Math.sqrt((p * (1 - p) + (z * z) / (4 * t)) / t);
+  return Math.max(0, (c - m) / d);
+}
+
 function findBand(bands: [number, number][], price: number): [number, number] | null {
   for (const b of bands) {
     if (price >= b[0] && price < b[1]) return b;
   }
   return null;
+}
+
+/**
+ * Сколько раз монета пересекла цену открытия окна за последние SAW_LOOKBACK_SEC секунд
+ * (но не раньше открытия окна). Замер раз в SAW_STEP_SEC секунд — очень быстрые
+ * пересечения между замерами можно пропустить, поэтому число — нижняя оценка.
+ */
+function countCrossings(feed: CoinPriceFeed, openPrice: number, openTimeMs: number, nowMs: number, coinNow: number): number {
+  const from = Math.max(openTimeMs, nowMs - SAW_LOOKBACK_SEC * 1000);
+  let last = 0;
+  let n = 0;
+  for (let t = from; t < nowMs; t += SAW_STEP_SEC * 1000) {
+    const px = feed.getPriceAt(t);
+    if (px === null) continue;
+    const s = Math.sign(px - openPrice);
+    if (s === 0) continue;
+    if (last !== 0 && s !== last) n++;
+    last = s;
+  }
+  const sNow = Math.sign(coinNow - openPrice);
+  if (sNow !== 0 && last !== 0 && sNow !== last) n++;
+  return n;
 }
 
 /** Живой стакан токена через REST (то же самое, что делает бот перед покупкой). */
@@ -412,6 +546,7 @@ class ResearchLab {
   private agg: StatMap = {}; // `${idea}|${combo}|${coin}`
   private conf: StatMap = {}; // `${idea}|c05|${n}` и `${idea}|c10|${n}`
   private agree: StatMap = {}; // `n|${k}` и `set|${1+2+4}`
+  private saw: StatMap = {}; // `bot${id}|x${n}` и `all|${coin}|x${n}`
   private arbAgg: Record<string, ArbAgg> = {};
 
   // счётчики честности цен
@@ -434,6 +569,7 @@ class ResearchLab {
         agg: this.agg,
         conf: this.conf,
         agree: this.agree,
+        saw: this.saw,
         arbAgg: this.arbAgg,
         pending: [...this.pending.entries()],
         settled: [...this.settled].slice(-MAX_SETTLED_REMEMBERED),
@@ -470,6 +606,7 @@ class ResearchLab {
       this.agg = data.agg ?? {};
       this.conf = data.conf ?? {};
       this.agree = data.agree ?? {};
+      this.saw = data.saw ?? {};
       this.arbAgg = data.arbAgg ?? {};
       this.pending = new Map(data.pending ?? []);
       this.settled = new Set(data.settled ?? []);
@@ -636,7 +773,7 @@ class ResearchLab {
     if (q.ask === null) return;
     if (this.verifying.has(update.tokenId)) return;
     if (now - (this.lastVerifyAt.get(update.tokenId) ?? 0) < VERIFY_COOLDOWN_MS) return;
-    if (this.evaluate(market, side, p, q.ask, price, false) === 0) return;
+    if (this.evaluate(market, side, p, q.ask, price, q.bid, false) === 0) return;
 
     void this.verifyAndCommit(market, side, p, update.tokenId);
   }
@@ -662,7 +799,7 @@ class ResearchLab {
         this.verifyRejected++;
         return;
       }
-      const recorded = this.evaluate(market, side, p, book.ask, price, true);
+      const recorded = this.evaluate(market, side, p, book.ask, price, book.bid, true);
       if (recorded > 0) this.verifyConfirmed++;
       else this.verifyRejected++;
     } catch (err) {
@@ -673,7 +810,7 @@ class ResearchLab {
   }
 
   /**
-   * Проверяет условия всех идей для данной стороны рынка при заданных ask/price.
+   * Проверяет условия всех идей для данной стороны рынка при заданных ask/price/bid.
    * commit=false — только считает, сколько новых входов записалось бы.
    * commit=true  — записывает входы. Возвращает число (новых) входов.
    */
@@ -683,6 +820,7 @@ class ResearchLab {
     p: PendingMarket,
     ask: number,
     price: number,
+    bid: number | null,
     commit: boolean,
   ): number {
     const now = Date.now();
@@ -701,9 +839,10 @@ class ResearchLab {
       openPrice = op;
       this.openPrices.set(market.eventSlug, openPrice);
     }
+    const openP: number = openPrice;
     const coinNow = feed.getLatestPrice();
     if (coinNow === null) return 0;
-    const pctMove = (coinNow - openPrice) / openPrice;
+    const pctMove = (coinNow - openP) / openP;
     const dirMove = side === "Up" ? pctMove : -pctMove; // плюс = монета идёт в сторону токена
     const peak = this.peaks.get(`${market.eventSlug}:${side}`) ?? 0;
 
@@ -712,6 +851,13 @@ class ResearchLab {
     const getVol = (): number | null => {
       if (volCache === undefined) volCache = volTracker.getRecentVolatility(market.coin, now);
       return volCache;
+    };
+    // z = запас: движение монеты в сторону токена ÷ (типичное 5-мин движение × √(осталось/300))
+    const getZ = (): number | null => {
+      if (dirMove <= 0) return null;
+      const v = getVol();
+      if (v === null || v <= 1e-6) return null;
+      return dirMove / (v * Math.sqrt(Math.max(secToClose, 1) / 300));
     };
     let confCache: { c05: number; c10: number } | undefined;
     const getConf = (): { c05: number; c10: number } => {
@@ -732,6 +878,12 @@ class ResearchLab {
       }
       return confCache;
     };
+    // пересечения цены открытия — считаем только когда реально записываем вход профиля бота
+    let xingsCache: number | undefined;
+    const getXings = (): number => {
+      if (xingsCache === undefined) xingsCache = countCrossings(feed, openP, openTimeMs, now, coinNow);
+      return xingsCache;
+    };
 
     let count = 0;
     const emit = (idea: string, combo: string): void => {
@@ -751,6 +903,7 @@ class ResearchLab {
         sec: Math.round(secToClose),
         c05: c.c05,
         c10: c.c10,
+        xings: idea.startsWith("bot") ? getXings() : undefined,
       });
     };
 
@@ -815,7 +968,18 @@ class ResearchLab {
       }
     }
 
-    // ── 7. Моделирование профилей бота (для «согласия профилей» и подтверждения монетами) ──
+    // ── 8. «Модель цены»: сила (z) × секунды × цена. Одна запись на комбинацию корзин. ──
+    if (secToClose <= MODEL_MAX_SEC && ask >= MODEL_ASK_MIN && ask < MODEL_ASK_MAX) {
+      const z = getZ();
+      if (z !== null) {
+        const zb = findBand(MODEL_Z_BANDS, z);
+        const sb = findBand(MODEL_SEC_BANDS, secToClose);
+        const pb = findBand(MODEL_PRICE_BANDS, ask);
+        if (zb && sb && pb) emit("model", `${zLabel(zb)} / ${secLabel(sb)} / ${priceLabel(pb)}`);
+      }
+    }
+
+    // ── 7. Моделирование профилей бота (для «согласия профилей», «пилы» и подтверждения монетами) ──
     for (const prof of BOT_PROFILES) {
       const win = prof.windowSec[market.coin];
       if (win === undefined || secToClose > win) continue;
@@ -840,6 +1004,16 @@ class ResearchLab {
 
       const pv = prof.param[market.coin];
       if (pv === undefined) continue;
+
+      // «Запас» (профиль 6): вместо порога движения — минимальный z, плюс проверка живого bid
+      if (prof.mode === "margin") {
+        const z = getZ();
+        if (z === null || z < pv) continue;
+        if (prof.requireLiveBid && (bid === null || bid < low - 1e-9)) continue;
+        emit(`bot${prof.id}`, "профиль");
+        continue;
+      }
+
       let thr: number;
       if (prof.mode === "adaptive") {
         const v = getVol();
@@ -913,7 +1087,7 @@ class ResearchLab {
     for (const e of p.entries) {
       const won = e.side === winner;
       const roi = won ? (1 - e.price) / e.price : -1;
-      bump(this.agg, `${e.idea}|${e.combo}|${e.coin}`, won, roi);
+      bump(this.agg, `${e.idea}|${e.combo}|${e.coin}`, won, roi, e.price);
 
       const k = `${e.idea}|${e.side}`;
       const ex = earliest.get(k);
@@ -926,6 +1100,16 @@ class ResearchLab {
       const roi = won ? (1 - e.price) / e.price : -1;
       bump(this.conf, `${e.idea}|c05|${e.c05}`, won, roi);
       bump(this.conf, `${e.idea}|c10|${e.c10}`, won, roi);
+    }
+
+    // «пила» — по каждому профилю бота, самый ранний вход, со своим числом пересечений
+    for (const e of earliest.values()) {
+      if (!e.idea.startsWith("bot") || e.xings === undefined) continue;
+      const won = e.side === winner;
+      const roi = won ? (1 - e.price) / e.price : -1;
+      const n = Math.min(e.xings, 3);
+      bump(this.saw, `${e.idea}|x${n}`, won, roi, e.price);
+      bump(this.saw, `all|${e.coin}|x${n}`, won, roi, e.price);
     }
 
     // согласие профилей бота — по каждой стороне рынка
@@ -988,12 +1172,12 @@ class ResearchLab {
 
   // ───── отчёты ─────
 
-  private collect(idea: string): { combo: string; coin: string; w: number; t: number; roi: number }[] {
-    const out: { combo: string; coin: string; w: number; t: number; roi: number }[] = [];
+  private collect(idea: string): { combo: string; coin: string; w: number; t: number; roi: number; px: number }[] {
+    const out: { combo: string; coin: string; w: number; t: number; roi: number; px: number }[] = [];
     for (const [key, s] of Object.entries(this.agg)) {
       if (!key.startsWith(`${idea}|`)) continue;
       const parts = key.split("|");
-      out.push({ combo: parts[1], coin: parts[2], w: s.w, t: s.t, roi: s.roi });
+      out.push({ combo: parts[1], coin: parts[2], w: s.w, t: s.t, roi: s.roi, px: s.px ?? 0 });
     }
     return out;
   }
@@ -1009,13 +1193,14 @@ class ResearchLab {
     );
   }
 
-  private pooled(idea: string): { combo: string; w: number; t: number; roi: number }[] {
-    const m = new Map<string, { combo: string; w: number; t: number; roi: number }>();
+  private pooled(idea: string): PooledRow[] {
+    const m = new Map<string, PooledRow>();
     for (const s of this.collect(idea)) {
-      const cur = m.get(s.combo) ?? { combo: s.combo, w: 0, t: 0, roi: 0 };
+      const cur = m.get(s.combo) ?? { combo: s.combo, w: 0, t: 0, roi: 0, px: 0 };
       cur.w += s.w;
       cur.t += s.t;
       cur.roi += s.roi;
+      cur.px += s.px;
       m.set(s.combo, cur);
     }
     return [...m.values()];
@@ -1074,6 +1259,251 @@ class ResearchLab {
     );
   }
 
+  // ───── «Модель цены» ─────
+
+  private toModelRows(rows: PooledRow[]): ModelRow[] {
+    return rows
+      .filter((r) => r.t > 0)
+      .map((r) => {
+        const wr = r.w / r.t;
+        const avgPx = r.px / r.t;
+        const lo = wilsonLower(r.w, r.t);
+        const verdict: ModelRow["verdict"] = lo > avgPx ? "✅" : wr > avgPx ? "⚠️" : "❌";
+        return { ...r, wr, avgPx, lo, edge: wr - avgPx, roiAvg: r.roi / r.t, verdict };
+      });
+  }
+
+  private modelLine(idx: number | null, r: ModelRow): string {
+    return (
+      `  ${idx !== null ? `${idx}. ` : ""}${r.combo} → ${r.w}/${r.t} (${winPct(r.w, r.t)}), ` +
+      `надёжно ${(r.lo * 100).toFixed(0)}%, цена ${r.avgPx.toFixed(2)}, запас ${signedPct(r.edge)}, ` +
+      `прибыль ${roiLabel(r.roi, r.t)} ${r.verdict}`
+    );
+  }
+
+  buildModelReport(): string {
+    const all = this.pooled("model");
+    const total = all.reduce((a, s) => a + s.t, 0);
+    const allRows = this.toModelRows(all);
+    const rows = allRows.filter((r) => r.t >= MODEL_MIN_TRADES);
+
+    const lines: string[] = [];
+    lines.push("<b>📊 Модель цены</b>");
+    lines.push(`Рынков обработано: ${this.resolvedCount} | Записей входа: ${total}`);
+    lines.push("Цена входа = живой ask (проверяется REST перед записью). Держим до резолва.");
+    lines.push("");
+    lines.push("Как читать:");
+    lines.push(" • Сила — во сколько раз монета прошла больше обычного для оставшегося времени (1 = обычное, 3+ = очень сильно)");
+    lines.push(" • Цена — средняя цена токена на входе");
+    lines.push(" • Запас — реальный винрейт минус цена. Плюс = выгодно");
+    lines.push(" • Надёжно — осторожная оценка винрейта с поправкой на малую выборку");
+    lines.push(" • ✅ надёжно выше цены (выгодно даже по осторожной оценке); ⚠️ винрейт выше цены, но данных мало, может быть удача; ❌ невыгодно");
+    lines.push(" • Один рынок может попасть в несколько комбинаций по мере того, как идёт время и меняется цена");
+    lines.push("");
+
+    // топ-10
+    lines.push(`<b>── Все монеты: лучшие 10 комбинаций (минимум ${MODEL_MIN_TRADES} записей) ──</b>`);
+    const best = [...rows].sort((a, b) => b.roiAvg - a.roiAvg || b.t - a.t).slice(0, 10);
+    if (best.length === 0) lines.push(`  пока недостаточно данных (нужно ≥${MODEL_MIN_TRADES} записей на комбинацию)`);
+    else best.forEach((r, i) => lines.push(this.modelLine(i + 1, r)));
+    lines.push("");
+
+    // ловушки
+    lines.push("<b>── Ловушки: худшие 5 ──</b>");
+    const worst = rows
+      .filter((r) => r.roiAvg < 0)
+      .sort((a, b) => a.roiAvg - b.roiAvg || b.t - a.t)
+      .slice(0, 5);
+    if (worst.length === 0) lines.push("  пока нет убыточных комбинаций с достаточной выборкой");
+    else worst.forEach((r, i) => lines.push(this.modelLine(i + 1, r)));
+    lines.push("");
+
+    // по монетам
+    lines.push(`<b>── По монетам: лучшая комбинация (минимум ${MODEL_MIN_COIN} записей) ──</b>`);
+    const stats = this.collect("model");
+    for (const coin of INCLUDED_COINS) {
+      const coinRows = this.toModelRows(stats.filter((s) => s.coin === coin)).filter((r) => r.t >= MODEL_MIN_COIN);
+      const top = coinRows.sort((a, b) => b.roiAvg - a.roiAvg || b.t - a.t)[0];
+      lines.push(top ? `  ${COIN_SHORT[coin]}:${this.modelLine(null, top).slice(1)}` : `  ${COIN_SHORT[coin]}: пока мало данных`);
+    }
+    lines.push("");
+
+    // сравнение с профилем 6
+    lines.push("<b>── Сравнение с тем, что бот уже делает ──</b>");
+    let bw = 0;
+    let bt = 0;
+    let br = 0;
+    for (const s of this.collect("bot6")) {
+      bw += s.w;
+      bt += s.t;
+      br += s.roi;
+    }
+    lines.push(
+      bt > 0
+        ? `  Профиль 6 «Запас» (цена 0.97-0.98): ${bw}/${bt} (${winPct(bw, bt)}), прибыль ${roiLabel(br, bt)}`
+        : "  Профиль 6 «Запас» (цена 0.97-0.98): пока нет данных",
+    );
+    const good = rows.filter((r) => r.verdict === "✅");
+    if (good.length === 0) {
+      lines.push("  Модель, комбинации ✅: пока нет — нужно больше данных");
+    } else {
+      let gw = 0;
+      let gt = 0;
+      let gr = 0;
+      let outside = 0;
+      for (const r of good) {
+        gw += r.w;
+        gt += r.t;
+        gr += r.roi;
+        const upper = parseFloat((r.combo.split(" / ")[2] ?? "").split("-")[1] ?? "1");
+        if (upper <= 0.97 + 1e-9) outside += r.t;
+      }
+      lines.push(`  Модель, только ✅: ${good.length} комбинаций, ${gw}/${gt} (${winPct(gw, gt)}), прибыль ${roiLabel(gr, gt)}`);
+      lines.push(`  из них записей с ценой ниже 0.97 (то, чего бот сейчас не берёт): ${outside}`);
+      lines.push(`  Частота ✅-записей: ${((100 * gt) / Math.max(this.resolvedCount, 1)).toFixed(1)} на 100 рынков`);
+    }
+    lines.push("");
+
+    // срезы по каждой оси (все комбинации, без минимума)
+    const group = (title: string, idx: number, order: string[]): void => {
+      lines.push(`<b>── ${title} ──</b>`);
+      let any = false;
+      for (const label of order) {
+        let w = 0;
+        let t = 0;
+        let roi = 0;
+        let px = 0;
+        for (const r of allRows) {
+          if (r.combo.split(" / ")[idx] !== label) continue;
+          w += r.w;
+          t += r.t;
+          roi += r.roi;
+          px += r.px;
+        }
+        if (t === 0) continue;
+        any = true;
+        lines.push(
+          `  ${label}: ${w}/${t} (${winPct(w, t)}), цена ${(px / t).toFixed(2)}, запас ${signedPct(w / t - px / t)}, прибыль ${roiLabel(roi, t)}`,
+        );
+      }
+      if (!any) lines.push("  пока нет данных");
+      lines.push("");
+    };
+    group("Срез по цене токена", 2, MODEL_PRICE_BANDS.map(priceLabel));
+    group("Срез по времени до закрытия", 1, MODEL_SEC_BANDS.map(secLabel));
+    group("Срез по силе движения", 0, MODEL_Z_BANDS.map(zLabel));
+
+    lines.push("Прибыль — средний результат на $1 ставки (без комиссий).");
+    return lines.join("\n");
+  }
+
+  // ───── «Пила» ─────
+
+  buildSawReport(): string {
+    const lines: string[] = [];
+    lines.push("<b>📊 Фильтр «Пила»</b>");
+    lines.push(
+      `Пересечение = монета перешла через цену открытия окна (была выше — стала ниже, или наоборот). Считаем за последние ${SAW_LOOKBACK_SEC / 60} мин до входа, замер каждые ${SAW_STEP_SEC}с (очень быстрые пересечения можно пропустить, число — нижняя оценка).`,
+    );
+    lines.push("Берётся самый ранний вход профиля на каждую сторону рынка. Держим до резолва, цена входа = живой ask.");
+    lines.push("");
+
+    const get = (key: string): Stat => this.saw[key] ?? { w: 0, t: 0, roi: 0 };
+
+    const filterLines = (buckets: Stat[]): string[] => {
+      const out: string[] = [];
+      const tot = buckets.reduce((a, s) => ({ w: a.w + s.w, t: a.t + s.t, roi: a.roi + s.roi }), { w: 0, t: 0, roi: 0 });
+      if (tot.t === 0) return out;
+      const baseRoi = tot.roi / tot.t;
+      for (const cut of [1, 2, 3]) {
+        let kw = 0;
+        let kt = 0;
+        let kr = 0;
+        let cw = 0;
+        let ct = 0;
+        for (let n = 0; n < buckets.length; n++) {
+          const s = buckets[n];
+          if (n < cut) {
+            kw += s.w;
+            kt += s.t;
+            kr += s.roi;
+          } else {
+            cw += s.w;
+            ct += s.t;
+          }
+        }
+        if (ct === 0) {
+          out.push(`  не входить при ${cut}+ пересечениях: ничего не отсекает`);
+          continue;
+        }
+        const helps = kt > 0 && kr / kt > baseRoi && ct - cw > cw;
+        out.push(
+          `  не входить при ${cut}+: остаётся ${kw}/${kt} (${winPct(kw, kt)}), прибыль ${roiLabel(kr, kt)}; ` +
+            `отсекли ${ct} (побед ${cw}, проигрышей ${ct - cw}) ${helps ? "✅ помогает" : "— не помогает"}`,
+        );
+      }
+      return out;
+    };
+
+    for (const prof of BOT_PROFILES) {
+      const buckets = SAW_BUCKETS.map((n) => get(`bot${prof.id}|x${n}`));
+      const tot = buckets.reduce((a, s) => ({ w: a.w + s.w, t: a.t + s.t, roi: a.roi + s.roi }), { w: 0, t: 0, roi: 0 });
+      lines.push(`<b>── Профиль ${prof.id}${prof.id === 6 ? " «Запас»" : ""} (всего ${tot.t} входов, ${winPct(tot.w, tot.t)}, прибыль ${roiLabel(tot.roi, tot.t)}) ──</b>`);
+      if (tot.t === 0) {
+        lines.push("  пока нет данных");
+        lines.push("");
+        continue;
+      }
+      SAW_BUCKETS.forEach((n, i) => {
+        const s = buckets[i];
+        lines.push(
+          `  пересечений ${sawLabel(n)}: ${s.w}/${s.t} (${winPct(s.w, s.t)}), прибыль ${roiLabel(s.roi, s.t)}${s.t > 0 && s.t < 10 ? " (мало данных)" : ""}`,
+        );
+      });
+      lines.push(...filterLines(buckets));
+      lines.push("");
+    }
+
+    // все профили вместе
+    const sumBuckets: Stat[] = SAW_BUCKETS.map((n) => {
+      const acc: Stat = { w: 0, t: 0, roi: 0 };
+      for (const prof of BOT_PROFILES) {
+        const s = get(`bot${prof.id}|x${n}`);
+        acc.w += s.w;
+        acc.t += s.t;
+        acc.roi += s.roi;
+      }
+      return acc;
+    });
+    lines.push("<b>── Все профили вместе ──</b>");
+    lines.push("(одна и та же ситуация может учитываться в нескольких профилях сразу)");
+    if (sumBuckets.every((s) => s.t === 0)) {
+      lines.push("  пока нет данных");
+    } else {
+      SAW_BUCKETS.forEach((n, i) => {
+        const s = sumBuckets[i];
+        lines.push(`  пересечений ${sawLabel(n)}: ${s.w}/${s.t} (${winPct(s.w, s.t)}), прибыль ${roiLabel(s.roi, s.t)}`);
+      });
+      lines.push(...filterLines(sumBuckets));
+    }
+    lines.push("");
+
+    // по монетам
+    lines.push("<b>── По монетам (все профили вместе) ──</b>");
+    for (const coin of INCLUDED_COINS) {
+      const parts: string[] = [];
+      for (const n of SAW_BUCKETS) {
+        const s = get(`all|${coin}|x${n}`);
+        if (s.t === 0) continue;
+        parts.push(`${sawLabel(n)}: ${s.w}/${s.t} ${winPct(s.w, s.t)}`);
+      }
+      lines.push(`  ${COIN_SHORT[coin]}: ${parts.length > 0 ? parts.join(" | ") : "пока нет данных"}`);
+    }
+    lines.push("");
+    lines.push("Прибыль — средний результат на $1 ставки (без комиссий). «Помогает» = после отсечения прибыль выше, и отсекли больше проигрышей, чем побед.");
+    return lines.join("\n");
+  }
+
   buildArbReport(): string {
     const lines: string[] = [];
     lines.push("<b>📊 Идея «Арбитраж Up+Down»</b>");
@@ -1129,6 +1559,8 @@ class ResearchLab {
         return "Паника без разворота";
       case "impulse":
         return "Импульс";
+      case "model":
+        return "Модель цены";
       default:
         return idea.startsWith("bot") ? `Профиль ${idea.slice(3)} (бот)` : idea;
     }
@@ -1142,7 +1574,7 @@ class ResearchLab {
     );
     lines.push("");
 
-    const ideas = ["margin", "cheap", "panic", "impulse", "bot1", "bot2", "bot3", "bot4", "bot5"];
+    const ideas = ["margin", "cheap", "panic", "impulse", "model", "bot1", "bot2", "bot3", "bot4", "bot5", "bot6"];
     for (const idea of ideas) {
       lines.push(`<b>── ${this.ideaLabel(idea)} ──</b>`);
       let any = false;
@@ -1170,7 +1602,9 @@ class ResearchLab {
   buildProfilesReport(): string {
     const lines: string[] = [];
     lines.push("<b>📊 Профили бота и согласие профилей</b>");
-    lines.push("Моделирование 5 профилей бота: вход по живому ask, потолок покупки как в боте, держим до резолва.");
+    lines.push(
+      `Моделирование ${BOT_PROFILES.length} профилей бота: вход по живому ask, потолок покупки как в боте, держим до резолва.`,
+    );
     lines.push("");
     lines.push("<b>── Каждый профиль отдельно (выигрыш/всего, винрейт, доходность на $1) ──</b>");
     for (const prof of BOT_PROFILES) {
@@ -1240,6 +1674,18 @@ class ResearchLab {
       lines.push("");
     }
 
+    // модель цены — коротко
+    const modelRows = this.toModelRows(this.pooled("model")).filter((r) => r.t >= MODEL_MIN_TRADES);
+    const modelGood = modelRows.filter((r) => r.verdict === "✅").length;
+    const modelMaybe = modelRows.filter((r) => r.verdict === "⚠️").length;
+    lines.push("<b>── Модель цены ──</b>");
+    lines.push(
+      modelRows.length > 0
+        ? `  комбинаций с ≥${MODEL_MIN_TRADES} записями: ${modelRows.length}, из них ✅ ${modelGood}, ⚠️ ${modelMaybe}  (подробно: "лаб модель")`
+        : `  пока недостаточно данных (нужно ≥${MODEL_MIN_TRADES} записей на комбинацию)`,
+    );
+    lines.push("");
+
     const arbAll = Object.values(this.arbAgg).reduce(
       (acc, a) => ({ total: acc.total + a.total, h99: acc.h99 + a.h99 }),
       { total: 0, h99: 0 },
@@ -1294,6 +1740,8 @@ class ResearchLab {
       "лаб арб — «Арбитраж Up+Down»",
       "лаб монеты — подтверждение другими монетами",
       "лаб профили — профили бота и согласие профилей",
+      "лаб модель — «Модель цены» (где выгодно покупать вне 0.97-0.98)",
+      "лаб пила — фильтр «Пила» (пересечения цены открытия)",
       "лаб помощь — этот список",
     ].join("\n");
   }
@@ -1362,6 +1810,8 @@ const COMMANDS: Record<string, string[]> = {
   arb: ["лаб арб", "/lab_arb"],
   confirm: ["лаб монеты", "/lab_coins"],
   profiles: ["лаб профили", "/lab_profiles"],
+  model: ["лаб модель", "/lab_model"],
+  saw: ["лаб пила", "/lab_saw"],
   help: ["лаб помощь", "/lab_help"],
 };
 
@@ -1418,6 +1868,12 @@ async function pollTelegramCommands(
           case "profiles":
             report = lab.buildProfilesReport();
             break;
+          case "model":
+            report = lab.buildModelReport();
+            break;
+          case "saw":
+            report = lab.buildSawReport();
+            break;
           default:
             report = lab.buildHelp();
         }
@@ -1433,8 +1889,10 @@ async function pollTelegramCommands(
 // ─────────────────────────── Запуск ───────────────────────────
 
 async function main() {
-  console.log("=== LAB v2: исследовательский парсер идей запущен (не торгует, цены входа проверяются живым стаканом) ===");
-  console.log("Идеи: запас (z), недооценка, паника без разворота, импульс, арбитраж, подтверждение монетами, согласие профилей.");
+  console.log("=== LAB v2.1: исследовательский парсер идей запущен (не торгует, цены входа проверяются живым стаканом) ===");
+  console.log(
+    "Идеи: запас (z), недооценка, паника без разворота, импульс, арбитраж, подтверждение монетами, согласие профилей (6 профилей), модель цены, пила.",
+  );
 
   btcPriceFeed.start();
   ethPriceFeed.start();
