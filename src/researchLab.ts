@@ -1,7 +1,14 @@
 /**
- * LAB v2.1 — исследовательский парсер идей (НЕ торгует, только собирает статистику).
+ * LAB v2.2 — исследовательский парсер идей (НЕ торгует, только собирает статистику).
  * Работает отдельным процессом, свой файл состояния (research-lab-state.json),
  * свои команды в Telegram (все начинаются со слова "лаб").
+ *
+ * ЧТО НОВОГО В v2.2:
+ *  - Идея 10 «Пара BTC+ETH» (команда "лаб пара"): покупаем оба токена, только когда у ОБЕИХ монет
+ *    одновременно сработал свой триггер (окно + % движения) в одну сторону и цены токенов в коридоре.
+ *    Перебираются разные окна (60/90/120/180с), разные проценты и два коридора цены; окна и проценты
+ *    у BTC и ETH могут быть разными. Для сравнения парсер отдельно считает «соло» ту же монету с тем же
+ *    триггером (идея psolo), чтобы видно было, помогает ли условие «оба сразу».
  *
  * ЧТО НОВОГО В v2.1 (всё добавлено сверху, старые идеи и их статистика не тронуты):
  *  - Идея 8 «Модель цены» (команда "лаб модель"): для каждой комбинации
@@ -202,6 +209,17 @@ function sawLabel(n: number): string {
   return n >= 3 ? "3+" : String(n);
 }
 
+// 10. «Пара BTC+ETH»: оба триггера должны сработать одновременно, в одну сторону.
+const PAIR_COINS = ["Bitcoin", "Ethereum"]; // порядок важен: [0] = BTC, [1] = ETH
+const PAIR_WINDOWS = [60, 90, 120, 180];
+const PAIR_MOVES = [0.001, 0.0015, 0.002, 0.003]; // 0.10% / 0.15% / 0.20% / 0.30%
+const PAIR_BANDS: [number, number][] = [
+  [0.95, 0.97],
+  [0.97, 0.98],
+];
+const PAIR_MIN_TRADES = 30; // минимум пар на комбинацию для топа
+const PAIR_PRUNE_MS = 10 * 60 * 1000;
+
 // ─────────────────────────── Профили бота (моделирование) ───────────────────────────
 
 interface BotProfile {
@@ -303,6 +321,25 @@ interface LabEntry {
   c05: number; // сколько других монет идут в ту же сторону >= 0.05%
   c10: number; // то же для >= 0.10%
   xings?: number; // сколько раз монета пересекла цену открытия за последние 3 мин (только для bot-входов)
+}
+
+interface PairEntry {
+  pk: string; // `${окноBTC}:${движениеBTC}:${окноETH}:${движениеETH}:${индекс коридора}`
+  side: "Up" | "Down";
+  ts: number;
+  closeTimeMs: number;
+  btcSlug: string;
+  ethSlug: string;
+  btcPrice: number; // живой ask BTC-токена в момент входа
+  ethPrice: number; // живой ask ETH-токена в момент входа
+  sec: number;
+}
+
+interface LegState {
+  sec: number;
+  dir: number; // движение монеты в сторону токена (плюс = в нашу сторону)
+  price: number; // bid, иначе ask — как в боте
+  ask: number;
 }
 
 interface ArbMarketInfo {
@@ -572,6 +609,14 @@ class ResearchLab {
   private saw: StatMap = {}; // `bot${id}|x${n}` и `all|${coin}|x${n}`
   private arbAgg: Record<string, ArbAgg> = {};
 
+  // «Пара BTC+ETH»
+  private pairAgg: StatMap = {}; // `${pk}|pair` | `${pk}|btc` | `${pk}|eth` | `${pk}|bothlost`
+  private pairs: PairEntry[] = []; // входы пар, ждут резолва обоих рынков
+  private pairFired = new Set<string>(); // `${pk}|${closeTimeMs}|${side}`
+  private pairVerifying = new Set<string>();
+  private pairLastVerify = new Map<string, number>();
+  private winners = new Map<string, "Up" | "Down">(); // slug -> победитель (для расчёта пар)
+
   // счётчики честности цен
   private staleSampled = 0; // сколько раз сравнили ask в памяти с живым (замеры арбитража)
   private staleShifted = 0; // из них ask в памяти отличался на STALE_DIFF и больше (или пропал)
@@ -593,6 +638,9 @@ class ResearchLab {
         conf: this.conf,
         agree: this.agree,
         saw: this.saw,
+        pairAgg: this.pairAgg,
+        pairs: this.pairs,
+        winners: [...this.winners.entries()],
         arbAgg: this.arbAgg,
         pending: [...this.pending.entries()],
         settled: [...this.settled].slice(-MAX_SETTLED_REMEMBERED),
@@ -630,6 +678,10 @@ class ResearchLab {
       this.conf = data.conf ?? {};
       this.agree = data.agree ?? {};
       this.saw = data.saw ?? {};
+      this.pairAgg = data.pairAgg ?? {};
+      this.pairs = data.pairs ?? [];
+      this.winners = new Map(data.winners ?? []);
+      for (const e of this.pairs) this.pairFired.add(`${e.pk}|${e.closeTimeMs}|${e.side}`);
       this.arbAgg = data.arbAgg ?? {};
       this.pending = new Map(data.pending ?? []);
       this.settled = new Set(data.settled ?? []);
@@ -717,6 +769,9 @@ class ResearchLab {
     for (const tokenId of this.lastVerifyAt.keys()) {
       if (!this.tokenIndex.has(tokenId)) this.lastVerifyAt.delete(tokenId);
     }
+    for (const [k, ts] of this.pairLastVerify) {
+      if (now - ts > PAIR_PRUNE_MS) this.pairLastVerify.delete(k);
+    }
 
     console.log(
       `[refresh] наблюдаем 5-мин рынков: ${markets.length} (${tokenIds.length} токенов), ждём резолва: ${this.pending.size}`,
@@ -791,6 +846,9 @@ class ResearchLab {
     const p = this.ensurePending(market);
     if (!p) return;
 
+    // «Пара BTC+ETH» — своя проверка (два рынка сразу), со своим кулдауном
+    if (PAIR_COINS.includes(market.coin)) this.tryPair(market, side);
+
     // Быстрый предварительный отбор по данным из памяти. Если кандидата нет — выходим.
     // Если кандидат есть — НЕ записываем сразу, а проверяем живым стаканом.
     if (q.ask === null) return;
@@ -799,6 +857,156 @@ class ResearchLab {
     if (this.evaluate(market, side, p, q.ask, price, q.bid, false) === 0) return;
 
     void this.verifyAndCommit(market, side, p, update.tokenId);
+  }
+
+  // ───── «Пара BTC+ETH» ─────
+
+  /** Состояние одной ноги пары при заданных ask/bid токена. null — данных не хватает. */
+  private legState(m: CryptoUpDownMarket, side: "Up" | "Down", ask: number | null, bid: number | null): LegState | null {
+    const feed = PRICE_FEEDS[m.coin];
+    if (!feed) return null;
+    const sec = (m.closeTimeMs - Date.now()) / 1000;
+    if (sec < 0) return null;
+    const openTimeMs = m.closeTimeMs - m.windowMinutes * 60 * 1000;
+    let op = this.openPrices.get(m.eventSlug);
+    if (op === undefined) {
+      const v = feed.getPriceAt(openTimeMs);
+      if (v === null) return null;
+      op = v;
+      this.openPrices.set(m.eventSlug, op);
+    }
+    const coinNow = feed.getLatestPrice();
+    if (coinNow === null || op === 0) return null;
+    const pct = (coinNow - op) / op;
+    const price = bid ?? ask;
+    if (ask === null || price === null || ask <= 0 || ask > 0.999) return null;
+    return { sec, dir: side === "Up" ? pct : -pct, price, ask };
+  }
+
+  /** Какие комбинации пары выполняются прямо сейчас (ключи pk). */
+  private pairHolds(lb: LegState, le: LegState): string[] {
+    const out: string[] = [];
+    const wsB = PAIR_WINDOWS.filter((w) => lb.sec <= w);
+    const wsE = PAIR_WINDOWS.filter((w) => le.sec <= w);
+    if (wsB.length === 0 || wsE.length === 0) return out;
+    const msB = PAIR_MOVES.filter((m) => lb.dir >= m);
+    const msE = PAIR_MOVES.filter((m) => le.dir >= m);
+    if (msB.length === 0 || msE.length === 0) return out;
+    for (let bi = 0; bi < PAIR_BANDS.length; bi++) {
+      const [lo, hi] = PAIR_BANDS[bi];
+      const okB = lb.price >= lo && lb.price <= hi && lb.ask <= hi;
+      const okE = le.price >= lo && le.price <= hi && le.ask <= hi;
+      if (!okB || !okE) continue;
+      for (const wB of wsB)
+        for (const mB of msB)
+          for (const wE of wsE)
+            for (const mE of msE) out.push(`${wB}:${mB}:${wE}:${mE}:${bi}`);
+    }
+    return out;
+  }
+
+  private tryPair(market: CryptoUpDownMarket, side: "Up" | "Down"): void {
+    const otherCoin = market.coin === PAIR_COINS[0] ? PAIR_COINS[1] : PAIR_COINS[0];
+    let partner: CryptoUpDownMarket | undefined;
+    for (const m of this.activeMarkets.values()) {
+      if (m.coin === otherCoin && m.closeTimeMs === market.closeTimeMs) {
+        partner = m;
+        break;
+      }
+    }
+    if (!partner) return;
+    const btcM = market.coin === PAIR_COINS[0] ? market : partner;
+    const ethM = market.coin === PAIR_COINS[0] ? partner : market;
+    if (!this.pending.has(btcM.eventSlug) || !this.pending.has(ethM.eventSlug)) return;
+
+    const key = `${market.closeTimeMs}:${side}`;
+    if (this.pairVerifying.has(key)) return;
+    if (Date.now() - (this.pairLastVerify.get(key) ?? 0) < VERIFY_COOLDOWN_MS) return;
+
+    const tB = side === "Up" ? btcM.upTokenId : btcM.downTokenId;
+    const tE = side === "Up" ? ethM.upTokenId : ethM.downTokenId;
+    const qB = this.quotes.get(tB);
+    const qE = this.quotes.get(tE);
+    if (!qB || !qE) return;
+    const lb = this.legState(btcM, side, qB.ask, qB.bid);
+    const le = this.legState(ethM, side, qE.ask, qE.bid);
+    if (!lb || !le) return;
+
+    const fresh = this.pairHolds(lb, le).some((pk) => !this.pairFired.has(`${pk}|${btcM.closeTimeMs}|${side}`));
+    if (!fresh) return;
+
+    void this.verifyAndCommitPair(btcM, ethM, side, key);
+  }
+
+  /** Берёт живые стаканы обоих токенов и, если пара по живым ценам выполняется, записывает входы. */
+  private async verifyAndCommitPair(
+    btcM: CryptoUpDownMarket,
+    ethM: CryptoUpDownMarket,
+    side: "Up" | "Down",
+    key: string,
+  ): Promise<void> {
+    this.pairVerifying.add(key);
+    this.pairLastVerify.set(key, Date.now());
+    try {
+      const tB = side === "Up" ? btcM.upTokenId : btcM.downTokenId;
+      const tE = side === "Up" ? ethM.upTokenId : ethM.downTokenId;
+      const [bB, bE] = await Promise.all([fetchBook(tB), fetchBook(tE)]);
+      if (!bB || !bE) return;
+      this.quotes.set(tB, { bid: bB.bid, ask: bB.ask });
+      this.quotes.set(tE, { bid: bE.bid, ask: bE.ask });
+      if (!this.pending.has(btcM.eventSlug) || !this.pending.has(ethM.eventSlug)) return;
+
+      const lb = this.legState(btcM, side, bB.ask, bB.bid);
+      const le = this.legState(ethM, side, bE.ask, bE.bid);
+      if (!lb || !le) return;
+
+      const now = Date.now();
+      for (const pk of this.pairHolds(lb, le)) {
+        const fk = `${pk}|${btcM.closeTimeMs}|${side}`;
+        if (this.pairFired.has(fk)) continue;
+        this.pairFired.add(fk);
+        this.pairs.push({
+          pk,
+          side,
+          ts: now,
+          closeTimeMs: btcM.closeTimeMs,
+          btcSlug: btcM.eventSlug,
+          ethSlug: ethM.eventSlug,
+          btcPrice: lb.ask,
+          ethPrice: le.ask,
+          sec: Math.round(lb.sec),
+        });
+      }
+    } catch (err) {
+      console.error("[pair] ошибка:", (err as Error).message);
+    } finally {
+      this.pairVerifying.delete(key);
+    }
+  }
+
+  /** Считает пары, у которых резолв пришёл по обоим рынкам; слишком старые без резолва выбрасывает. */
+  private settlePairs(): void {
+    const now = Date.now();
+    for (let i = this.pairs.length - 1; i >= 0; i--) {
+      const e = this.pairs[i];
+      const wb = this.winners.get(e.btcSlug);
+      const we = this.winners.get(e.ethSlug);
+      if (wb && we) {
+        const wonB = wb === e.side;
+        const wonE = we === e.side;
+        const roiB = wonB ? (1 - e.btcPrice) / e.btcPrice : -1;
+        const roiE = wonE ? (1 - e.ethPrice) / e.ethPrice : -1;
+        bump(this.pairAgg, `${e.pk}|pair`, wonB && wonE, (roiB + roiE) / 2, (e.btcPrice + e.ethPrice) / 2);
+        bump(this.pairAgg, `${e.pk}|btc`, wonB, roiB, e.btcPrice);
+        bump(this.pairAgg, `${e.pk}|eth`, wonE, roiE, e.ethPrice);
+        bump(this.pairAgg, `${e.pk}|bothlost`, !wonB && !wonE, 0);
+        this.pairs.splice(i, 1);
+        this.pairFired.delete(`${e.pk}|${e.closeTimeMs}|${e.side}`);
+      } else if (now - e.closeTimeMs > RESOLVE_GIVE_UP_MS + PAIR_PRUNE_MS) {
+        this.pairs.splice(i, 1);
+        this.pairFired.delete(`${e.pk}|${e.closeTimeMs}|${e.side}`);
+      }
+    }
   }
 
   /** Запрашивает живой стакан токена и, если условия выполняются по живым ценам, записывает вход. */
@@ -873,7 +1081,7 @@ class ResearchLab {
     let volCache: number | null | undefined;
     const getVol = (): number | null => {
       if (volCache === undefined) volCache = volTracker.getRecentVolatility(market.coin, now);
-      return volCache;
+      return volCache ?? null;
     };
     // z = запас: движение монеты в сторону токена ÷ (типичное 5-мин движение × √(осталось/300))
     const getZ = (): number | null => {
@@ -1002,6 +1210,21 @@ class ResearchLab {
       }
     }
 
+    // ── 10. «Соло» для пары: та же монета, тот же триггер, но без условия на вторую монету ──
+    if (PAIR_COINS.includes(market.coin) && dirMove > 0) {
+      for (let bi = 0; bi < PAIR_BANDS.length; bi++) {
+        const [lo, hi] = PAIR_BANDS[bi];
+        if (!(price >= lo && price <= hi && ask <= hi)) continue;
+        for (const w of PAIR_WINDOWS) {
+          if (secToClose > w) continue;
+          for (const mv of PAIR_MOVES) {
+            if (dirMove < mv) continue;
+            emit("psolo", `${w}:${mv}:${bi}`);
+          }
+        }
+      }
+    }
+
     // ── 7. Моделирование профилей бота (для «согласия профилей», «пилы» и подтверждения монетами) ──
     for (const prof of BOT_PROFILES) {
       const win = prof.windowSec[market.coin];
@@ -1106,6 +1329,12 @@ class ResearchLab {
     const p = this.pending.get(slug);
     if (!p) return;
 
+    this.winners.set(slug, winner);
+    if (this.winners.size > 400) {
+      const oldest = this.winners.keys().next().value;
+      if (oldest !== undefined) this.winners.delete(oldest);
+    }
+
     const earliest = new Map<string, LabEntry>(); // `${idea}|${side}` -> самый ранний вход
     for (const e of p.entries) {
       const won = e.side === winner;
@@ -1190,6 +1419,7 @@ class ResearchLab {
       this.settle(slug, winner);
       changed = true;
     }
+    this.settlePairs();
     if (changed) this.saveState();
   }
 
@@ -1527,6 +1757,179 @@ class ResearchLab {
     return lines.join("\n");
   }
 
+  // ───── «Пара BTC+ETH»: отчёт ─────
+
+  private parsePk(pk: string): { wB: number; mB: number; wE: number; mE: number; bi: number } {
+    const [a, b, c, d, e] = pk.split(":");
+    return { wB: Number(a), mB: Number(b), wE: Number(c), mE: Number(d), bi: Number(e) };
+  }
+
+  private pairLabel(pk: string): string {
+    const k = this.parsePk(pk);
+    const band = PAIR_BANDS[k.bi];
+    return `BTC ${k.wB}с/${pctLabel(k.mB)} + ETH ${k.wE}с/${pctLabel(k.mE)}, цена ${band[0].toFixed(2)}-${band[1].toFixed(2)}`;
+  }
+
+  buildPairReport(): string {
+    const sg = (key: string): Stat => this.pairAgg[key] ?? { w: 0, t: 0, roi: 0, px: 0 };
+    const pks = new Set<string>();
+    for (const key of Object.keys(this.pairAgg)) pks.add(key.split("|")[0]);
+
+    interface PairRow {
+      pk: string;
+      t: number;
+      both: number;
+      bothLost: number;
+      oneLost: number;
+      b: Stat;
+      e: Stat;
+      roi: number;
+      roiAvg: number;
+      avgPx: number;
+      lo: number;
+      verdict: "✅" | "⚠️" | "❌";
+      soloB?: Stat;
+      soloE?: Stat;
+    }
+
+    const rows: PairRow[] = [];
+    for (const pk of pks) {
+      const pr = sg(`${pk}|pair`);
+      if (pr.t === 0) continue;
+      const b = sg(`${pk}|btc`);
+      const e = sg(`${pk}|eth`);
+      const bl = sg(`${pk}|bothlost`);
+      const legsT = b.t + e.t;
+      const legsW = b.w + e.w;
+      const avgPx = legsT > 0 ? ((b.px ?? 0) + (e.px ?? 0)) / legsT : 0;
+      const lo = wilsonLower(legsW, legsT);
+      const k = this.parsePk(pk);
+      const verdict: PairRow["verdict"] = lo > avgPx ? "✅" : legsT > 0 && legsW / legsT > avgPx ? "⚠️" : "❌";
+      rows.push({
+        pk,
+        t: pr.t,
+        both: pr.w,
+        bothLost: bl.w,
+        oneLost: pr.t - pr.w - bl.w,
+        b,
+        e,
+        roi: pr.roi,
+        roiAvg: pr.roi / pr.t,
+        avgPx,
+        lo,
+        verdict,
+        soloB: this.agg[`psolo|${k.wB}:${k.mB}:${k.bi}|${PAIR_COINS[0]}`],
+        soloE: this.agg[`psolo|${k.wE}:${k.mE}:${k.bi}|${PAIR_COINS[1]}`],
+      });
+    }
+
+    const rowLines = (i: number, r: PairRow): string[] => {
+      const out: string[] = [`  ${i}. ${this.pairLabel(r.pk)}`];
+      out.push(
+        `     пар: ${r.t} | обе выиграли: ${r.both} (${winPct(r.both, r.t)}) | одна проиграла: ${r.oneLost} | обе проиграли: ${r.bothLost}`,
+      );
+      out.push(
+        `     BTC: ${r.b.w}/${r.b.t} (${winPct(r.b.w, r.b.t)}), ETH: ${r.e.w}/${r.e.t} (${winPct(r.e.w, r.e.t)}) | надёжно ${(r.lo * 100).toFixed(0)}%, цена ${r.avgPx.toFixed(2)} | прибыль на $1 с ноги: ${roiLabel(r.roi, r.t)} ${r.verdict}`,
+      );
+      if (r.soloB && r.soloE) {
+        out.push(
+          `     те же триггеры по одиночке: BTC ${r.soloB.w}/${r.soloB.t} (${winPct(r.soloB.w, r.soloB.t)}), ETH ${r.soloE.w}/${r.soloE.t} (${winPct(r.soloE.w, r.soloE.t)})`,
+        );
+      }
+      return out;
+    };
+
+    const lines: string[] = [];
+    lines.push("<b>📊 Пара BTC + ETH</b>");
+    lines.push(`Пар ждёт резолва: ${this.pairs.length} | Комбинаций с данными: ${rows.length}`);
+    lines.push(
+      "Покупаем оба токена, когда у обеих монет одновременно сработал свой триггер (окно + % движения), обе идут в одну сторону, цены токенов в коридоре. Цены по живому стакану, держим до резолва.",
+    );
+    lines.push("");
+    lines.push("Как читать:");
+    lines.push(" • Название комбинации: окно/процент для BTC + окно/процент для ETH, коридор цены токенов");
+    lines.push(" • Обе выиграли / одна проиграла / обе проиграли — исходы пары");
+    lines.push(" • Надёжно — осторожная оценка винрейта ног с поправкой на малую выборку");
+    lines.push(" • ✅ надёжно выше цены; ⚠️ винрейт выше цены, но данных мало; ❌ невыгодно");
+    lines.push(" • «По одиночке» — та же монета с тем же триггером без условия на вторую монету");
+    lines.push(" • Одна и та же пара может попасть в несколько комбинаций сразу");
+    lines.push("");
+
+    const ok = rows.filter((r) => r.t >= PAIR_MIN_TRADES);
+
+    lines.push(`<b>── Лучшие 10 комбинаций (минимум ${PAIR_MIN_TRADES} пар) ──</b>`);
+    const best = [...ok].sort((a, b) => b.roiAvg - a.roiAvg || b.t - a.t).slice(0, 10);
+    if (best.length === 0) lines.push(`  пока недостаточно данных (нужно ≥${PAIR_MIN_TRADES} пар на комбинацию)`);
+    else best.forEach((r, i) => lines.push(...rowLines(i + 1, r)));
+    lines.push("");
+
+    lines.push("<b>── Ловушки: худшие 5 ──</b>");
+    const worst = ok.filter((r) => r.roiAvg < 0).sort((a, b) => a.roiAvg - b.roiAvg || b.t - a.t).slice(0, 5);
+    if (worst.length === 0) lines.push("  пока нет убыточных комбинаций с достаточной выборкой");
+    else worst.forEach((r, i) => lines.push(...rowLines(i + 1, r)));
+    lines.push("");
+
+    // даёт ли «оба сразу» прирост винрейта по сравнению с одиночными входами
+    lines.push("<b>── Помогает ли условие «оба сразу» ──</b>");
+    let pw = 0;
+    let pt = 0;
+    let sw = 0;
+    let st = 0;
+    for (const r of ok) {
+      if (!r.soloB || !r.soloE) continue;
+      pw += r.b.w + r.e.w;
+      pt += r.b.t + r.e.t;
+      sw += r.soloB.w + r.soloE.w;
+      st += r.soloB.t + r.soloE.t;
+    }
+    if (pt === 0 || st === 0) {
+      lines.push("  пока недостаточно данных");
+    } else {
+      lines.push(`  ноги внутри пар: ${pw}/${pt} (${winPct(pw, pt)})`);
+      lines.push(`  те же триггеры по одиночке: ${sw}/${st} (${winPct(sw, st)})`);
+      lines.push(`  входов в парах меньше в ${(st / pt).toFixed(1)} раза — столько сделок теряем ради фильтра`);
+    }
+    lines.push("(считается по комбинациям с достаточной выборкой, комбинации перекрываются — цифры ориентировочные)");
+    lines.push("");
+
+    // срезы по каждой настройке
+    const group = (title: string, keyOf: (pk: string) => string, order: string[]): void => {
+      lines.push(`<b>── ${title} ──</b>`);
+      let any = false;
+      for (const label of order) {
+        let t = 0;
+        let both = 0;
+        let lw = 0;
+        let lt = 0;
+        let roi = 0;
+        for (const r of rows) {
+          if (keyOf(r.pk) !== label) continue;
+          t += r.t;
+          both += r.both;
+          lw += r.b.w + r.e.w;
+          lt += r.b.t + r.e.t;
+          roi += r.roi;
+        }
+        if (t === 0) continue;
+        any = true;
+        lines.push(
+          `  ${label}: пар ${t}, обе выиграли ${both} (${winPct(both, t)}), ноги ${lw}/${lt} (${winPct(lw, lt)}), прибыль ${roiLabel(roi, t)}`,
+        );
+      }
+      if (!any) lines.push("  пока нет данных");
+      lines.push("");
+    };
+    const bandLabel = (bi: number): string => `${PAIR_BANDS[bi][0].toFixed(2)}-${PAIR_BANDS[bi][1].toFixed(2)}`;
+    group("Срез по цене токенов", (pk) => bandLabel(this.parsePk(pk).bi), PAIR_BANDS.map((_, i) => bandLabel(i)));
+    group("Срез по окну BTC", (pk) => `${this.parsePk(pk).wB}с`, PAIR_WINDOWS.map((w) => `${w}с`));
+    group("Срез по окну ETH", (pk) => `${this.parsePk(pk).wE}с`, PAIR_WINDOWS.map((w) => `${w}с`));
+    group("Срез по движению BTC", (pk) => pctLabel(this.parsePk(pk).mB), PAIR_MOVES.map((m) => pctLabel(m)));
+    group("Срез по движению ETH", (pk) => pctLabel(this.parsePk(pk).mE), PAIR_MOVES.map((m) => pctLabel(m)));
+
+    lines.push("Прибыль — средний результат на $1 ставки с каждой ноги (без комиссий).");
+    return lines.join("\n");
+  }
+
   buildArbReport(): string {
     const lines: string[] = [];
     lines.push("<b>📊 Идея «Арбитраж Up+Down»</b>");
@@ -1709,6 +2112,30 @@ class ResearchLab {
     );
     lines.push("");
 
+    // пара — коротко
+    let pairCombos = 0;
+    let pairGood = 0;
+    for (const key of Object.keys(this.pairAgg)) {
+      if (!key.endsWith("|pair")) continue;
+      const s = this.pairAgg[key];
+      if (s.t < PAIR_MIN_TRADES) continue;
+      pairCombos++;
+      const pk = key.split("|")[0];
+      const b = this.pairAgg[`${pk}|btc`];
+      const e = this.pairAgg[`${pk}|eth`];
+      if (!b || !e) continue;
+      const lt = b.t + e.t;
+      const avgPx = ((b.px ?? 0) + (e.px ?? 0)) / Math.max(lt, 1);
+      if (wilsonLower(b.w + e.w, lt) > avgPx) pairGood++;
+    }
+    lines.push("<b>── Пара BTC+ETH ──</b>");
+    lines.push(
+      pairCombos > 0
+        ? `  комбинаций с ≥${PAIR_MIN_TRADES} парами: ${pairCombos}, из них ✅ ${pairGood}  (подробно: "лаб пара")`
+        : `  пока недостаточно данных (нужно ≥${PAIR_MIN_TRADES} пар на комбинацию)`,
+    );
+    lines.push("");
+
     const arbAll = Object.values(this.arbAgg).reduce(
       (acc, a) => ({ total: acc.total + a.total, h99: acc.h99 + a.h99 }),
       { total: 0, h99: 0 },
@@ -1765,6 +2192,7 @@ class ResearchLab {
       "лаб профили — профили бота и согласие профилей",
       "лаб модель — «Модель цены» (где выгодно покупать вне 0.97-0.98)",
       "лаб пила — фильтр «Пила» (пересечения цены открытия)",
+      "лаб пара — «Пара BTC+ETH» (покупка обеих, когда сработали оба триггера)",
       "лаб помощь — этот список",
     ].join("\n");
   }
@@ -1835,6 +2263,7 @@ const COMMANDS: Record<string, string[]> = {
   profiles: ["лаб профили", "/lab_profiles"],
   model: ["лаб модель", "/lab_model"],
   saw: ["лаб пила", "/lab_saw"],
+  pair: ["лаб пара", "/lab_pair"],
   help: ["лаб помощь", "/lab_help"],
 };
 
@@ -1897,6 +2326,9 @@ async function pollTelegramCommands(
           case "saw":
             report = lab.buildSawReport();
             break;
+          case "pair":
+            report = lab.buildPairReport();
+            break;
           default:
             report = lab.buildHelp();
         }
@@ -1912,9 +2344,9 @@ async function pollTelegramCommands(
 // ─────────────────────────── Запуск ───────────────────────────
 
 async function main() {
-  console.log("=== LAB v2.1: исследовательский парсер идей запущен (не торгует, цены входа проверяются живым стаканом) ===");
+  console.log("=== LAB v2.2: исследовательский парсер идей запущен (не торгует, цены входа проверяются живым стаканом) ===");
   console.log(
-    "Идеи: запас (z), недооценка, паника без разворота, импульс, арбитраж, подтверждение монетами, согласие профилей (6 профилей), модель цены, пила.",
+    "Идеи: запас (z), недооценка, паника без разворота, импульс, арбитраж, подтверждение монетами, согласие профилей (6 профилей), модель цены, пила, пара BTC+ETH.",
   );
 
   btcPriceFeed.start();
