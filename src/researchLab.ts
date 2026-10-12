@@ -12,7 +12,7 @@
  *    помогает ли фильтр "не входить при N+ пересечениях" и с какого N.
  *  - В BOT_PROFILES добавлен Профиль 6 «Запас» (как в боте v7.7, с проверкой живого bid).
  *  - Окно Solana в Профиле 1 приведено к боту: 90с (было 120с).
- *  Файл состояния совместим со старым (версия осталась 2), статистика не сбрасывается.
+ *  Версия состояния 3: старая статистика (v2) откладывается в отдельный файл, счёт идёт с нуля (резолв-функция исправлена).
  *
  * ЧТО ИЗМЕНИЛОСЬ В v2 (исправление устаревших цен):
  *  В v1 цена ask бралась из памяти: последнее значение, пришедшее по websocket. А websocket
@@ -71,7 +71,7 @@ import { createLogger } from "./logger.js";
 
 const STATE_FILE = path.resolve(process.cwd(), "research-lab-state.json");
 const STATE_FILE_V1 = path.resolve(process.cwd(), "research-lab-state.v1.json");
-const STATE_VERSION = 2;
+const STATE_VERSION = 3;
 const AUTOSAVE_INTERVAL_MS = 60 * 1000;
 
 const TARGET_WINDOW_MINUTES = 5;
@@ -497,6 +497,30 @@ async function resolveWinner(eventSlug: string): Promise<"Up" | "Down" | null> {
     const market = (event.markets ?? [])[0];
     if (!market) return null;
 
+    // 1. Рынок должен быть официально закрыт и подтверждён
+    if (market.closed !== true) return null;
+    if (typeof market.umaResolutionStatus === "string" && market.umaResolutionStatus !== "resolved") return null;
+
+    // 2. Главный источник — официальное поле winner в CLOB
+    if (market.conditionId) {
+      try {
+        const r = await fetch(`https://clob.polymarket.com/markets/${market.conditionId}`);
+        if (r.ok) {
+          const m: any = await r.json();
+          const win = (m.tokens ?? []).find((t: any) => t.winner === true);
+          if (win) {
+            const o = String(win.outcome).trim().toLowerCase();
+            console.log(`[resolve] ${eventSlug}: CLOB winner = ${o}`);
+            if (o === "up") return "Up";
+            if (o === "down") return "Down";
+          }
+        }
+      } catch {
+        // упало — идём по запасному варианту ниже
+      }
+    }
+
+    // 3. Запасной вариант: цены, но только совсем крайние (0.99 / 0.01)
     let outcomes: string[];
     let outcomePrices: string[];
     try {
@@ -506,16 +530,15 @@ async function resolveWinner(eventSlug: string): Promise<"Up" | "Down" | null> {
       return null;
     }
     if (outcomes.length !== 2 || outcomePrices.length !== 2) return null;
-
     const upIdx = outcomes.findIndex((o) => /^up$/i.test(o.trim()));
     const downIdx = outcomes.findIndex((o) => /^down$/i.test(o.trim()));
     if (upIdx === -1 || downIdx === -1) return null;
-
     const upPrice = Number(outcomePrices[upIdx]);
     const downPrice = Number(outcomePrices[downIdx]);
-    if (upPrice > 0.05 && upPrice < 0.95) return null; // ещё не устаканилось
-
-    return upPrice > downPrice ? "Up" : "Down";
+    console.log(`[resolve] ${eventSlug}: по ценам Up=${upPrice} Down=${downPrice}`);
+    if (upPrice >= 0.99 && downPrice <= 0.01) return "Up";
+    if (downPrice >= 0.99 && upPrice <= 0.01) return "Down";
+    return null;
   } catch (err) {
     console.error(`[resolve] ошибка ${eventSlug}:`, (err as Error).message);
     return null;
