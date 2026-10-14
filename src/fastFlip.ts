@@ -2,6 +2,10 @@
  * "Быстрый флип" v7.8 — РЫНОЧНЫЕ ордера на ВХОД, держим ДО ОФИЦИАЛЬНОГО
  * РЕЗОЛВА. Никаких лимиток на выход и никаких продаж по тику цены.
  *
+ * v7.9 (относительно v7.8): ДОБАВЛЕН ПРОФИЛЬ 7 «Модель» (z от 2.0, последние 180с, цена токена 0.93-0.96,
+ *  живой bid не ниже 0.93) — по статистике «Модели цены» из LAB. Вшиты новые настройки профилей 1-6
+ *  (размер $7 у всех, у профиля 7 — $3) — размеры больше НЕ берутся из переменных окружения.
+ *
  * v7.8 (относительно v7.7): ИСПРАВЛЕН РЕЗОЛВ. Раньше бот сам угадывал победителя по ценам
  *  токенов через 3 минуты после закрытия и мог ошибиться (писал ПРИБЫЛЬ, когда на деле был
  *  убыток). Теперь победитель берётся только после официального закрытия рынка, из поля
@@ -32,6 +36,7 @@
  *   4 — L4 без цены (только движение монеты + время)
  *   5 — L5 повторное касание (0.97-0.98 → откат ниже 0.90 → снова 0.97-0.98)
  *   6 — «Запас» (z вместо порога)
+ *   7 — «Модель» (z от 2.0, окно 180с, цена 0.93-0.96)
  *
  * Управление профилями через Telegram:
  *   профиль <N> окно <секунды>
@@ -110,7 +115,7 @@ const PRICE_FEEDS: Record<string, CoinPriceFeed> = {
 // Пороги движения ПРОФИЛЯ 1 (основного), подобраны по статистике парсера.
 const PROFILE_1_DEFAULT_THRESHOLDS: Record<string, number> = {
   Bitcoin: 0.0015,
-  Ethereum: 0.002,
+  Ethereum: 0.003,
   Solana: 0.002,
   XRP: 0.003,
   Dogecoin: 0.0015,
@@ -208,7 +213,7 @@ const settings = {
       name: "Профиль 1 (основной, fixed)",
       entryWindowSec: {
         Bitcoin: 180,
-        Ethereum: 180,
+        Ethereum: 60,
         Solana: 90,
         XRP: 180,
         Dogecoin: 90,
@@ -216,7 +221,7 @@ const settings = {
       mode: "fixed",
       priceMode: "corridor",
       pctMoveThresholds: { ...PROFILE_1_DEFAULT_THRESHOLDS },
-      sizeUsd: TRADE_SIZE_USD,
+      sizeUsd: 7,
     },
     {
       // Для каждой монеты взята комбинация множитель/окно, где винрейт был
@@ -226,7 +231,7 @@ const settings = {
       entryWindowSec: {
         Bitcoin: 120,
         Ethereum: 30,
-        Solana: 60,
+        Solana: 30,
         XRP: 30,
         Dogecoin: 60,
       },
@@ -235,11 +240,11 @@ const settings = {
       pctMoveThresholds: {
         Bitcoin: 3.0,
         Ethereum: 0.3,
-        Solana: 0.7,
+        Solana: 0.5,
         XRP: 0.3,
         Dogecoin: 1.0,
       },
-      sizeUsd: Number(process.env.FASTFLIP_PROFILE2_SIZE_USD ?? "5"),
+      sizeUsd: 7,
     },
     {
       // L1 из research-grid-levels: "100→99 отскок". Цена ДОЛЖНА сначала
@@ -268,7 +273,7 @@ const settings = {
         XRP: 0.0015,
         Dogecoin: 0.0015,
       },
-      sizeUsd: Number(process.env.FASTFLIP_PROFILE3_SIZE_USD ?? "2"),
+      sizeUsd: 7,
     },
     {
       // L4 из research-grid-levels: "без цены, только % + время". Цена
@@ -291,7 +296,7 @@ const settings = {
         XRP: 0.0014, // 0.14%
         Dogecoin: 0.003, // 0.30%
       },
-      sizeUsd: Number(process.env.FASTFLIP_PROFILE4_SIZE_USD ?? "2"),
+      sizeUsd: 7,
     },
     {
       // L5 из research-grid-levels: "повторное касание 97-98". Первое
@@ -318,7 +323,7 @@ const settings = {
         XRP: 0.001,
         Dogecoin: 0.001,
       },
-      sizeUsd: Number(process.env.FASTFLIP_PROFILE5_SIZE_USD ?? "2"),
+      sizeUsd: 7,
     },
     {
       // «Запас» из парсера LAB: вход, когда монета уже прошла в сторону токена
@@ -331,7 +336,7 @@ const settings = {
       entryWindowSec: {
         Bitcoin: 60,
         Ethereum: 180,
-        Solana: 120,
+        Solana: 60,
         XRP: 180,
         Dogecoin: 120,
       },
@@ -341,11 +346,37 @@ const settings = {
         Bitcoin: 2.0,
         Ethereum: 4.0,
         Solana: 1.5,
-        XRP: 2.0,
+        XRP: 2.5,
         Dogecoin: 1.0,
       },
-      sizeUsd: Number(process.env.FASTFLIP_PROFILE6_SIZE_USD ?? "2"),
+      sizeUsd: 7,
       requireLiveBid: true, // в парсере вход записывается только при живом bid в коридоре 0.97-0.98
+    },
+    {
+      // «Модель» из LAB («Модель цены»): сила движения z от 2.0, последние 180с,
+      // цена токена 0.93-0.96 (дешевле, чем у остальных профилей), живой bid не ниже 0.93.
+      // Потолок покупки = 0.96 (priceHigh). Новая стратегия — ставка небольшая.
+      name: "Профиль 7 (Модель)",
+      entryWindowSec: {
+        Bitcoin: 180,
+        Ethereum: 180,
+        Solana: 180,
+        XRP: 180,
+        Dogecoin: 180,
+      },
+      mode: "margin",
+      priceMode: "corridor",
+      priceLow: 0.93,
+      priceHigh: 0.96,
+      pctMoveThresholds: {
+        Bitcoin: 2.0,
+        Ethereum: 2.0,
+        Solana: 2.0,
+        XRP: 2.0,
+        Dogecoin: 2.0,
+      },
+      sizeUsd: 3,
+      requireLiveBid: true,
     },
   ] as EntryProfile[],
 };
@@ -1217,7 +1248,7 @@ async function pollTelegramCommands(
 async function main() {
   // МЕТКА ВЕРСИИ — если в логах при старте бота НЕТ этой строки,
   // значит запущен не этот файл (старая сборка / другой процесс).
-  console.log("=== FASTFLIP BUILD: v7.8 — ИСПРАВЛЕН РЕЗОЛВ (официальный winner из CLOB) ===");
+  console.log("=== FASTFLIP BUILD: v7.9 — ПРОФИЛЬ 7 «Модель» + НОВЫЕ ВШИТЫЕ НАСТРОЙКИ ===");
   console.log(`Режим: ${DRY_RUN ? "DRY_RUN (без реальных сделок, полная симуляция)" : "⚠️  LIVE — РЕАЛЬНЫЕ ДЕНЬГИ"}`);
   console.log(`Коридор по умолчанию (если у профиля свой не задан): ${settings.entryPrice}-${settings.maxEntryPrice} | Квота: ${settings.quotaPerHour}/час`);
   for (const [i, p] of settings.profiles.entries()) {
@@ -1227,7 +1258,7 @@ async function main() {
     );
   }
   console.log(
-    "Adaptive-профиль (2) и «Запас» (6) начнут давать сигналы по каждой монете только после ~1 часа сбора истории волатильности (volTracker).",
+    "Adaptive-профиль (2), «Запас» (6) и «Модель» (7) начнут давать сигналы по каждой монете только после ~1 часа сбора истории волатильности (volTracker).",
   );
 
   // запускаем все фиды цены (Polymarket RTDS, Chainlink TWAP) до старта самого бота
