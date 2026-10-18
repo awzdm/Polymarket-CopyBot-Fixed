@@ -2,6 +2,12 @@
  * "Быстрый флип" v7.8 — РЫНОЧНЫЕ ордера на ВХОД, держим ДО ОФИЦИАЛЬНОГО
  * РЕЗОЛВА. Никаких лимиток на выход и никаких продаж по тику цены.
  *
+ * v7.10 (относительно v7.9): ФИЛЬТР BINANCE у профиля 7. Бот сам опрашивает Binance (раз в секунду) и входит
+ *  по профилю 7, только если Binance от цены открытия окна прошёл 50-80% от движения по потоку цен бота
+ *  (так же считает LAB: «лаб бинанс», корзина «50-80% от потока»). Нет данных Binance — вход пропускается.
+ *  Профиль 7: размер по умолчанию $5 (меньше $5 биржа не берёт целиком). Команды: «профиль N бинанс A B» (проценты) /
+ *  «профиль N бинанс выкл».
+ *
  * v7.9 (относительно v7.8): ДОБАВЛЕН ПРОФИЛЬ 7 «Модель» (z от 2.0, последние 180с, цена токена 0.93-0.96,
  *  живой bid не ниже 0.93) — по статистике «Модели цены» из LAB. Вшиты новые настройки профилей 1-6
  *  (размер $7 у всех, у профиля 7 — $3) — размеры больше НЕ берутся из переменных окружения.
@@ -165,6 +171,7 @@ interface EntryProfile {
   pctMoveThresholds: Record<string, number>;
   sizeUsd: number; // размер ставки в USD именно для сделок этого профиля
   requireLiveBid?: boolean; // true — перед покупкой проверить ЖИВОЙ bid: он не должен быть ниже priceLow (как в парсере LAB)
+  binanceRatio?: { min: number; max: number }; // фильтр: Binance прошёл от открытия окна [min, max) от движения по потоку бота (0.5-0.8 = 50-80%)
 }
 
 function makeUniformThresholds(value: number): Record<string, number> {
@@ -198,6 +205,94 @@ function formatCorridorLabel(p: EntryProfile): string {
 }
 
 const volTracker = new VolatilityTracker(PRICE_FEEDS);
+
+// ─── Binance: цена монет, опрос REST раз в секунду, история за 15 минут (без внешних библиотек) ───
+const BINANCE_SYMBOLS: Record<string, string> = {
+  Bitcoin: "BTCUSDT",
+  Ethereum: "ETHUSDT",
+  Solana: "SOLUSDT",
+  XRP: "XRPUSDT",
+  Dogecoin: "DOGEUSDT",
+};
+const BINANCE_HOSTS = ["https://data-api.binance.vision", "https://api.binance.com"];
+const BINANCE_POLL_MS = 1000;
+const BINANCE_KEEP_MS = 15 * 60 * 1000;
+const BINANCE_MATCH_MS = 4000; // допуск при поиске цены на момент открытия окна
+const BINANCE_FRESH_MS = 5000; // последняя цена не старше этого
+
+class BinanceFeed {
+  private hist: Record<string, { t: number; p: number }[]> = {};
+  private hostIdx = 0;
+  private failStreak = 0;
+  private polling = false;
+  okCount = 0;
+  failCount = 0;
+
+  start(): void {
+    void this.poll();
+    setInterval(() => void this.poll(), BINANCE_POLL_MS);
+  }
+
+  private async poll(): Promise<void> {
+    if (this.polling) return;
+    this.polling = true;
+    const symbols = Object.values(BINANCE_SYMBOLS);
+    const url = `${BINANCE_HOSTS[this.hostIdx]}/api/v3/ticker/price?symbols=${encodeURIComponent(JSON.stringify(symbols))}`;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 3000);
+    try {
+      const resp = await fetch(url, { signal: ctrl.signal });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const arr: any[] = await resp.json();
+      const t = Date.now();
+      for (const row of arr) {
+        const coin = Object.keys(BINANCE_SYMBOLS).find((c) => BINANCE_SYMBOLS[c] === row.symbol);
+        const p = Number(row.price);
+        if (!coin || !Number.isFinite(p) || p <= 0) continue;
+        const h = this.hist[coin] ?? (this.hist[coin] = []);
+        h.push({ t, p });
+        const cutoff = t - BINANCE_KEEP_MS;
+        while (h.length > 0 && h[0].t < cutoff) h.shift();
+      }
+      this.okCount++;
+      this.failStreak = 0;
+    } catch {
+      this.failCount++;
+      this.failStreak++;
+      if (this.failStreak >= 5) {
+        this.hostIdx = (this.hostIdx + 1) % BINANCE_HOSTS.length; // пробуем другой адрес
+        this.failStreak = 0;
+      }
+    } finally {
+      clearTimeout(timer);
+      this.polling = false;
+    }
+  }
+
+  getLatest(coin: string): number | null {
+    const h = this.hist[coin];
+    if (!h || h.length === 0) return null;
+    const last = h[h.length - 1];
+    return Date.now() - last.t <= BINANCE_FRESH_MS ? last.p : null;
+  }
+
+  getPriceAt(coin: string, ts: number): number | null {
+    const h = this.hist[coin];
+    if (!h || h.length === 0) return null;
+    let best: { t: number; p: number } | null = null;
+    let bestD = Infinity;
+    for (let i = h.length - 1; i >= 0; i--) {
+      const d = Math.abs(h[i].t - ts);
+      if (d < bestD) {
+        best = h[i];
+        bestD = d;
+      }
+      if (h[i].t < ts - BINANCE_MATCH_MS) break;
+    }
+    return best !== null && bestD <= BINANCE_MATCH_MS ? best.p : null;
+  }
+}
+const binance = new BinanceFeed();
 
 // ─── Настройки, которые можно менять на лету через Telegram ───
 // Значения ниже ВШИТЫ в код (подобраны по статистике парсера) — перезагрузка бота
@@ -375,8 +470,9 @@ const settings = {
         XRP: 2.0,
         Dogecoin: 2.0,
       },
-      sizeUsd: 3,
+      sizeUsd: 5,
       requireLiveBid: true,
+      binanceRatio: { min: 0.5, max: 0.8 }, // Binance прошёл 50-80% от движения по потоку бота
     },
   ] as EntryProfile[],
 };
@@ -544,7 +640,7 @@ class FastFlipMarketBot {
     const profilesLines = settings.profiles
       .map(
         (p, i) =>
-          `  [${i + 1}] ${p.name} — размер $${p.sizeUsd}, режим ${p.mode}, коридор ${formatCorridorLabel(p)}, монета(окно/порог): ` +
+          `  [${i + 1}] ${p.name} — размер $${p.sizeUsd}, режим ${p.mode}, коридор ${formatCorridorLabel(p)}${p.binanceRatio ? `, фильтр Binance ${Math.round(p.binanceRatio.min * 100)}-${Math.round(p.binanceRatio.max * 100)}% от потока` : ""}, монета(окно/порог): ` +
           COINS.map((c) => `${c}(${p.entryWindowSec[c] ?? "?"}с/${formatParamValue(p, c)})`).join(", "),
       )
       .join("\n");
@@ -580,6 +676,49 @@ class FastFlipMarketBot {
       if (msToClose >= 0 && msToClose <= criticalMs) return true;
     }
     return false;
+  }
+
+  private binBlockLogged = new Set<string>();
+
+  /** Фильтр Binance профиля: Binance от открытия окна должен пройти [min, max) от движения по потоку бота. */
+  private binanceCheck(
+    profile: EntryProfile,
+    profileIdx: number,
+    market: CryptoUpDownMarket,
+    side: "Up" | "Down",
+    pctMove: number,
+    openTimeMs: number,
+  ): { ok: boolean; note?: string } {
+    const rule = profile.binanceRatio;
+    if (!rule) return { ok: true };
+    const lo = Math.round(rule.min * 100);
+    const hi = Math.round(rule.max * 100);
+    const bo = binance.getPriceAt(market.coin, openTimeMs);
+    const bn = binance.getLatest(market.coin);
+    const pmDir = side === "Up" ? pctMove : -pctMove;
+    let reason: string | null = null;
+    let ratio = 0;
+    if (bo === null || bn === null || bo === 0) {
+      reason = "нет свежих данных Binance";
+    } else if (pmDir <= 0) {
+      reason = "движение по потоку не в нашу сторону";
+    } else {
+      const binDir = ((bn - bo) / bo) * (side === "Up" ? 1 : -1);
+      ratio = binDir / pmDir;
+      if (ratio < rule.min || ratio >= rule.max) {
+        reason = `Binance прошёл ${(ratio * 100).toFixed(0)}% от потока, нужно ${lo}-${hi}%`;
+      }
+    }
+    if (reason !== null) {
+      const key = `${market.eventSlug}:${profileIdx}`;
+      if (!this.binBlockLogged.has(key)) {
+        if (this.binBlockLogged.size > 500) this.binBlockLogged.clear();
+        this.binBlockLogged.add(key);
+        console.log(`   🚫 [${profile.name}] ${market.coin}: вход пропущен — ${reason}`);
+      }
+      return { ok: false };
+    }
+    return { ok: true, note: `Binance: прошёл ${(ratio * 100).toFixed(0)}% от потока (фильтр ${lo}-${hi}%)` };
   }
 
   async refreshMarkets(): Promise<void> {
@@ -751,9 +890,12 @@ class FastFlipMarketBot {
         const z = dirMove / (recentVol * Math.sqrt(Math.max(secToClose, 1) / 300));
         if (z < paramValue) continue; // paramValue тут — минимальный z
 
+        const binM = this.binanceCheck(profile, profileIdx, market, side, pctMove, openTimeMs);
+        if (!binM.ok) continue;
+
         this.attemptInProgress = true;
         const tokenIdMargin = side === "Up" ? market.upTokenId : market.downTokenId;
-        this.executeMarketEntry(market, side, tokenIdMargin, price, secToClose, pctMove, profile, z);
+        this.executeMarketEntry(market, side, tokenIdMargin, price, secToClose, pctMove, profile, z, binM.note);
         return; // сигнал найден — дальше профили не проверяем
       }
 
@@ -769,9 +911,12 @@ class FastFlipMarketBot {
       const passesMove = side === "Up" ? pctMove >= pctThreshold : pctMove <= -pctThreshold;
       if (!passesMove) continue;
 
+      const binG = this.binanceCheck(profile, profileIdx, market, side, pctMove, openTimeMs);
+      if (!binG.ok) continue;
+
       this.attemptInProgress = true;
       const tokenId = side === "Up" ? market.upTokenId : market.downTokenId;
-      this.executeMarketEntry(market, side, tokenId, price, secToClose, pctMove, profile, pctThreshold);
+      this.executeMarketEntry(market, side, tokenId, price, secToClose, pctMove, profile, pctThreshold, binG.note);
       return; // сигнал найден — дальше профили не проверяем
     }
   }
@@ -856,6 +1001,7 @@ class FastFlipMarketBot {
     pctMove: number,
     profile: EntryProfile,
     pctThresholdUsed: number, // для fixed/adaptive — фактический порог (доля); для "margin" — фактический z
+    binanceNote?: string, // пояснение про фильтр Binance (если у профиля он включён)
   ): Promise<void> {
     const size = profile.sizeUsd / settings.entryPrice;
     const rawParam = profile.pctMoveThresholds[market.coin] ?? 0;
@@ -870,7 +1016,8 @@ class FastFlipMarketBot {
       `\n⚡ ВХОД ПО РЫНКУ [${profile.name}]: [${market.coin} / 5мин] "${market.title}"\n` +
         `   Сторона: ${side} | Цена сейчас: ~${priceAtEntry} (коридор профиля ${profile.priceLow ?? settings.entryPrice}-${profile.priceHigh ?? settings.maxEntryPrice}${profile.priceMode === "touch-drop" ? `, touch≥${profile.touchAbove}` : ""}) | До закрытия: ${secToClose.toFixed(1)}с (окно для ${market.coin}: ${profile.entryWindowSec[market.coin]}с)\n` +
         `   Движение ${market.coin} от открытия окна: ${(pctMove * 100).toFixed(3)}% (порог профиля: ${thresholdLabel})\n` +
-        `   Покупаем: ${size.toFixed(2)} акций рыночным ордером (~$${profile.sizeUsd}) — держим до резолва`,
+        `   Покупаем: ${size.toFixed(2)} акций рыночным ордером (~$${profile.sizeUsd}) — держим до резолва` +
+        (binanceNote ? `\n   ${binanceNote}` : ""),
     );
 
     const result = await this.placeMarketOrder({
@@ -904,7 +1051,7 @@ class FastFlipMarketBot {
 
     if (this.telegram) {
       await this.telegram.send(
-        `💰 Куплено по рынку [${profile.name}]: ${market.title}\nСторона: ${side}\nЦена: ${result.avgPrice.toFixed(4)} | Размер: ${result.filledSize.toFixed(2)}\nДвижение ${market.coin} от открытия окна: ${(pctMove * 100).toFixed(3)}% (порог профиля: ${thresholdLabel})\nДержим до официального резолва (сделка ${this.tradesThisHour + 1}/${settings.quotaPerHour} в этом часе).`,
+        `💰 Куплено по рынку [${profile.name}]: ${market.title}\nСторона: ${side}\nЦена: ${result.avgPrice.toFixed(4)} | Размер: ${result.filledSize.toFixed(2)}\nДвижение ${market.coin} от открытия окна: ${(pctMove * 100).toFixed(3)}% (порог профиля: ${thresholdLabel})\nДержим до официального резолва (сделка ${this.tradesThisHour + 1}/${settings.quotaPerHour} в этом часе).${binanceNote ? `\n${binanceNote}` : ""}`,
       );
     }
 
@@ -1003,7 +1150,7 @@ class FastFlipMarketBot {
     setInterval(() => {
       console.log(
         `--- статус: апдейтов ${this.updateCount}, отслеживается рынков: ${this.tokenIndex.size / 2}, ` +
-          `сделок в часе: ${this.tradesThisHour}/${settings.quotaPerHour}, всего: ${this.tradesTotal} ---`,
+          `сделок в часе: ${this.tradesThisHour}/${settings.quotaPerHour}, всего: ${this.tradesTotal}, Binance ок/ошибок: ${binance.okCount}/${binance.failCount} ---`,
       );
     }, 30 * 1000);
   }
@@ -1202,6 +1349,38 @@ async function pollTelegramCommands(
           continue;
         }
 
+        // "профиль N бинанс A B" — фильтр Binance (проценты), "профиль N бинанс выкл" — отключить фильтр.
+        const profileBinMatch = text.match(/^профиль\s+(\d+)\s+бинанс\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)$/);
+        if (profileBinMatch) {
+          const idx = Number(profileBinMatch[1]) - 1;
+          const profile = settings.profiles[idx];
+          if (!profile) {
+            await telegram?.send(`Нет профиля №${profileBinMatch[1]}. Всего профилей: ${settings.profiles.length}.`);
+            continue;
+          }
+          const lo = Number(profileBinMatch[2]) / 100;
+          const hi = Number(profileBinMatch[3]) / 100;
+          if (!(hi > lo)) {
+            await telegram?.send("Второе число должно быть больше первого, например: профиль 7 бинанс 50 80");
+            continue;
+          }
+          profile.binanceRatio = { min: lo, max: hi };
+          await telegram?.send(`[${profile.name}] фильтр Binance включён: вход только когда Binance прошёл ${profileBinMatch[2]}-${profileBinMatch[3]}% от движения по потоку бота`);
+          continue;
+        }
+        const profileBinOffMatch = text.match(/^профиль\s+(\d+)\s+бинанс\s+выкл$/);
+        if (profileBinOffMatch) {
+          const idx = Number(profileBinOffMatch[1]) - 1;
+          const profile = settings.profiles[idx];
+          if (!profile) {
+            await telegram?.send(`Нет профиля №${profileBinOffMatch[1]}. Всего профилей: ${settings.profiles.length}.`);
+            continue;
+          }
+          profile.binanceRatio = undefined;
+          await telegram?.send(`[${profile.name}] фильтр Binance выключен`);
+          continue;
+        }
+
         // ─── Старые команды без "профиль N" — обратная совместимость,
         // адресуются ПРОФИЛЮ 1 (основному) ───
         const windowMatch = text.match(/^окно\s+(\d+)$/);
@@ -1248,7 +1427,7 @@ async function pollTelegramCommands(
 async function main() {
   // МЕТКА ВЕРСИИ — если в логах при старте бота НЕТ этой строки,
   // значит запущен не этот файл (старая сборка / другой процесс).
-  console.log("=== FASTFLIP BUILD: v7.9 — ПРОФИЛЬ 7 «Модель» + НОВЫЕ ВШИТЫЕ НАСТРОЙКИ ===");
+  console.log("=== FASTFLIP BUILD: v7.10 — ФИЛЬТР Binance у профиля 7 (50-80% от потока), размер П7 $5 ===");
   console.log(`Режим: ${DRY_RUN ? "DRY_RUN (без реальных сделок, полная симуляция)" : "⚠️  LIVE — РЕАЛЬНЫЕ ДЕНЬГИ"}`);
   console.log(`Коридор по умолчанию (если у профиля свой не задан): ${settings.entryPrice}-${settings.maxEntryPrice} | Квота: ${settings.quotaPerHour}/час`);
   for (const [i, p] of settings.profiles.entries()) {
@@ -1268,6 +1447,7 @@ async function main() {
   xrpPriceFeed.start();
   dogePriceFeed.start();
   volTracker.start(); // нужен для adaptive-профилей (Профиль 2) и «Запаса» (Профиль 6)
+  binance.start(); // нужен для фильтра Binance (Профиль 7)
 
   let clob: ClobService | null = null;
   if (!DRY_RUN) {
