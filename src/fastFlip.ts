@@ -2,19 +2,6 @@
  * "Быстрый флип" v7.8 — РЫНОЧНЫЕ ордера на ВХОД, держим ДО ОФИЦИАЛЬНОГО
  * РЕЗОЛВА. Никаких лимиток на выход и никаких продаж по тику цены.
  *
- * v7.12 (относительно v7.11): НЕСКОЛЬКО ПОЗИЦИЙ ОДНОВРЕМЕННО, как в парсере LAB. Раньше бот держал одну позицию и пропускал
- *  остальные сигналы. Теперь он может входить по нескольким рынкам сразу (по разным монетам в одном окне и в следующих окнах),
- *  но: одна позиция на рынок, не больше «лимит окно» позиций в одном окне (по умолчанию 3) и не больше «лимит всего»
- *  открытых позиций (по умолчанию 6, включая ожидающие резолва). Причина лимитов: монеты ходят вместе, и один разворот
- *  рынка бьёт сразу по всем позициям окна. Команды: «лимит окно N», «лимит всего N». Минимум цены позиции теперь
- *  отслеживается только по её собственному токену.
- *
- * v7.11 (относительно v7.10): БОТ БОЛЬШЕ НЕ БЛОКИРУЕТСЯ НА ВРЕМЯ ОЖИДАНИЯ РЕЗОЛВА. Раньше позиция держала блокировку
- *  до официального результата (после закрытия окна ещё 4-7 минут), и бот в это время не входил и не обновлял рынки.
- *  Теперь блокировка снимается через несколько секунд после закрытия окна (исход уже решён, ждём только результат).
- *  Пока окно позиции открыто, по-прежнему одна позиция за раз. Старая позиция дожидается резолва в фоне и присылает
- *  своё уведомление как раньше. В «статус» добавлена строка «Ждут резолва».
- *
  * v7.10 (относительно v7.9): ФИЛЬТР BINANCE у профиля 7. Бот сам опрашивает Binance (раз в секунду) и входит
  *  по профилю 7, только если Binance от цены открытия окна прошёл 50-80% от движения по потоку цен бота
  *  (так же считает LAB: «лаб бинанс», корзина «50-80% от потока»). Нет данных Binance — вход пропускается.
@@ -316,9 +303,6 @@ const settings = {
   // Квота фактически снята — 999 в час не является реальным ограничением,
   // частоту сделок регулируют только профили.
   quotaPerHour: Math.max(1, Number(process.env.FASTFLIP_QUOTA_PER_HOUR ?? "999")),
-  // Лимиты одновременных позиций (меняются командами «лимит окно N» / «лимит всего N»).
-  maxPerWindow: 3, // не больше стольких позиций в одном 5-минутном окне: один разворот рынка бьёт по всем сразу
-  maxOpenTotal: 6, // не больше стольких открытых позиций всего (идущие + покупаемые + ждущие резолва)
   profiles: [
     {
       name: "Профиль 1 (основной, fixed)",
@@ -507,7 +491,6 @@ interface OpenPosition {
   closed: boolean;
   minPriceSinceEntry: number;
   resolveFallbackTimer: NodeJS.Timeout | null;
-  released?: boolean; // окно закрылось, блокировка снята, позиция ждёт официального резолва в фоне
 }
 
 function buildTokenIndex(markets: CryptoUpDownMarket[]): Map<string, TokenInfo> {
@@ -619,27 +602,9 @@ class FastFlipMarketBot {
   private tokenIndex = new Map<string, TokenInfo>();
   private lastTokenIds: string[] = [];
 
-  private attempting = new Set<string>(); // рынки (eventSlug), по которым прямо сейчас идёт покупка
-  private enteredMarkets = new Map<string, number>(); // eventSlug -> closeTimeMs: рынки, где уже есть позиция или идёт покупка (одна позиция на рынок)
-  private positions = new Set<OpenPosition>(); // позиции, у которых окно ещё идёт
-  private awaiting = new Set<OpenPosition>(); // позиции, у которых окно уже закрылось и которые ждут официального резолва
+  private attemptInProgress = false;
 
-  /** Сколько позиций (или покупок) уже есть в окне, закрывающемся в closeTimeMs. */
-  private windowCount(closeTimeMs: number): number {
-    let n = 0;
-    for (const c of this.enteredMarkets.values()) if (c === closeTimeMs) n++;
-    return n;
-  }
-
-  /** Сколько позиций открыто всего: идущие + покупаемые + ждущие резолва. */
-  private openTotal(): number {
-    return this.positions.size + this.attempting.size + this.awaiting.size;
-  }
-
-  private beginAttempt(market: CryptoUpDownMarket): void {
-    this.attempting.add(market.eventSlug);
-    this.enteredMarkets.set(market.eventSlug, market.closeTimeMs);
-  }
+  private openPosition: OpenPosition | null = null;
   private updateCount = 0;
   private tradesTotal = 0;
 
@@ -686,13 +651,11 @@ class FastFlipMarketBot {
       `Квота: ${this.tradesThisHour}/${settings.quotaPerHour} сделок в этом часе\n` +
       `Сейчас отслеживается активных 5-мин рынков: ${watchedMarkets}\n` +
       `Всего сделок с запуска: ${this.tradesTotal}\n` +
-      `Открытые позиции (окно ещё идёт): ${
-        this.positions.size > 0
-          ? [...this.positions].map((p) => `${p.market.title} (${p.side}, ${p.buyPrice.toFixed(2)})`).join("; ")
+      `Открытая позиция: ${
+        this.openPosition
+          ? `${this.openPosition.market.title} (${this.openPosition.side}), цена входа ${this.openPosition.buyPrice.toFixed(4)}, держим до резолва`
           : "нет"
-      }\n` +
-      `Ждут резолва (окно закрыто): ${this.awaiting.size}\n` +
-      `Лимиты: не больше ${settings.maxPerWindow} позиций в одном окне, не больше ${settings.maxOpenTotal} открытых всего (идёт покупка: ${this.attempting.size})`;
+      }`;
     return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   }
 
@@ -759,7 +722,7 @@ class FastFlipMarketBot {
   }
 
   async refreshMarkets(): Promise<void> {
-    if (this.hasCriticalMarket()) return;
+    if (this.openPosition || this.attemptInProgress || this.hasCriticalMarket()) return;
 
     let allMarkets: CryptoUpDownMarket[];
     try {
@@ -787,9 +750,6 @@ class FastFlipMarketBot {
     const activeSlugs = new Set(markets.map((m) => m.eventSlug));
     for (const slug of this.openPrices.keys()) {
       if (!activeSlugs.has(slug)) this.openPrices.delete(slug);
-    }
-    for (const slug of this.enteredMarkets.keys()) {
-      if (!activeSlugs.has(slug) && !this.attempting.has(slug)) this.enteredMarkets.delete(slug);
     }
     // чистим touch-state (профили priceMode="touch-drop") для тех же рынков —
     // ключ имеет вид `${profileIdx}:${eventSlug}:${side}`, eventSlug — средняя часть.
@@ -851,19 +811,17 @@ class FastFlipMarketBot {
       }
     }
 
-    // Отслеживаем минимум цены собственного токена позиции (для статистики просадки в отчёте о резолве).
-    // Закрытие сделки происходит ТОЛЬКО через официальный резолв рынка.
-    for (const pos of this.positions) {
-      if (pos.tokenId === update.tokenId && price < pos.minPriceSinceEntry) pos.minPriceSinceEntry = price;
+    // Позиция уже открыта — никакой реакции на цену, кроме отслеживания
+    // минимума (для статистики просадки в отчёте о резолве). Закрытие
+    // сделки происходит ТОЛЬКО через официальный резолв рынка.
+    if (this.openPosition) {
+      if (market.eventSlug === this.openPosition.market.eventSlug && price < this.openPosition.minPriceSinceEntry) {
+        this.openPosition.minPriceSinceEntry = price;
+      }
+      return;
     }
 
-    // Одна позиция на рынок: если по этому рынку уже есть позиция или идёт покупка — новые сигналы по нему не нужны.
-    if (this.enteredMarkets.has(market.eventSlug)) return;
-    for (const pos of this.positions) if (pos.market.eventSlug === market.eventSlug) return;
-
-    // Лимиты одновременных позиций (монеты ходят вместе — один разворот бьёт по всем позициям окна сразу).
-    if (this.windowCount(market.closeTimeMs) >= settings.maxPerWindow) return;
-    if (this.openTotal() >= settings.maxOpenTotal) return;
+    if (this.attemptInProgress) return;
 
     this.checkHourlyReset();
 
@@ -935,7 +893,7 @@ class FastFlipMarketBot {
         const binM = this.binanceCheck(profile, profileIdx, market, side, pctMove, openTimeMs);
         if (!binM.ok) continue;
 
-        this.beginAttempt(market);
+        this.attemptInProgress = true;
         const tokenIdMargin = side === "Up" ? market.upTokenId : market.downTokenId;
         this.executeMarketEntry(market, side, tokenIdMargin, price, secToClose, pctMove, profile, z, binM.note);
         return; // сигнал найден — дальше профили не проверяем
@@ -956,7 +914,7 @@ class FastFlipMarketBot {
       const binG = this.binanceCheck(profile, profileIdx, market, side, pctMove, openTimeMs);
       if (!binG.ok) continue;
 
-      this.beginAttempt(market);
+      this.attemptInProgress = true;
       const tokenId = side === "Up" ? market.upTokenId : market.downTokenId;
       this.executeMarketEntry(market, side, tokenId, price, secToClose, pctMove, profile, pctThreshold, binG.note);
       return; // сигнал найден — дальше профили не проверяем
@@ -1073,8 +1031,7 @@ class FastFlipMarketBot {
 
     if (result.filledSize <= 0) {
       console.log(`   ⏳ Рыночная покупка не исполнилась (eventSlug: ${market.eventSlug}). Продолжаю мониторинг.`);
-      this.attempting.delete(market.eventSlug);
-      this.enteredMarkets.delete(market.eventSlug);
+      this.attemptInProgress = false;
       return;
     }
 
@@ -1090,8 +1047,7 @@ class FastFlipMarketBot {
       minPriceSinceEntry: result.avgPrice,
       resolveFallbackTimer: null,
     };
-    this.attempting.delete(market.eventSlug);
-    this.positions.add(pos);
+    this.openPosition = pos;
 
     if (this.telegram) {
       await this.telegram.send(
@@ -1109,21 +1065,9 @@ class FastFlipMarketBot {
     const msUntilCloseCheck = Math.max(0, market.closeTimeMs - Date.now() + CLOSE_FALLBACK_BUFFER_MS);
     pos.resolveFallbackTimer = setTimeout(() => {
       if (pos.closed) return;
-      console.log(`   ⏳ Окно закрылось — жду официальный резолв в фоне, бот свободен для новых входов (eventSlug: ${market.eventSlug}).`);
-      this.releaseLock(pos);
+      console.log(`   ⏳ Окно закрылось — жду официальный резолв (eventSlug: ${market.eventSlug}).`);
       this.scheduleResolveFallback(pos);
     }, msUntilCloseCheck);
-  }
-
-  /**
-   * Окно позиции закрылось: исход уже решён, остаётся только дождаться официального результата.
-   * Переводим позицию в «ждёт резолва» (она больше не считается идущей) и сразу обновляем список рынков.
-   */
-  private releaseLock(pos: OpenPosition): void {
-    pos.released = true;
-    this.positions.delete(pos);
-    this.awaiting.add(pos);
-    this.refreshMarkets().catch((err) => console.error("[refresh] ошибка:", (err as Error).message));
   }
 
   private scheduleResolveFallback(pos: OpenPosition): void {
@@ -1165,8 +1109,8 @@ class FastFlipMarketBot {
       clearTimeout(pos.resolveFallbackTimer);
       pos.resolveFallbackTimer = null;
     }
-    this.awaiting.delete(pos);
-    this.positions.delete(pos);
+    if (this.openPosition === pos) this.openPosition = null;
+    this.attemptInProgress = false;
     this.tradesTotal++;
 
     this.checkHourlyReset();
@@ -1206,7 +1150,7 @@ class FastFlipMarketBot {
     setInterval(() => {
       console.log(
         `--- статус: апдейтов ${this.updateCount}, отслеживается рынков: ${this.tokenIndex.size / 2}, ` +
-          `сделок в часе: ${this.tradesThisHour}/${settings.quotaPerHour}, всего: ${this.tradesTotal}, открыто: ${this.positions.size}, ждут резолва: ${this.awaiting.size}, Binance ок/ошибок: ${binance.okCount}/${binance.failCount} ---`,
+          `сделок в часе: ${this.tradesThisHour}/${settings.quotaPerHour}, всего: ${this.tradesTotal}, Binance ок/ошибок: ${binance.okCount}/${binance.failCount} ---`,
       );
     }, 30 * 1000);
   }
@@ -1308,20 +1252,6 @@ async function pollTelegramCommands(
         if (maxPriceMatch) {
           settings.maxEntryPrice = Number(maxPriceMatch[1]);
           await telegram?.send(`Верхняя цена входа установлена (общая на все профили): ${settings.maxEntryPrice}`);
-          continue;
-        }
-
-        const limitWindowMatch = text.match(/^лимит\s+окно\s+(\d+)$/);
-        if (limitWindowMatch) {
-          settings.maxPerWindow = Math.max(1, Number(limitWindowMatch[1]));
-          await telegram?.send(`Лимит позиций в одном окне: ${settings.maxPerWindow}.`);
-          continue;
-        }
-
-        const limitTotalMatch = text.match(/^лимит\s+всего\s+(\d+)$/);
-        if (limitTotalMatch) {
-          settings.maxOpenTotal = Math.max(1, Number(limitTotalMatch[1]));
-          await telegram?.send(`Лимит открытых позиций всего (включая ждущие резолва): ${settings.maxOpenTotal}.`);
           continue;
         }
 
@@ -1497,7 +1427,7 @@ async function pollTelegramCommands(
 async function main() {
   // МЕТКА ВЕРСИИ — если в логах при старте бота НЕТ этой строки,
   // значит запущен не этот файл (старая сборка / другой процесс).
-  console.log("=== FASTFLIP BUILD: v7.12 — НЕСКОЛЬКО ПОЗИЦИЙ ОДНОВРЕМЕННО (лимит окно 3, лимит всего 6) + фильтр Binance у П7 ===");
+  console.log("=== FASTFLIP BUILD: v7.10 — ФИЛЬТР Binance у профиля 7 (50-80% от потока), размер П7 $5 ===");
   console.log(`Режим: ${DRY_RUN ? "DRY_RUN (без реальных сделок, полная симуляция)" : "⚠️  LIVE — РЕАЛЬНЫЕ ДЕНЬГИ"}`);
   console.log(`Коридор по умолчанию (если у профиля свой не задан): ${settings.entryPrice}-${settings.maxEntryPrice} | Квота: ${settings.quotaPerHour}/час`);
   for (const [i, p] of settings.profiles.entries()) {
