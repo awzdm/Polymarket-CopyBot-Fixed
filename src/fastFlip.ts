@@ -1,6 +1,15 @@
 /**
- * "Быстрый флип" v7.8 — РЫНОЧНЫЕ ордера на ВХОД, держим ДО ОФИЦИАЛЬНОГО
+ * "Быстрый флип" v7.14 — РЫНОЧНЫЕ ордера на ВХОД, держим ДО ОФИЦИАЛЬНОГО
  * РЕЗОЛВА. Никаких лимиток на выход и никаких продаж по тику цены.
+ *
+ * v7.14 (относительно v7.13):
+ *  1) В ТОРГОВЛЕ ТОЛЬКО ПРОФИЛИ 9 И 10 (список ACTIVE_PROFILE_ORDER). Остальные профили остаются в коде и в «статусе»,
+ *     но сигналов не дают. Чтобы включить любой профиль обратно — добавь его индекс (номер минус 1) в ACTIVE_PROFILE_ORDER.
+ *  2) ДОБАВЛЕН ПРОФИЛЬ 10 «Модель 0.90-0.93» — ячейка из LAB «Модели цены»: сила z от 2 до 3, за 120-180с до закрытия,
+ *     цена токена 0.90-0.93, живой bid не ниже 0.90. Новые поля профиля: minSecToClose (нижняя граница по времени)
+ *     и maxZ (верхняя граница по z). ЭТО ТЕСТ: ячейка найдена на старых данных, проверять её надо на свежих.
+ *  3) ИСПРАВЛЕН РАЗМЕР: акции = ставка / нижняя граница коридора профиля (раньше / 0.97), чтобы ордер не выходил меньше
+ *     ставки в долларах при цене входа ниже 0.97.
  *
  * v7.12 (относительно v7.11): НЕСКОЛЬКО ПОЗИЦИЙ ОДНОВРЕМЕННО, как в парсере LAB. Раньше бот держал одну позицию и пропускал
  *  остальные сигналы. Теперь он может входить по нескольким рынкам сразу (по разным монетам в одном окне и в следующих окнах),
@@ -48,14 +57,17 @@
  *     Окна во всех профилях не больше 180с: окно от ~270с блокирует обновление списка
  *     рынков (см. hasCriticalMarket).
  *
- * Профили (сигнал ЛЮБОГО достаточен для входа; сделка одна за раз):
+ * Профили (сигнал ЛЮБОГО из ACTIVE_PROFILE_ORDER достаточен для входа):
  *   1 — fixed (фиксированный % движения)
  *   2 — adaptive (множитель × типичное движение)
  *   3 — L1 отскок (касание 0.995 → 0.985-0.993)
  *   4 — L4 без цены (только движение монеты + время)
  *   5 — L5 повторное касание (0.97-0.98 → откат ниже 0.90 → снова 0.97-0.98)
  *   6 — «Запас» (z вместо порога)
- *   7 — «Модель» (z от 2.0, окно 180с, цена 0.93-0.96)
+ *   7 — «Модель» (z от 2.0, окно 180с, цена 0.93-0.96) + Binance 50-80%
+ *   8 — «Запас» + Binance строго против потока
+ *   9 — «Модель» + Binance строго против потока  ← основной
+ *  10 — «Модель 0.90-0.93» (z 2-3, 120-180с до закрытия)  ← тест
  *
  * Управление профилями через Telegram:
  *   профиль <N> окно <секунды>
@@ -186,6 +198,8 @@ interface EntryProfile {
   requireLiveBid?: boolean; // true — перед покупкой проверить ЖИВОЙ bid: он не должен быть ниже priceLow (как в парсере LAB)
   binanceRatio?: { min: number; max: number }; // фильтр: Binance прошёл от открытия окна [min, max) от движения по потоку бота (0.5-0.8 = 50-80%)
   binanceAgainst?: boolean; // отдельный вариант: направленное движение Binance строго против движения основного потока (ratio < 0)
+  minSecToClose?: number; // v7.14: не входить, если до закрытия меньше стольки секунд (нижняя граница окна; верхняя — entryWindowSec)
+  maxZ?: number; // v7.14: только для mode="margin": не входить, если z не меньше этого значения (верхняя граница силы движения)
 }
 
 function makeUniformThresholds(value: number): Record<string, number> {
@@ -198,7 +212,7 @@ function makeUniformThresholds(value: number): Record<string, number> {
 function formatParamValue(profile: EntryProfile, coin: string): string {
   const v = profile.pctMoveThresholds[coin] ?? 0;
   if (profile.mode === "adaptive") return `${v.toFixed(1)}x`;
-  if (profile.mode === "margin") return `z≥${v.toFixed(1)}`;
+  if (profile.mode === "margin") return `z≥${v.toFixed(1)}${profile.maxZ !== undefined ? `, z<${profile.maxZ.toFixed(1)}` : ""}`;
   return `${(v * 100).toFixed(2)}%`;
 }
 
@@ -518,6 +532,34 @@ settings.profiles.push(
   },
 );
 
+// v7.14: Профиль 10 «Модель 0.90-0.93» — ячейка из LAB «Модель цены»:
+// сила z от 2 до 3, за 120-180с до закрытия, цена токена 0.90-0.93, живой bid не ниже 0.90.
+// ЭТО ТЕСТ: ячейка найдена на старых данных. Проверять по «лаб бот» (bot10) на свежих данных.
+settings.profiles.push({
+  name: "Профиль 10 (Модель 0.90-0.93)",
+  entryWindowSec: {
+    Bitcoin: 180,
+    Ethereum: 180,
+    Solana: 180,
+    XRP: 180,
+    Dogecoin: 180,
+  },
+  mode: "margin",
+  priceMode: "corridor",
+  priceLow: 0.9,
+  priceHigh: 0.93,
+  pctMoveThresholds: makeUniformThresholds(2.0),
+  sizeUsd: 5,
+  requireLiveBid: true,
+  minSecToClose: 120,
+  maxZ: 3,
+});
+
+// v7.14: какие профили реально участвуют в торговле и в каком порядке проверяются.
+// Индекс = номер профиля минус 1. Сейчас: 9 (индекс 8) и 10 (индекс 9).
+// Чтобы включить другой профиль — добавь его индекс в список (например, 6 → индекс 5).
+const ACTIVE_PROFILE_ORDER: number[] = [8, 9];
+
 interface TokenInfo {
   market: CryptoUpDownMarket;
   side: "Up" | "Down";
@@ -700,14 +742,14 @@ class FastFlipMarketBot {
     const profilesLines = settings.profiles
       .map(
         (p, i) =>
-          `  [${i + 1}] ${p.name} — размер $${p.sizeUsd}, режим ${p.mode}, коридор ${formatCorridorLabel(p)}${p.binanceAgainst ? ", фильтр Binance: строго против потока (ratio < 0)" : p.binanceRatio ? `, фильтр Binance ${Math.round(p.binanceRatio.min * 100)}-${Math.round(p.binanceRatio.max * 100)}% от потока` : ""}, монета(окно/порог): ` +
+          `  [${i + 1}] ${ACTIVE_PROFILE_ORDER.includes(i) ? "🟢 В ТОРГОВЛЕ" : "⚪ выключен"} ${p.name} — размер $${p.sizeUsd}, режим ${p.mode}, коридор ${formatCorridorLabel(p)}${p.minSecToClose !== undefined ? `, не раньше чем за ${p.minSecToClose}с до закрытия` : ""}${p.binanceAgainst ? ", фильтр Binance: строго против потока (ratio < 0)" : p.binanceRatio ? `, фильтр Binance ${Math.round(p.binanceRatio.min * 100)}-${Math.round(p.binanceRatio.max * 100)}% от потока` : ""}, монета(окно/порог): ` +
           COINS.map((c) => `${c}(${p.entryWindowSec[c] ?? "?"}с/${formatParamValue(p, c)})`).join(", "),
       )
       .join("\n");
     const text =
       `Режим: рыночный вход, держим ДО РЕЗОЛВА (без выхода по лимитке), монеты: ${COINS.join(", ")}\n` +
       `Коридор по умолчанию (если у профиля свой не задан): ${settings.entryPrice}–${settings.maxEntryPrice}\n` +
-      `Профили входа (сигнал ЛЮБОГО из них достаточен для входа):\n${profilesLines}\n` +
+      `Профили входа (сигнал ЛЮБОГО включённого профиля достаточен для входа):\n${profilesLines}\n` +
       `Квота: ${this.tradesThisHour}/${settings.quotaPerHour} сделок в этом часе\n` +
       `Сейчас отслеживается активных 5-мин рынков: ${watchedMarkets}\n` +
       `Всего сделок с запуска: ${this.tradesTotal}\n` +
@@ -920,14 +962,14 @@ class FastFlipMarketBot {
 
     // Проверяем профили по очереди — первый, который полностью совпал
     // (цена по своему priceMode + окно + порог движения), даёт сигнал на вход.
-    // Варианты 8/9 проверяются первыми: иначе исходные профили 6/7 перехватили бы
-    // тот же сигнал до варианта с Binance-против. Индексы профилей и Telegram-команды не меняются.
-    const profileEvaluationOrder = [7, 8, 0, 1, 2, 3, 4, 5, 6];
-    for (const profileIdx of profileEvaluationOrder) {
+    // v7.14: торгуются только профили из ACTIVE_PROFILE_ORDER (сейчас 9 и 10).
+    for (const profileIdx of ACTIVE_PROFILE_ORDER) {
       const profile = settings.profiles[profileIdx];
+      if (!profile) continue;
       const windowForCoin = profile.entryWindowSec[market.coin];
       if (windowForCoin === undefined) continue; // монета без настроенного окна в этом профиле — пропускаем
       if (secToClose > windowForCoin) continue; // этот профиль ещё не "открылся" по времени для этой монеты
+      if (profile.minSecToClose !== undefined && secToClose < profile.minSecToClose) continue; // уже слишком поздно для этого профиля
 
       const priceLow = profile.priceLow ?? settings.entryPrice;
       const priceHigh = profile.priceHigh ?? settings.maxEntryPrice;
@@ -963,6 +1005,7 @@ class FastFlipMarketBot {
         if (dirMove <= 0) continue;
         const z = dirMove / (recentVol * Math.sqrt(Math.max(secToClose, 1) / 300));
         if (z < paramValue) continue; // paramValue тут — минимальный z
+        if (profile.maxZ !== undefined && z >= profile.maxZ) continue; // v7.14: слишком сильное движение для этой ячейки
 
         const binM = this.binanceCheck(profile, profileIdx, market, side, pctMove, openTimeMs);
         if (!binM.ok) continue;
@@ -1077,18 +1120,19 @@ class FastFlipMarketBot {
     pctThresholdUsed: number, // для fixed/adaptive — фактический порог (доля); для "margin" — фактический z
     binanceNote?: string, // пояснение про фильтр Binance (если у профиля он включён)
   ): Promise<void> {
-    const size = profile.sizeUsd / settings.entryPrice;
+    // v7.14: акции считаем от НИЖНЕЙ границы коридора профиля, чтобы сумма ордера не выходила меньше ставки в долларах.
+    const size = profile.sizeUsd / (profile.priceLow ?? settings.entryPrice);
     const rawParam = profile.pctMoveThresholds[market.coin] ?? 0;
     const thresholdLabel =
       profile.mode === "adaptive"
         ? `${rawParam.toFixed(1)}x → фактический порог ${(pctThresholdUsed * 100).toFixed(3)}%`
         : profile.mode === "margin"
-          ? `запас z≥${rawParam.toFixed(1)} → фактический z ${pctThresholdUsed.toFixed(2)}`
+          ? `запас z≥${rawParam.toFixed(1)}${profile.maxZ !== undefined ? `, z<${profile.maxZ.toFixed(1)}` : ""} → фактический z ${pctThresholdUsed.toFixed(2)}`
           : `${(pctThresholdUsed * 100).toFixed(2)}%`;
 
     console.log(
       `\n⚡ ВХОД ПО РЫНКУ [${profile.name}]: [${market.coin} / 5мин] "${market.title}"\n` +
-        `   Сторона: ${side} | Цена сейчас: ~${priceAtEntry} (коридор профиля ${profile.priceLow ?? settings.entryPrice}-${profile.priceHigh ?? settings.maxEntryPrice}${profile.priceMode === "touch-drop" ? `, touch≥${profile.touchAbove}` : ""}) | До закрытия: ${secToClose.toFixed(1)}с (окно для ${market.coin}: ${profile.entryWindowSec[market.coin]}с)\n` +
+        `   Сторона: ${side} | Цена сейчас: ~${priceAtEntry} (коридор профиля ${profile.priceLow ?? settings.entryPrice}-${profile.priceHigh ?? settings.maxEntryPrice}${profile.priceMode === "touch-drop" ? `, touch≥${profile.touchAbove}` : ""}) | До закрытия: ${secToClose.toFixed(1)}с (окно для ${market.coin}: ${profile.minSecToClose !== undefined ? `${profile.minSecToClose}-` : ""}${profile.entryWindowSec[market.coin]}с)\n` +
         `   Движение ${market.coin} от открытия окна: ${(pctMove * 100).toFixed(3)}% (порог профиля: ${thresholdLabel})\n` +
         `   Покупаем: ${size.toFixed(2)} акций рыночным ордером (~$${profile.sizeUsd}) — держим до резолва` +
         (binanceNote ? `\n   ${binanceNote}` : ""),
@@ -1529,17 +1573,18 @@ async function pollTelegramCommands(
 async function main() {
   // МЕТКА ВЕРСИИ — если в логах при старте бота НЕТ этой строки,
   // значит запущен не этот файл (старая сборка / другой процесс).
-  console.log("=== FASTFLIP BUILD: v7.13 — ДОБАВЛЕНЫ ПРОФИЛИ 8/9 BINANCE ПРОТИВ (ratio < 0), ПРОФИЛИ 1-7 СОХРАНЕНЫ ===");
+  console.log("=== FASTFLIP BUILD: v7.14 — В ТОРГОВЛЕ ТОЛЬКО ПРОФИЛИ 9 И 10 (10 = МОДЕЛЬ 0.90-0.93, ТЕСТ), РАЗМЕР ОТ НИЖНЕЙ ГРАНИЦЫ КОРИДОРА ===");
   console.log(`Режим: ${DRY_RUN ? "DRY_RUN (без реальных сделок, полная симуляция)" : "⚠️  LIVE — РЕАЛЬНЫЕ ДЕНЬГИ"}`);
   console.log(`Коридор по умолчанию (если у профиля свой не задан): ${settings.entryPrice}-${settings.maxEntryPrice} | Квота: ${settings.quotaPerHour}/час`);
+  console.log(`В торговле профили: ${ACTIVE_PROFILE_ORDER.map((i) => i + 1).join(", ")}`);
   for (const [i, p] of settings.profiles.entries()) {
     console.log(
-      `  Профиль ${i + 1} "${p.name}" [${p.mode}], коридор ${formatCorridorLabel(p)}${p.binanceAgainst ? ", Binance строго против потока (ratio < 0)" : p.binanceRatio ? `, Binance ${Math.round(p.binanceRatio.min * 100)}-${Math.round(p.binanceRatio.max * 100)}% от потока` : ""}, размер $${p.sizeUsd}, монета(окно/порог): ` +
+      `  Профиль ${i + 1} "${p.name}" [${p.mode}] ${ACTIVE_PROFILE_ORDER.includes(i) ? "ВКЛ" : "выкл"}, коридор ${formatCorridorLabel(p)}${p.minSecToClose !== undefined ? `, не раньше чем за ${p.minSecToClose}с до закрытия` : ""}${p.binanceAgainst ? ", Binance строго против потока (ratio < 0)" : p.binanceRatio ? `, Binance ${Math.round(p.binanceRatio.min * 100)}-${Math.round(p.binanceRatio.max * 100)}% от потока` : ""}, размер $${p.sizeUsd}, монета(окно/порог): ` +
         COINS.map((c) => `${c}(${p.entryWindowSec[c] ?? "?"}с/${formatParamValue(p, c)})`).join(", "),
     );
   }
   console.log(
-    "Adaptive-профиль (2), «Запас» (6) и «Модель» (7) начнут давать сигналы по каждой монете только после ~1 часа сбора истории волатильности (volTracker).",
+    "Профили «Запас» (6, 8) и «Модель» (7, 9, 10) начнут давать сигналы по каждой монете только после ~1 часа сбора истории волатильности (volTracker).",
   );
 
   // запускаем все фиды цены (Polymarket RTDS, Chainlink TWAP) до старта самого бота
@@ -1548,8 +1593,8 @@ async function main() {
   solPriceFeed.start();
   xrpPriceFeed.start();
   dogePriceFeed.start();
-  volTracker.start(); // нужен для adaptive-профилей (Профиль 2) и «Запаса» (Профиль 6)
-  binance.start(); // нужен для фильтра Binance (Профиль 7)
+  volTracker.start(); // нужен для adaptive-профилей (Профиль 2) и «Запаса» / «Модели» (Профили 6-10)
+  binance.start(); // нужен для фильтра Binance (Профили 7-9)
 
   let clob: ClobService | null = null;
   if (!DRY_RUN) {
