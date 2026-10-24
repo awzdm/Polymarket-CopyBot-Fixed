@@ -1,5 +1,5 @@
 /**
- * LAB v3.0 — исследовательский парсер идей (НЕ торгует, только собирает статистику).
+ * LAB v3.1 — исследовательский парсер идей (НЕ торгует, только собирает статистику).
  * Работает отдельным процессом, свой файл состояния (research-lab-state.json),
  * свои команды в Telegram (все начинаются со слова "лаб").
  *
@@ -7,17 +7,23 @@
  *  Каждая комбинация/профиль записывает КАЖДЫЙ сигнал (без искусственных ограничений на число позиций), потому что
  *  лимиты бота (позиций в окне, открытых всего) — это управление риском, а не часть стратегии, и они искажают винрейт.
  *  Лимиты можно включить обратно константами MAX_PER_WINDOW / MAX_OPEN_TOTAL / ONE_PER_MARKET ниже.
- *  Что изменилось по сравнению с v2.4 и важно для достоверности:
- *   1) Binance-фильтр работает как в боте: это УСЛОВИЕ входа с ожиданием, а не метка. Для каждого профиля бота считаются
- *      отдельные «боты»: без фильтра и по одной корзине Binance (против / <50% / 50-80% / 80-120% / >120%);
- *   2) перед записью входа — живой стакан: ask не выше потолка коридора, живой bid не ниже низа коридора
- *      (если покупка «не прошла», проверка повторится, как в боте);
+ *   1) Binance-фильтр работает как в боте: это УСЛОВИЕ входа с ожиданием, а не метка;
+ *   2) перед записью входа — живой стакан: ask не выше потолка коридора, живой bid не ниже низа коридора;
  *   3) цена входа = живой ask, итог только по официальному резолву.
- *  Новая команда «лаб бот»: как торговал бы РЕАЛЬНЫЙ бот (настраивается в LIVE_VARIANTS ниже).
- *  Старая статистика откладывается в research-lab-state.v<версия>.json, счёт идёт с нуля.
+ *
+ * НОВОЕ В v3.1 (файл состояния остаётся совместимым: старая статистика НЕ сбрасывается, новые идеи копятся с нуля):
+ *  A) «лаб модель бинанс» — Binance-против на ВСЕЙ сетке модели (+ «доза-эффект»: чуть против / сильно против);
+ *  B) Coinbase как второй источник цены (опрос REST раз в секунду): корзины Coinbase и «две биржи сразу»
+ *     (для модели и для всех профилей бота) — «лаб биржи»;
+ *  C) «лаб режим» — режим волатильности (σ за 2 мин / σ за 5 мин против обычной), часы суток, кластеры
+ *     одновременных проигрышей в одном окне (признак для лосей);
+ *  D) «лаб справедливая» — p = Φ(d / (σ·√t)), edge = p − ask, корзины edge, калибровка и проверка «растёт ли винрейт»;
+ *  E) «лаб зараза» — у скольких соседних монет токен нашей стороны уже сыпется;
+ *  F) «лаб траектория» — токен пришёл в коридор сверху (падал) или снизу (рос): ask сейчас − ask 15с назад.
+ *  Все новые признаки пишутся к каждому базовому входу профилей бота и видны в «лаб лоси».
  *
  * Идеи и команды те же: запас, дешево, паника, импульс, арб, монеты, профили, модель, пила, пара, бинанс, лоси,
- * согласие, стоп, плюс «лаб бот».
+ * согласие, стоп, «лаб бот» + новые команды (см. «лаб помощь»).
  *
  * ВАЖНО: если меняешь настройки профилей/лимитов в боте — поменяй их и здесь (BOT_PROFILES, MAX_PER_WINDOW,
  * MAX_OPEN_TOTAL, LIVE_VARIANTS).
@@ -43,7 +49,7 @@ import { createLogger } from "./logger.js";
 // ─────────────────────────── Общие настройки ───────────────────────────
 
 const STATE_FILE = path.resolve(process.cwd(), "research-lab-state.json");
-const STATE_VERSION = 4;
+const STATE_VERSION = 4; // v3.1 совместима с v3.0: новые поля читаются с запасными значениями
 const AUTOSAVE_INTERVAL_MS = 60 * 1000;
 
 const TARGET_WINDOW_MINUTES = 5;
@@ -79,6 +85,7 @@ const LIVE_LOG_MAX = 4000;
 
 // Что торгует реальный бот СЕЙЧАС: идея -> размер ставки в $. Идея вида bot7b2 = профиль 7 + корзина Binance №2 (50-80%).
 // Корзины: b0 = Binance против, b1 = меньше 50%, b2 = 50-80%, b3 = 80-120%, b4 = больше 120%. Без «b» = без фильтра.
+// v3.1: то же для Coinbase: bot7c0 … bot7c4; по двум биржам сразу: bot7k2 (обе против), bot7k1 (одна против), bot7k0 (обе не против).
 // Если включишь в боте профиль 6 — добавь сюда  bot6: 7  (или тот размер, что стоит в боте).
 const LIVE_VARIANTS: Record<string, number> = { bot7b2: 5 };
 
@@ -173,6 +180,10 @@ const MODEL_MAX_SEC = 240;
 const MODEL_MIN_TRADES = 30; // минимум записей на комбинацию для общего топа
 const MODEL_MIN_COIN = 15; // минимум записей на комбинацию для отчёта по монете
 
+// v3.1 / A. Binance-против на всей сетке модели: граница «чуть против» / «сильно против» (в долях потока бота).
+// ratio = движение по Binance ÷ движение по потоку бота. ratio < 0 — Binance уже за ценой открытия (против).
+const MODEL_BIN_DOSE_CUT = -0.25;
+
 function zLabel(b: [number, number]): string {
   return `сила ${b[1] >= 99 ? `${b[0]}+` : `${b[0]}-${b[1]}`}`;
 }
@@ -203,7 +214,36 @@ const PAIR_BANDS: [number, number][] = [
 const PAIR_MIN_TRADES = 10;
 const PAIR_PRUNE_MS = 10 * 60 * 1000;
 
-// 11-14. Binance, признаки лосей, согласие профилей, стопы
+// v3.1 / D. «Справедливая цена»: p = Φ(d / (σ·√t)); edge = p − ask.
+const FAIR_SHORT = ["<0", "0-2%", "2-4%", "4-6%", "6%+"];
+const FAIR_EDGE_LABELS = FAIR_SHORT.map((s) => `edge ${s}`);
+function fairIdx(edge: number): number {
+  return edge < 0 ? 0 : edge < 0.02 ? 1 : edge < 0.04 ? 2 : edge < 0.06 ? 3 : 4;
+}
+// σ считается из тиков фида (реализованная волатильность за последние look секунд, шаг step секунд).
+const FAIR_VARIANTS = [
+  { idea: "fair1", look: 60, step: 3, label: "σ за последние 60с" },
+  { idea: "fair2", look: 120, step: 5, label: "σ за последние 120с" },
+];
+// Защита от «тихого фида»: σ не опускается ниже этой доли от обычной (часовой) секундной σ.
+const FAIR_SIGMA_FLOOR = 0.3;
+
+// v3.1 / C. Режим волатильности: σ за короткий период ÷ обычная σ (из VolatilityTracker, то же что в z).
+const REGIME_SHORT_SEC = 120;
+const REGIME_LONG_SEC = 300;
+const LOSS_WINDOWS_MAX = 400;
+
+// v3.1 / E. Заражение между монетами
+const CONTAGION_PEAK = 0.95; // токен соседа был не ниже
+const CONTAGION_DROP_TO = 0.85; // а сейчас ниже
+const CONTAGION_SOFT_PEAK = 0.9; // мягкий вариант: был не ниже 0.90 и упал на 0.10+
+const CONTAGION_SOFT_DROP = 0.1;
+
+// v3.1 / F. Траектория токена
+const TRAJ_LOOKBACK_SEC = 15;
+const ASK_HIST_KEEP_MS = 40 * 1000;
+
+// 11-14. Бинанс и Coinbase, признаки лосей, согласие профилей, стопы
 const BINANCE_SYMBOLS: Record<string, string> = {
   Bitcoin: "BTCUSDT",
   Ethereum: "ETHUSDT",
@@ -217,48 +257,66 @@ const BINANCE_KEEP_MS = 15 * 60 * 1000;
 const BINANCE_MATCH_MS = 4000;
 const BINANCE_FRESH_MS = 5000;
 
-/** Цена монет с Binance: опрос REST раз в секунду, история за 15 минут. Без внешних библиотек. */
-class BinanceFeed {
-  private hist: Record<string, { t: number; p: number }[]> = {};
-  private hostIdx = 0;
+const COINBASE_PRODUCTS: Record<string, string> = {
+  Bitcoin: "BTC-USD",
+  Ethereum: "ETH-USD",
+  Solana: "SOL-USD",
+  XRP: "XRP-USD",
+  Dogecoin: "DOGE-USD",
+};
+const COINBASE_HOSTS = ["https://api.exchange.coinbase.com", "https://api.coinbase.com"];
+const COINBASE_POLL_MS = 1000;
+
+/** Общая часть опроса биржи по REST раз в N мс: история цен за 15 минут, поиск цены на момент времени. */
+abstract class RestFeed {
+  protected hist: Record<string, { t: number; p: number }[]> = {};
+  protected hostIdx = 0;
   private failStreak = 0;
   private polling = false;
   okCount = 0;
   failCount = 0;
 
+  constructor(
+    private readonly pollMs: number,
+    private readonly keepMs: number,
+    private readonly freshMs: number,
+    private readonly matchMs: number,
+  ) {}
+
+  protected abstract hostCount(): number;
+  /** Возвращает цены по монетам (название монеты -> цена). Кидает ошибку, если ничего не получено. */
+  protected abstract fetchPrices(hostIdx: number, signal: AbortSignal): Promise<Record<string, number>>;
+
   start(): void {
     void this.poll();
-    setInterval(() => void this.poll(), BINANCE_POLL_MS);
+    setInterval(() => void this.poll(), this.pollMs);
   }
 
   private async poll(): Promise<void> {
     if (this.polling) return;
     this.polling = true;
-    const symbols = Object.values(BINANCE_SYMBOLS);
-    const url = `${BINANCE_HOSTS[this.hostIdx]}/api/v3/ticker/price?symbols=${encodeURIComponent(JSON.stringify(symbols))}`;
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 3000);
     try {
-      const resp = await fetch(url, { signal: ctrl.signal });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const arr: any[] = await resp.json();
+      const prices = await this.fetchPrices(this.hostIdx, ctrl.signal);
       const t = Date.now();
-      for (const row of arr) {
-        const coin = Object.keys(BINANCE_SYMBOLS).find((c) => BINANCE_SYMBOLS[c] === row.symbol);
-        const p = Number(row.price);
-        if (!coin || !Number.isFinite(p) || p <= 0) continue;
+      let got = 0;
+      for (const [coin, p] of Object.entries(prices)) {
+        if (!Number.isFinite(p) || p <= 0) continue;
         const h = this.hist[coin] ?? (this.hist[coin] = []);
         h.push({ t, p });
-        const cutoff = t - BINANCE_KEEP_MS;
+        const cutoff = t - this.keepMs;
         while (h.length > 0 && h[0].t < cutoff) h.shift();
+        got++;
       }
+      if (got === 0) throw new Error("пустой ответ");
       this.okCount++;
       this.failStreak = 0;
     } catch {
       this.failCount++;
       this.failStreak++;
       if (this.failStreak >= 5) {
-        this.hostIdx = (this.hostIdx + 1) % BINANCE_HOSTS.length;
+        this.hostIdx = (this.hostIdx + 1) % this.hostCount();
         this.failStreak = 0;
       }
     } finally {
@@ -271,7 +329,7 @@ class BinanceFeed {
     const h = this.hist[coin];
     if (!h || h.length === 0) return null;
     const last = h[h.length - 1];
-    return Date.now() - last.t <= BINANCE_FRESH_MS ? last.p : null;
+    return Date.now() - last.t <= this.freshMs ? last.p : null;
   }
 
   getPriceAt(coin: string, ts: number): number | null {
@@ -285,12 +343,68 @@ class BinanceFeed {
         best = h[i];
         bestD = d;
       }
-      if (h[i].t < ts - BINANCE_MATCH_MS) break;
+      if (h[i].t < ts - this.matchMs) break;
     }
-    return best !== null && bestD <= BINANCE_MATCH_MS ? best.p : null;
+    return best !== null && bestD <= this.matchMs ? best.p : null;
   }
 }
+
+/** Цена монет с Binance: опрос REST раз в секунду, история за 15 минут. Без внешних библиотек. */
+class BinanceFeed extends RestFeed {
+  constructor() {
+    super(BINANCE_POLL_MS, BINANCE_KEEP_MS, BINANCE_FRESH_MS, BINANCE_MATCH_MS);
+  }
+  protected hostCount(): number {
+    return BINANCE_HOSTS.length;
+  }
+  protected async fetchPrices(hostIdx: number, signal: AbortSignal): Promise<Record<string, number>> {
+    const symbols = Object.values(BINANCE_SYMBOLS);
+    const url = `${BINANCE_HOSTS[hostIdx]}/api/v3/ticker/price?symbols=${encodeURIComponent(JSON.stringify(symbols))}`;
+    const resp = await fetch(url, { signal });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const arr: any[] = await resp.json();
+    const out: Record<string, number> = {};
+    for (const row of arr) {
+      const coin = Object.keys(BINANCE_SYMBOLS).find((c) => BINANCE_SYMBOLS[c] === row.symbol);
+      const p = Number(row.price);
+      if (coin && Number.isFinite(p) && p > 0) out[coin] = p;
+    }
+    return out;
+  }
+}
+
+/** Цена монет с Coinbase (публичный REST, раз в секунду, по одному запросу на монету). Без ключей. */
+class CoinbaseFeed extends RestFeed {
+  constructor() {
+    super(COINBASE_POLL_MS, BINANCE_KEEP_MS, BINANCE_FRESH_MS, BINANCE_MATCH_MS);
+  }
+  protected hostCount(): number {
+    return COINBASE_HOSTS.length;
+  }
+  protected async fetchPrices(hostIdx: number, signal: AbortSignal): Promise<Record<string, number>> {
+    const host = COINBASE_HOSTS[hostIdx];
+    const headers = { "User-Agent": "research-lab/3.1", Accept: "application/json" };
+    const coins = Object.keys(COINBASE_PRODUCTS);
+    const results = await Promise.allSettled(
+      coins.map(async (coin) => {
+        const prod = COINBASE_PRODUCTS[coin];
+        const url = hostIdx === 0 ? `${host}/products/${prod}/ticker` : `${host}/v2/prices/${prod}/spot`;
+        const resp = await fetch(url, { signal, headers });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const j: any = await resp.json();
+        const p = Number(hostIdx === 0 ? j.price : j?.data?.amount);
+        if (!Number.isFinite(p) || p <= 0) throw new Error("bad price");
+        return [coin, p] as [string, number];
+      }),
+    );
+    const out: Record<string, number> = {};
+    for (const r of results) if (r.status === "fulfilled") out[r.value[0]] = r.value[1];
+    return out;
+  }
+}
+
 const binance = new BinanceFeed();
+const coinbase = new CoinbaseFeed();
 
 const BIN_LABELS = [
   "Binance против (уже за ценой открытия)",
@@ -299,8 +413,23 @@ const BIN_LABELS = [
   "80-120% (примерно как поток)",
   "Binance дальше от открытия, чем поток (больше 120%)",
 ];
+const CB_LABELS = BIN_LABELS.map((s) => s.replace("Binance", "Coinbase"));
+const K_LABELS = ["обе биржи не против", "одна из двух бирж против", "обе биржи против"];
+const RATIO_SHORT = ["против", "меньше 50%", "50-80%", "80-120%", "больше 120%"];
 function binBucketIdx(r: number): number {
   return r < 0 ? 0 : r < 0.5 ? 1 : r < 0.8 ? 2 : r < 1.2 ? 3 : 4;
+}
+
+/** Расшифровка идеи вида bot7 / bot7b2 / bot7c0 / bot7k2. */
+function variantTitle(idea: string): string {
+  const m = idea.match(/^bot(\d+)(?:([bc])(\d)|k(\d))?$/);
+  if (!m) return idea;
+  let s = `Профиль ${m[1]}`;
+  if (m[2] === "b") s += `, ${BIN_LABELS[Number(m[3])]}`;
+  else if (m[2] === "c") s += `, ${CB_LABELS[Number(m[3])]}`;
+  else if (m[4] !== undefined) s += `, ${K_LABELS[Number(m[4])]}`;
+  else s += ", без фильтра бирж";
+  return s;
 }
 
 const AG_LABELS = ["сигнал дал только он (1 профиль)", "согласны 2 профиля", "согласны 3 и больше"];
@@ -320,7 +449,51 @@ function fmtNum(v: number): string {
   return a >= 100 ? v.toFixed(0) : a >= 10 ? v.toFixed(1) : v.toFixed(2);
 }
 
-const FEATURE_DEFS: { name: string; labels: string[]; bucket: (e: LabEntry) => string | null }[] = [
+/** Функция распределения стандартного нормального закона (Абрамовиц-Стеган 26.2.17, ошибка < 1e-7). */
+function normCdf(x: number): number {
+  const t = 1 / (1 + 0.2316419 * Math.abs(x));
+  const d = 0.3989422804014327 * Math.exp((-x * x) / 2);
+  const p = d * t * (0.31938153 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
+  return x > 0 ? 1 - p : p;
+}
+
+// корзины новых признаков
+const REGIME_LABELS = ["до 0.7", "0.7-1.0", "1.0-1.5", "1.5-2.5", "больше 2.5"];
+function regimeIdx(r: number): number {
+  return r < 0.7 ? 0 : r < 1 ? 1 : r < 1.5 ? 2 : r < 2.5 ? 3 : 4;
+}
+const NEAR_LABELS = ["0", "1", "2+"];
+const TRAJ_LABELS = [
+  "резко падает (−0.05 и ниже)",
+  "падает (−0.05…−0.015)",
+  "стоит (±0.015)",
+  "растёт (+0.015…+0.05)",
+  "резко растёт (+0.05 и выше)",
+];
+function trajIdx(d: number): number {
+  return d <= -0.05 ? 0 : d <= -0.015 ? 1 : d < 0.015 ? 2 : d < 0.05 ? 3 : 4;
+}
+const HOUR_LABELS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
+
+const F_REGIME2 = "режим волатильности: σ за 2 мин ÷ обычная σ";
+const F_REGIME5 = "режим волатильности: σ за 5 мин ÷ обычная σ";
+const F_CONTAGION = "соседние монеты с просевшим токеном (был ≥0.95, стал <0.85)";
+const F_CONTAGION_SOFT = "соседние монеты: токен упал на 0.10+ от пика (пик ≥0.90)";
+const F_TRAJ = "траектория токена за 15с (ask сейчас − ask 15с назад)";
+const F_FAIR = "запас справедливой цены (p − ask, σ за 120с)";
+const F_CB = "Coinbase к потоку бота (доля пройденного)";
+const F_EXCH2 = "сколько бирж (Binance, Coinbase) против";
+const F_HOUR = "час суток UTC (по одному)";
+
+interface FeatureDef {
+  name: string;
+  labels: string[];
+  bucket: (e: LabEntry) => string | null;
+  perProfile?: boolean; // считать ещё и по каждому профилю отдельно (featProf)
+  loss?: boolean; // показывать в «лаб лоси» (по умолчанию да)
+}
+
+const FEATURE_DEFS: FeatureDef[] = [
   {
     name: "скорость монеты за 10с (в нашу сторону)",
     labels: ["против", "почти стоит (меньше 0.02%)", "0.02-0.05%", "больше 0.05%"],
@@ -362,6 +535,64 @@ const FEATURE_DEFS: { name: string; labels: string[]; bucket: (e: LabEntry) => s
     labels: ["0", "1", "2", "3+"],
     bucket: (e) => (e.xings === undefined ? null : e.xings >= 3 ? "3+" : String(e.xings)),
   },
+  // ── v3.1 ──
+  {
+    name: F_REGIME2,
+    labels: REGIME_LABELS,
+    perProfile: true,
+    bucket: (e) => (e.rv2 == null ? null : REGIME_LABELS[regimeIdx(e.rv2)]),
+  },
+  {
+    name: F_REGIME5,
+    labels: REGIME_LABELS,
+    perProfile: true,
+    bucket: (e) => (e.rv5 == null ? null : REGIME_LABELS[regimeIdx(e.rv5)]),
+  },
+  {
+    name: F_CONTAGION,
+    labels: NEAR_LABELS,
+    perProfile: true,
+    bucket: (e) => (e.cg === undefined ? null : NEAR_LABELS[Math.min(e.cg, 2)]),
+  },
+  {
+    name: F_CONTAGION_SOFT,
+    labels: NEAR_LABELS,
+    perProfile: true,
+    bucket: (e) => (e.cgs === undefined ? null : NEAR_LABELS[Math.min(e.cgs, 2)]),
+  },
+  {
+    name: F_TRAJ,
+    labels: TRAJ_LABELS,
+    perProfile: true,
+    bucket: (e) => (e.tr15 == null ? null : TRAJ_LABELS[trajIdx(e.tr15)]),
+  },
+  {
+    name: F_FAIR,
+    labels: FAIR_SHORT,
+    perProfile: true,
+    bucket: (e) => (e.fe == null ? null : FAIR_SHORT[fairIdx(e.fe)]),
+  },
+  {
+    name: F_CB,
+    labels: RATIO_SHORT,
+    perProfile: true,
+    bucket: (e) => (e.cb == null || e.pm == null || e.pm <= 0 ? null : RATIO_SHORT[binBucketIdx(e.cb / e.pm)]),
+  },
+  {
+    name: F_EXCH2,
+    labels: ["0", "1", "2"],
+    perProfile: true,
+    bucket: (e) => {
+      if (e.bin == null || e.cb == null) return null;
+      return String((e.bin < 0 ? 1 : 0) + (e.cb < 0 ? 1 : 0));
+    },
+  },
+  {
+    name: F_HOUR,
+    labels: HOUR_LABELS,
+    loss: false,
+    bucket: (e) => (e.hr === undefined ? null : HOUR_LABELS[e.hr]),
+  },
 ];
 
 const NUM_FEATURES: { name: string; get: (e: LabEntry) => number | null }[] = [
@@ -370,6 +601,7 @@ const NUM_FEATURES: { name: string; get: (e: LabEntry) => number | null }[] = [
   { name: "скорость монеты за 30с, %", get: (e) => (e.sp30 == null ? null : e.sp30 * 100) },
   { name: "движение от открытия по потоку бота, %", get: (e) => (e.pm == null ? null : e.pm * 100) },
   { name: "движение от открытия по Binance, %", get: (e) => (e.bin == null ? null : e.bin * 100) },
+  { name: "движение от открытия по Coinbase, %", get: (e) => (e.cb == null ? null : e.cb * 100) },
   {
     name: "размер bid / размер ask",
     get: (e) => (e.bsz == null || e.asz == null || e.asz <= 0 ? null : Math.min(e.bsz / e.asz, 50)),
@@ -377,9 +609,50 @@ const NUM_FEATURES: { name: string; get: (e: LabEntry) => number | null }[] = [
   { name: "другие монеты идут туда же (0.05%)", get: (e) => e.c05 },
   { name: "пересечения цены открытия", get: (e) => e.xings ?? null },
   { name: "сколько профилей согласны", get: (e) => e.agreeN ?? null },
+  { name: "режим: σ 2 мин ÷ обычная", get: (e) => e.rv2 ?? null },
+  { name: "режим: σ 5 мин ÷ обычная", get: (e) => e.rv5 ?? null },
+  { name: "соседей с просевшим токеном", get: (e) => e.cg ?? null },
+  { name: "траектория токена за 15с", get: (e) => e.tr15 ?? null },
+  { name: "запас справедливой цены (p − ask), %", get: (e) => (e.fe == null ? null : e.fe * 100) },
   { name: "секунд до закрытия", get: (e) => e.sec },
   { name: "цена входа", get: (e) => e.price },
 ];
+
+/** Правила «что было бы, если не входить при такой корзине» для новых признаков (n = индекс корзины). */
+const FEAT_RULES: Record<string, { label: string; remove: (n: number) => boolean }[]> = {
+  [F_REGIME2]: [
+    { label: "не входить при σ2м/обычная > 1.0", remove: (n) => n >= 2 },
+    { label: "не входить при σ2м/обычная > 1.5", remove: (n) => n >= 3 },
+    { label: "не входить при σ2м/обычная > 2.5", remove: (n) => n >= 4 },
+  ],
+  [F_REGIME5]: [
+    { label: "не входить при σ5м/обычная > 1.0", remove: (n) => n >= 2 },
+    { label: "не входить при σ5м/обычная > 1.5", remove: (n) => n >= 3 },
+    { label: "не входить при σ5м/обычная > 2.5", remove: (n) => n >= 4 },
+  ],
+  [F_CONTAGION]: [
+    { label: "не входить при 1+ просевших соседях", remove: (n) => n >= 1 },
+    { label: "не входить при 2+ просевших соседях", remove: (n) => n >= 2 },
+  ],
+  [F_CONTAGION_SOFT]: [
+    { label: "не входить при 1+ соседях с падением на 0.10+", remove: (n) => n >= 1 },
+    { label: "не входить при 2+ соседях с падением на 0.10+", remove: (n) => n >= 2 },
+  ],
+  [F_TRAJ]: [
+    { label: "не входить, если токен «падает» или «резко падает»", remove: (n) => n <= 1 },
+    { label: "не входить, если токен «резко падает»", remove: (n) => n === 0 },
+    { label: "не входить, если токен «растёт» или «резко растёт»", remove: (n) => n >= 3 },
+  ],
+  [F_FAIR]: [
+    { label: "не входить при edge меньше 2%", remove: (n) => n <= 1 },
+    { label: "не входить при edge меньше 4%", remove: (n) => n <= 2 },
+  ],
+  [F_CB]: [{ label: "не входить, если Coinbase против", remove: (n) => n === 0 }],
+  [F_EXCH2]: [
+    { label: "не входить, если хоть одна биржа против", remove: (n) => n >= 1 },
+    { label: "не входить, если обе биржи против", remove: (n) => n >= 2 },
+  ],
+};
 
 /** Строки «что было бы, если не входить в корзинах с индексом меньше upTo». */
 function cutLines(buckets: Stat[], cuts: { upTo: number; label: string }[]): string[] {
@@ -413,6 +686,31 @@ function cutLines(buckets: Stat[], cuts: { upTo: number; label: string }[]): str
     );
   }
   return out;
+}
+
+/** То же, но произвольное правило отсечения (remove(n) = true — корзину отбрасываем). */
+function cutLine(buckets: Stat[], remove: (n: number) => boolean, label: string): string | null {
+  const tot = buckets.reduce((a, s) => ({ w: a.w + s.w, t: a.t + s.t, roi: a.roi + s.roi }), { w: 0, t: 0, roi: 0 });
+  if (tot.t === 0) return null;
+  const baseRoi = tot.roi / tot.t;
+  let kw = 0;
+  let kt = 0;
+  let kr = 0;
+  let cw = 0;
+  let ct = 0;
+  buckets.forEach((s, n) => {
+    if (remove(n)) {
+      cw += s.w;
+      ct += s.t;
+    } else {
+      kw += s.w;
+      kt += s.t;
+      kr += s.roi;
+    }
+  });
+  if (ct === 0) return `  ${label}: ничего не отсекает`;
+  const helps = kt > 0 && kr / kt > baseRoi && ct - cw > cw;
+  return `  ${label}: остаётся ${kw}/${kt} (${winPct(kw, kt)}), прибыль ${roiLabel(kr, kt)}; отсекли ${ct} (побед ${cw}, проигрышей ${ct - cw}) ${helps ? "✅ помогает" : "— не помогает"}`;
 }
 
 // ─────────────────────────── Профили бота (моделирование) ───────────────────────────
@@ -529,7 +827,7 @@ function pairKey(pk: string, closeTimeMs: number, side: string): string {
 }
 
 interface LabEntry {
-  idea: string; // "margin" | "cheap" | "panic" | "impulse" | "model" | "psolo" | "bot1".."bot7" | "bot7b0".."bot7b4"
+  idea: string; // "margin" | "cheap" | "panic" | "impulse" | "model" | "modelb0".. | "fair1" | "fair2" | "psolo" | "bot1".."bot7" | "bot7b0".."bot7k2"
   combo: string;
   coin: string;
   side: "Up" | "Down";
@@ -546,7 +844,15 @@ interface LabEntry {
   bsz?: number | null;
   asz?: number | null;
   bin?: number | null;
+  cb?: number | null; // движение по Coinbase от открытия окна (в нашу сторону)
   pm?: number;
+  rv2?: number | null; // σ за 2 мин ÷ обычная σ
+  rv5?: number | null; // σ за 5 мин ÷ обычная σ
+  cg?: number; // соседей с просевшим токеном (строго)
+  cgs?: number; // соседей с токеном, упавшим на 0.10+ от пика (мягко)
+  tr15?: number | null; // ask сейчас − ask 15с назад
+  fp?: number | null; // справедливая вероятность p
+  fe?: number | null; // edge = p − ask
   agreeN?: number;
   minBid?: number;
   stops?: (number | null)[];
@@ -560,7 +866,14 @@ interface Feat {
   bsz: number | null;
   asz: number | null;
   bin: number | null;
+  cb: number | null;
   pm: number;
+  rv2: number | null;
+  rv5: number | null;
+  cg: number;
+  cgs: number;
+  tr15: number | null;
+  fe: number | null;
 }
 
 interface StopAgg {
@@ -583,6 +896,13 @@ interface LiveRec {
   pnl: number; // в долларах с размером ставки бота
   z: number | null;
   ratio: number | null; // во сколько раз Binance прошёл от потока
+}
+
+interface LossWin {
+  lost: string[]; // монеты, где в этом окне проиграл хотя бы один базовый вход
+  seen: string[]; // монеты, где в этом окне были базовые входы
+  rvSum: number; // сумма rv2 по входам окна
+  rvN: number;
 }
 
 interface PairEntry {
@@ -861,6 +1181,10 @@ class ResearchLab {
   private touchStates = new Map<string, { touchedHigh: boolean; touchedCorridor: boolean; leftAfterTouch: boolean }>();
   private firedKeys = new Set<string>(); // см. fireKey(): комбинация входит в рынок один раз на сторону
 
+  // v3.1: история ask токена (для траектории) и кэш реализованной волатильности
+  private askHist = new Map<string, { t: number; a: number }[]>();
+  private rvCache = new Map<string, { t: number; v: number | null }>();
+
   private verifying = new Set<string>();
   private lastVerifyAt = new Map<string, number>();
   private arbSampling = false;
@@ -893,6 +1217,9 @@ class ResearchLab {
   private binAgg: StatMap = {};
   private agAgg: StatMap = {};
   private featAgg: StatMap = {};
+  private featProf: StatMap = {}; // v3.1: новые признаки по профилям: `${all|botN}|${признак}|${корзина}`
+  private fairCal: StatMap = {}; // v3.1: калибровка справедливой цены: `${idea}|${edge-корзина}`, px = сумма p
+  private lossWin: Record<string, LossWin> = {}; // v3.1: кластеры проигрышей по окнам (closeTimeMs)
   private featSum: Record<string, { s: number; n: number }> = {};
   private lossLog: LabEntry[] = [];
   private dipAgg: StatMap = {};
@@ -953,6 +1280,69 @@ class ResearchLab {
     this.liveSkips[reason] = (this.liveSkips[reason] ?? 0) + 1;
   }
 
+  // ───── история ask и реализованная волатильность (v3.1) ─────
+
+  private pushAsk(tokenId: string, t: number, a: number): void {
+    let h = this.askHist.get(tokenId);
+    if (!h) {
+      h = [];
+      this.askHist.set(tokenId, h);
+    }
+    const last = h[h.length - 1];
+    if (last && last.a === a && t - last.t < 1000) return;
+    h.push({ t, a });
+    const cutoff = t - ASK_HIST_KEEP_MS;
+    // оставляем один замер старше границы, чтобы знать цену «15с назад», даже если ask давно не менялся
+    while (h.length > 1 && h[1].t < cutoff) h.shift();
+  }
+
+  private askAgo(tokenId: string, now: number, sec: number): number | null {
+    const h = this.askHist.get(tokenId);
+    if (!h || h.length === 0) return null;
+    const target = now - sec * 1000;
+    for (let i = h.length - 1; i >= 0; i--) {
+      if (h[i].t <= target) return h[i].a;
+    }
+    // истории не хватает: берём самый старый замер, если он покрывает хотя бы 60% нужного срока
+    return now - h[0].t >= sec * 600 ? h[0].a : null;
+  }
+
+  /**
+   * Реализованная секундная волатильность монеты (доля цены на √секунду) за последние lookSec секунд,
+   * по тикам фида с шагом stepSec. Кэш на 1 секунду. null — если данных мало.
+   */
+  private realizedVol(coin: string, lookSec: number, stepSec: number, now: number): number | null {
+    const key = `${coin}|${lookSec}|${stepSec}`;
+    const c = this.rvCache.get(key);
+    if (c && now - c.t < 1000) return c.v;
+    const feed = PRICE_FEEDS[coin];
+    let v: number | null = null;
+    if (feed) {
+      let prevP: number | null = null;
+      let prevT = 0;
+      let sumSq = 0;
+      let sumDt = 0;
+      let n = 0;
+      const consider = (t: number, px: number | null): void => {
+        if (px === null || px <= 0) return;
+        if (prevP !== null && t > prevT) {
+          const r = Math.log(px / prevP);
+          sumSq += r * r;
+          sumDt += (t - prevT) / 1000;
+          n++;
+        }
+        prevP = px;
+        prevT = t;
+      };
+      for (let t = now - lookSec * 1000; t < now; t += stepSec * 1000) consider(t, feed.getPriceAt(t));
+      consider(now, feed.getLatestPrice());
+      const need = Math.max(5, Math.floor((lookSec / stepSec) * 0.5));
+      if (n >= need && sumDt > 0) v = Math.sqrt(sumSq / sumDt);
+    }
+    this.rvCache.set(key, { t: now, v });
+    return v;
+  }
+
   // ───── сохранение / загрузка ─────
 
   saveState(): void {
@@ -969,6 +1359,9 @@ class ResearchLab {
         binAgg: this.binAgg,
         agAgg: this.agAgg,
         featAgg: this.featAgg,
+        featProf: this.featProf,
+        fairCal: this.fairCal,
+        lossWin: this.lossWin,
         featSum: this.featSum,
         lossLog: this.lossLog,
         dipAgg: this.dipAgg,
@@ -1020,6 +1413,9 @@ class ResearchLab {
       this.binAgg = data.binAgg ?? {};
       this.agAgg = data.agAgg ?? {};
       this.featAgg = data.featAgg ?? {};
+      this.featProf = data.featProf ?? {};
+      this.fairCal = data.fairCal ?? {};
+      this.lossWin = data.lossWin ?? {};
       this.featSum = data.featSum ?? {};
       this.lossLog = data.lossLog ?? [];
       this.dipAgg = data.dipAgg ?? {};
@@ -1118,6 +1514,9 @@ class ResearchLab {
     for (const tokenId of this.quotes.keys()) {
       if (!this.tokenIndex.has(tokenId)) this.quotes.delete(tokenId);
     }
+    for (const tokenId of this.askHist.keys()) {
+      if (!this.tokenIndex.has(tokenId)) this.askHist.delete(tokenId);
+    }
     for (const tokenId of this.lastVerifyAt.keys()) {
       if (!this.tokenIndex.has(tokenId)) this.lastVerifyAt.delete(tokenId);
     }
@@ -1167,6 +1566,7 @@ class ResearchLab {
       q.ask = hasAsk ? (update.bestAsk as number) : null;
     }
     this.quotes.set(update.tokenId, q);
+    if ((hasBid || hasAsk) && q.ask !== null) this.pushAsk(update.tokenId, now, q.ask);
 
     // "цена" для условий коридора — как в боте: bestBid, иначе bestAsk
     const price = update.bestBid ?? update.bestAsk;
@@ -1245,7 +1645,12 @@ class ResearchLab {
 
     for (const def of FEATURE_DEFS) {
       const b = def.bucket(e);
-      if (b !== null) bump(this.featAgg, `${def.name}|${b}`, won, roi, e.price);
+      if (b === null) continue;
+      bump(this.featAgg, `${def.name}|${b}`, won, roi, e.price);
+      if (def.perProfile) {
+        bump(this.featProf, `all|${def.name}|${b}`, won, roi, e.price);
+        bump(this.featProf, `${e.idea}|${def.name}|${b}`, won, roi, e.price);
+      }
     }
     for (const nf of NUM_FEATURES) {
       const v = nf.get(e);
@@ -1307,6 +1712,15 @@ class ResearchLab {
     return { avg, verdict: lo > avg ? "✅" : t > 0 && w / t > avg ? "⚠️" : "❌" };
   }
 
+  /** Одна строка «бот»: итог по идее вида botNbX / botNcX / botNkX. */
+  private variantLine(idea: string, label: string): string {
+    const s = this.sumIdea(idea);
+    if (s.t === 0) return `  ${label}: пока нет входов`;
+    const v = this.verdictFor(s.w, s.t, s.px);
+    const live = LIVE_VARIANTS[idea] !== undefined ? " ← так торгует бот" : "";
+    return `  ${label}: ${s.w}/${s.t} (${winPct(s.w, s.t)}), надёжно ${(wilsonLower(s.w, s.t) * 100).toFixed(0)}%, цена ${v.avg.toFixed(3)}, прибыль ${roiLabel(s.roi, s.t)} ${v.verdict}${s.t < 30 ? " (мало данных)" : ""}${live}`;
+  }
+
   buildBinanceReport(): string {
     const lines: string[] = [];
     lines.push("<b>📊 Второе мнение: Binance (каждая корзина — отдельный бот)</b>");
@@ -1321,24 +1735,43 @@ class ResearchLab {
     for (const prof of BOT_PROFILES) {
       const ideas: [string, string][] = [[`bot${prof.id}`, "без фильтра Binance"]];
       BIN_LABELS.forEach((label, i) => ideas.push([`bot${prof.id}b${i}`, label]));
-      const rows = ideas.map(([idea, label]) => ({ idea, label, s: this.sumIdea(idea) }));
-      if (rows[0].s.t === 0) continue;
+      if (this.sumIdea(ideas[0][0]).t === 0) continue;
       anyProfile = true;
       lines.push(`<b>── Профиль ${prof.id} ──</b>`);
-      for (const r of rows) {
-        if (r.s.t === 0) {
-          lines.push(`  ${r.label}: пока нет входов`);
-          continue;
-        }
-        const v = this.verdictFor(r.s.w, r.s.t, r.s.px);
-        const live = LIVE_VARIANTS[r.idea] !== undefined ? " ← так торгует бот" : "";
-        lines.push(
-          `  ${r.label}: ${r.s.w}/${r.s.t} (${winPct(r.s.w, r.s.t)}), надёжно ${(wilsonLower(r.s.w, r.s.t) * 100).toFixed(0)}%, цена ${v.avg.toFixed(3)}, прибыль ${roiLabel(r.s.roi, r.s.t)} ${v.verdict}${r.s.t < 30 ? " (мало данных)" : ""}${live}`,
-        );
-      }
+      for (const [idea, label] of ideas) lines.push(this.variantLine(idea, label));
       lines.push("");
     }
     if (!anyProfile) lines.push("пока нет данных");
+    return lines.join("\n");
+  }
+
+  /** v3.1 / B: Coinbase и «две биржи сразу» для профилей бота. */
+  buildExchangesReport(): string {
+    const lines: string[] = [];
+    lines.push("<b>📊 Другие биржи: Coinbase и «две биржи сразу»</b>");
+    lines.push(
+      "Те же «боты по корзинам», что и для Binance, но по Coinbase (c0-c4), и по двум биржам сразу: k2 = обе против, k1 = одна против, k0 = обе не против. Корзина = во сколько раз биржа прошла от цены открытия окна по сравнению с потоком бота (против = биржа уже за ценой открытия). Фильтр — условие входа с ожиданием, как в боте.",
+    );
+    lines.push(
+      `Опрос Coinbase: удачно ${coinbase.okCount}, ошибок ${coinbase.failCount}. Опрос Binance: удачно ${binance.okCount}, ошибок ${binance.failCount}. Данные считаются с ${new Date(this.sinceTs).toISOString().slice(0, 16).replace("T", " ")} UTC.`,
+    );
+    lines.push(
+      "Важно: сначала проверь правила рынка Polymarket — по какому источнику идёт резолв (для 5-минуток это обычно Chainlink Data Streams, он агрегирует несколько площадок). Если вся логика в том, что токен тянется за биржами, а резолв идёт по агрегату, то совпадение нескольких бирж должно давать фильтр жёстче одной.",
+    );
+    lines.push("");
+    let any = false;
+    for (const prof of BOT_PROFILES) {
+      if (this.sumIdea(`bot${prof.id}`).t === 0) continue;
+      any = true;
+      lines.push(`<b>── Профиль ${prof.id} ──</b>`);
+      lines.push(this.variantLine(`bot${prof.id}`, "без фильтра бирж"));
+      lines.push(this.variantLine(`bot${prof.id}b0`, "для сравнения: Binance против"));
+      CB_LABELS.forEach((label, i) => lines.push(this.variantLine(`bot${prof.id}c${i}`, label)));
+      K_LABELS.forEach((label, i) => lines.push(this.variantLine(`bot${prof.id}k${i}`, label)));
+      lines.push("");
+    }
+    if (!any) lines.push("пока нет данных");
+    lines.push(`Отдельно по признаку «${F_EXCH2}» и «${F_CB}» см. «лаб лоси» (там же числовые средние).`);
     return lines.join("\n");
   }
 
@@ -1392,7 +1825,7 @@ class ResearchLab {
     }
     lines.push("<b>📊 Вскрытие лосей</b>");
     lines.push(
-      `К каждому базовому входу профилей бота (без фильтра Binance) записываем признаки момента входа и сравниваем проигравшие входы с выигравшими. Входов с признаками: ${totT}, из них проиграло ${totT - totW}.`,
+      `К каждому базовому входу профилей бота (без фильтра Binance) записываем признаки момента входа и сравниваем проигравшие входы с выигравшими. Входов с признаками: ${totT}, из них проиграло ${totT - totW}. Новые признаки (режим волатильности, соседи, траектория, edge, Coinbase) накапливаются только с момента обновления до v3.1.`,
     );
     lines.push("");
 
@@ -1414,6 +1847,7 @@ class ResearchLab {
 
     lines.push("<b>── Винрейт по признакам ──</b>");
     for (const def of FEATURE_DEFS) {
+      if (def.loss === false) continue;
       const parts: string[] = [];
       for (const label of def.labels) {
         const s = this.featAgg[`${def.name}|${label}`];
@@ -1432,7 +1866,7 @@ class ResearchLab {
       for (const e of [...this.lossLog].slice(-15).reverse()) {
         const t = new Date(e.ts).toISOString().slice(11, 16);
         lines.push(
-          `  ${t} UTC ${COIN_SHORT[e.coin] ?? e.coin} ${e.side}, профиль ${e.idea.slice(3)}, цена ${e.price.toFixed(2)}, за ${e.sec}с | z ${e.z != null ? e.z.toFixed(1) : "—"} | скорость 10с ${fmtPct(e.sp10)}, 30с ${fmtPct(e.sp30)} | bid/ask ${e.bsz != null ? Math.round(e.bsz) : "—"}/${e.asz != null ? Math.round(e.asz) : "—"} | Binance ${fmtPct(e.bin)} (поток ${fmtPct(e.pm)}) | согласны профилей ${e.agreeN ?? "—"} | пересечений ${e.xings ?? "—"} | мин. цена после входа ${e.minBid != null ? e.minBid.toFixed(2) : "—"}`,
+          `  ${t} UTC ${COIN_SHORT[e.coin] ?? e.coin} ${e.side}, профиль ${e.idea.slice(3)}, цена ${e.price.toFixed(2)}, за ${e.sec}с | z ${e.z != null ? e.z.toFixed(1) : "—"} | скорость 10с ${fmtPct(e.sp10)}, 30с ${fmtPct(e.sp30)} | bid/ask ${e.bsz != null ? Math.round(e.bsz) : "—"}/${e.asz != null ? Math.round(e.asz) : "—"} | Binance ${fmtPct(e.bin)} Coinbase ${fmtPct(e.cb)} (поток ${fmtPct(e.pm)}) | согласны профилей ${e.agreeN ?? "—"} | пересечений ${e.xings ?? "—"} | мин. цена после входа ${e.minBid != null ? e.minBid.toFixed(2) : "—"} | σ2м/обычная ${e.rv2 != null ? e.rv2.toFixed(1) : "—"} | соседей просело ${e.cg ?? "—"} | траектория 15с ${e.tr15 != null ? e.tr15.toFixed(2) : "—"} | edge ${fmtPct(e.fe, 1)}`,
         );
       }
     }
@@ -1498,13 +1932,13 @@ class ResearchLab {
     const lines: string[] = [];
     lines.push("<b>🤖 Как торговал бы реальный бот</b>");
     lines.push(
-      `Считается так: ${RULES_TEXT}; фильтр Binance с ожиданием, проверка живого стакана, цена входа = живой ask, итог по официальному резолву. Размер ставки как у бота. Счёт с ${new Date(this.sinceTs).toISOString().slice(0, 16).replace("T", " ")} UTC.`,
+      `Считается так: ${RULES_TEXT}; фильтр бирж с ожиданием, проверка живого стакана, цена входа = живой ask, итог по официальному резолву. Размер ставки как у бота. Счёт с ${new Date(this.sinceTs).toISOString().slice(0, 16).replace("T", " ")} UTC.`,
     );
     lines.push("");
     for (const idea of Object.keys(LIVE_VARIANTS)) {
       const size = LIVE_VARIANTS[idea];
-      const m = idea.match(/^bot(\d+)(?:b(\d))?$/);
-      const title = m ? `Профиль ${m[1]}${m[2] !== undefined ? `, Binance: ${BIN_LABELS[Number(m[2])]}` : ", без фильтра Binance"}` : idea;
+      const m = idea.match(/^bot(\d+)/);
+      const title = variantTitle(idea);
       const s = this.sumIdea(idea);
       const log = this.liveLog.filter((r) => r.idea === idea);
       lines.push(`<b>── ${title} (ставка $${size}) ──</b>`);
@@ -1529,10 +1963,10 @@ class ResearchLab {
         return x ? `${COIN_SHORT[c]} ${x.w}/${x.t} ${winPct(x.w, x.t)}` : null;
       }).filter((x) => x !== null);
       lines.push(`  По монетам: ${coinParts.join(" | ")}`);
-      if (m) {
+      if (m && idea !== `bot${m[1]}`) {
         const base = this.sumIdea(`bot${m[1]}`);
-        if (base.t > 0 && m[2] !== undefined) {
-          lines.push(`  Для сравнения тот же профиль без фильтра Binance: ${base.w}/${base.t} (${winPct(base.w, base.t)}), прибыль на $1: ${roiLabel(base.roi, base.t)}`);
+        if (base.t > 0) {
+          lines.push(`  Для сравнения тот же профиль без фильтра бирж: ${base.w}/${base.t} (${winPct(base.w, base.t)}), прибыль на $1: ${roiLabel(base.roi, base.t)}`);
         }
       }
       lines.push("");
@@ -1728,6 +2162,7 @@ class ResearchLab {
       const book = await fetchBook(tokenId);
       if (!book) return;
       this.quotes.set(tokenId, { bid: book.bid, ask: book.ask });
+      if (book.ask !== null) this.pushAsk(tokenId, Date.now(), book.ask);
 
       if (this.pending.get(market.eventSlug) !== p) return;
 
@@ -1784,6 +2219,7 @@ class ResearchLab {
     const pctMove = (coinNow - openP) / openP;
     const dirMove = side === "Up" ? pctMove : -pctMove;
     const peak = this.peaks.get(`${market.eventSlug}:${side}`) ?? 0;
+    const tokenId = side === "Up" ? market.upTokenId : market.downTokenId;
 
     let volCache: number | null | undefined;
     const getVol = (): number | null => {
@@ -1821,6 +2257,94 @@ class ResearchLab {
       return xingsCache;
     };
 
+    // Движение монеты по бирже от открытия окна в нашу сторону (Binance / Coinbase)
+    const exMove = (ex: RestFeed): number | null => {
+      const o = ex.getPriceAt(market.coin, openTimeMs);
+      const n = ex.getLatest(market.coin);
+      if (o === null || n === null || o === 0) return null;
+      const m = (n - o) / o;
+      return side === "Up" ? m : -m;
+    };
+    let binCache: number | null | undefined;
+    const getBin = (): number | null => {
+      if (binCache === undefined) binCache = exMove(binance);
+      return binCache;
+    };
+    let cbCache: number | null | undefined;
+    const getCb = (): number | null => {
+      if (cbCache === undefined) cbCache = exMove(coinbase);
+      return cbCache;
+    };
+    // Во сколько раз биржа прошла от потока бота (как в боте: нужно движение по потоку в нашу сторону и свежая биржа)
+    const getRatioOf = (src: "b" | "c"): number | null => {
+      const mv = src === "b" ? getBin() : getCb();
+      return mv !== null && dirMove > 0 ? mv / dirMove : null;
+    };
+    const getRatio = (): number | null => getRatioOf("b");
+
+    // Режим волатильности: σ за короткий период ÷ обычная секундная σ (та же, что в z)
+    let regCache: { rv2: number | null; rv5: number | null } | undefined;
+    const getRegime = (): { rv2: number | null; rv5: number | null } => {
+      if (regCache === undefined) {
+        const v = getVol();
+        const base = v !== null && v > 1e-6 ? v / Math.sqrt(300) : null;
+        const s2 = this.realizedVol(market.coin, REGIME_SHORT_SEC, 5, now);
+        const s5 = this.realizedVol(market.coin, REGIME_LONG_SEC, 10, now);
+        regCache = {
+          rv2: base !== null && s2 !== null ? s2 / base : null,
+          rv5: base !== null && s5 !== null ? s5 / base : null,
+        };
+      }
+      return regCache;
+    };
+
+    // «Справедливая цена»: p = Φ(d / (σ·√t))
+    const fairCache = new Map<string, { p: number; edge: number } | null>();
+    const getFair = (look: number, step: number): { p: number; edge: number } | null => {
+      const ck = `${look}:${step}`;
+      if (fairCache.has(ck)) return fairCache.get(ck) ?? null;
+      let res: { p: number; edge: number } | null = null;
+      if (dirMove > 0) {
+        let sig = this.realizedVol(market.coin, look, step, now);
+        const v = getVol();
+        const base = v !== null && v > 1e-6 ? v / Math.sqrt(300) : null;
+        if (sig !== null && base !== null) sig = Math.max(sig, FAIR_SIGMA_FLOOR * base);
+        if (sig !== null && sig > 0) {
+          const pFair = normCdf(dirMove / (sig * Math.sqrt(Math.max(secToClose, 1))));
+          res = { p: pFair, edge: pFair - ask };
+        }
+      }
+      fairCache.set(ck, res);
+      return res;
+    };
+
+    // «Заражение»: сколько соседних монет (то же окно закрытия) имеют просевший токен нашей стороны
+    let contCache: { strict: number; soft: number } | undefined;
+    const getContagion = (): { strict: number; soft: number } => {
+      if (contCache === undefined) {
+        let strict = 0;
+        let soft = 0;
+        for (const m of this.activeMarkets.values()) {
+          if (m.closeTimeMs !== market.closeTimeMs || m.coin === market.coin) continue;
+          const tok = side === "Up" ? m.upTokenId : m.downTokenId;
+          const pk = this.peaks.get(`${m.eventSlug}:${side}`) ?? 0;
+          const q2 = this.quotes.get(tok);
+          const cur = q2 ? (q2.bid ?? q2.ask) : null;
+          if (cur === null) continue;
+          if (pk >= CONTAGION_PEAK && cur < CONTAGION_DROP_TO) strict++;
+          if (pk >= CONTAGION_SOFT_PEAK && pk - cur >= CONTAGION_SOFT_DROP) soft++;
+        }
+        contCache = { strict, soft };
+      }
+      return contCache;
+    };
+
+    // «Траектория токена»: ask сейчас − ask 15с назад
+    const getTraj = (): number | null => {
+      const a0 = this.askAgo(tokenId, now, TRAJ_LOOKBACK_SEC);
+      return a0 === null ? null : ask - a0;
+    };
+
     let featCache: Feat | undefined;
     const getFeat = (): Feat => {
       if (featCache === undefined) {
@@ -1830,13 +2354,8 @@ class ResearchLab {
           const m = (coinNow - p0) / p0;
           return side === "Up" ? m : -m;
         };
-        const bo = binance.getPriceAt(market.coin, openTimeMs);
-        const bn = binance.getLatest(market.coin);
-        let bin: number | null = null;
-        if (bo !== null && bn !== null && bo !== 0) {
-          const m = (bn - bo) / bo;
-          bin = side === "Up" ? m : -m;
-        }
+        const reg = getRegime();
+        const cont = getContagion();
         featCache = {
           z: getZ(),
           sp10: sp(10),
@@ -1844,26 +2363,23 @@ class ResearchLab {
           hr: new Date(now).getUTCHours(),
           bsz: book ? book.bidSize : null,
           asz: book ? book.askSize : null,
-          bin,
+          bin: getBin(),
+          cb: getCb(),
           pm: dirMove,
+          rv2: reg.rv2,
+          rv5: reg.rv5,
+          cg: cont.strict,
+          cgs: cont.soft,
+          tr15: getTraj(),
+          fe: getFair(120, 5)?.edge ?? null,
         };
       }
       return featCache;
     };
     let agreeNow = 0;
 
-    // Во сколько раз Binance прошёл от потока бота (как в боте: нужно движение по потоку в нашу сторону и свежий Binance)
-    let ratioCache: number | null | undefined;
-    const getRatio = (): number | null => {
-      if (ratioCache === undefined) {
-        const f = getFeat();
-        ratioCache = f.bin !== null && f.pm > 0 ? f.bin / f.pm : null;
-      }
-      return ratioCache;
-    };
-
     let count = 0;
-    const emit = (idea: string, combo: string): void => {
+    const emit = (idea: string, combo: string, extra?: Partial<LabEntry>): void => {
       const key = fireKey(idea, combo, market.eventSlug, side);
       if (this.firedKeys.has(key)) return; // комбинация уже вошла в этот рынок
       const lim = this.limitReason(idea, combo, market.closeTimeMs);
@@ -1888,6 +2404,7 @@ class ResearchLab {
         c10: c.c10,
         xings: isBase(idea) ? getXings() : undefined,
         ...(isBase(idea) ? { ...getFeat(), agreeN: agreeNow } : {}),
+        ...(extra ?? {}),
       });
     };
 
@@ -1953,13 +2470,45 @@ class ResearchLab {
     }
 
     // ── 8. «Модель цены»: сила (z) × секунды × цена. Одна запись на комбинацию корзин. ──
+    // v3.1: те же ячейки дублируются по корзинам Binance (modelb0..b4, «против» делится на чуть/сильно: modelbW / modelbS),
+    // по корзинам Coinbase (modelc0..c4) и по двум биржам сразу (modelk0..k2).
     if (secToClose <= MODEL_MAX_SEC && ask >= MODEL_ASK_MIN && ask < MODEL_ASK_MAX) {
       const z = getZ();
       if (z !== null) {
         const zb = findBand(MODEL_Z_BANDS, z);
         const sb = findBand(MODEL_SEC_BANDS, secToClose);
         const pb = findBand(MODEL_PRICE_BANDS, ask);
-        if (zb && sb && pb) emit("model", `${zLabel(zb)} / ${secLabel(sb)} / ${priceLabel(pb)}`);
+        if (zb && sb && pb) {
+          const combo = `${zLabel(zb)} / ${secLabel(sb)} / ${priceLabel(pb)}`;
+          emit("model", combo);
+          const rb = getRatioOf("b");
+          const rc = getRatioOf("c");
+          if (rb !== null) {
+            emit(`modelb${binBucketIdx(rb)}`, combo);
+            if (rb < 0) emit(rb >= MODEL_BIN_DOSE_CUT ? "modelbW" : "modelbS", combo);
+          }
+          if (rc !== null) emit(`modelc${binBucketIdx(rc)}`, combo);
+          if (rb !== null && rc !== null) emit(`modelk${(rb < 0 ? 1 : 0) + (rc < 0 ? 1 : 0)}`, combo);
+        }
+      }
+    }
+
+    // ── 15. «Справедливая цена»: p = Φ(d / (σ·√t)), edge = p − ask. Ячейки: корзина edge × секунды × цена. ──
+    if (secToClose <= MODEL_MAX_SEC && dirMove > 0 && ask >= MODEL_ASK_MIN && ask < MODEL_ASK_MAX) {
+      const sb = findBand(MODEL_SEC_BANDS, secToClose);
+      const pb = findBand(MODEL_PRICE_BANDS, ask);
+      if (sb && pb) {
+        for (const fv of FAIR_VARIANTS) {
+          const f = getFair(fv.look, fv.step);
+          if (!f) continue;
+          const combo = `${FAIR_EDGE_LABELS[fairIdx(f.edge)]} / ${secLabel(sb)} / ${priceLabel(pb)}`;
+          const extra: Partial<LabEntry> = { fp: f.p, fe: f.edge };
+          emit(fv.idea, combo, extra);
+          if (fv.idea === "fair2") {
+            const rb = getRatioOf("b");
+            if (rb !== null && rb < 0) emit("fair2b0", combo, extra);
+          }
+        }
       }
     }
 
@@ -1978,19 +2527,26 @@ class ResearchLab {
       }
     }
 
-    // ── 7. Профили бота: базовый бот (без фильтра) и боты по корзинам Binance ──
-    const liveFor = (id: number): string[] =>
-      Object.keys(LIVE_VARIANTS).filter((i) => i === `bot${id}` || i.startsWith(`bot${id}b`));
-    /** Бот из LIVE_VARIANTS пропустил бы вход по этой причине (если его фильтр Binance сейчас тоже пропускает). */
+    // ── 7. Профили бота: базовый бот (без фильтра) и боты по корзинам Binance / Coinbase / двух бирж ──
+    /** Подходит ли идея из LIVE_VARIANTS (бот этого профиля с его фильтром бирж) под текущее состояние бирж. */
+    const variantMatches = (idea: string, id: number): boolean => {
+      const m = idea.match(/^bot(\d+)(?:([bc])(\d)|k(\d))?$/);
+      if (!m || Number(m[1]) !== id) return false;
+      if (m[2] === undefined && m[4] === undefined) return true;
+      if (m[2] !== undefined) {
+        const r = getRatioOf(m[2] as "b" | "c");
+        return r !== null && binBucketIdx(r) === Number(m[3]);
+      }
+      const rb = getRatioOf("b");
+      const rc = getRatioOf("c");
+      if (rb === null || rc === null) return false;
+      return (rb < 0 ? 1 : 0) + (rc < 0 ? 1 : 0) === Number(m[4]);
+    };
+    /** Бот из LIVE_VARIANTS пропустил бы вход по этой причине (если его фильтр бирж сейчас тоже пропускает). */
     const noteLiveFail = (id: number, reason: string): void => {
       if (!commit) return;
-      for (const idea of liveFor(id)) {
-        if (idea === `bot${id}`) {
-          this.noteLive(idea, market.eventSlug, reason);
-        } else {
-          const r = getRatio();
-          if (r !== null && binBucketIdx(r) === Number(idea.slice(`bot${id}b`.length))) this.noteLive(idea, market.eventSlug, reason);
-        }
+      for (const idea of Object.keys(LIVE_VARIANTS)) {
+        if (variantMatches(idea, id)) this.noteLive(idea, market.eventSlug, reason);
       }
     };
 
@@ -2049,8 +2605,11 @@ class ResearchLab {
     agreeNow = holding.length;
     for (const id of holding) {
       emit(`bot${id}`, "профиль");
-      const r = getRatio();
-      if (r !== null) emit(`bot${id}b${binBucketIdx(r)}`, "профиль");
+      const rb = getRatio();
+      const rc = getRatioOf("c");
+      if (rb !== null) emit(`bot${id}b${binBucketIdx(rb)}`, "профиль");
+      if (rc !== null) emit(`bot${id}c${binBucketIdx(rc)}`, "профиль");
+      if (rb !== null && rc !== null) emit(`bot${id}k${(rb < 0 ? 1 : 0) + (rc < 0 ? 1 : 0)}`, "профиль");
     }
 
     return count;
@@ -2080,6 +2639,7 @@ class ResearchLab {
               if (b.ask === null || Math.abs(b.ask - old.ask) >= STALE_DIFF) this.staleShifted++;
             }
             this.quotes.set(tok, { bid: b.bid, ask: b.ask });
+            if (b.ask !== null) this.pushAsk(tok, Date.now(), b.ask);
           }
 
           if (up.ask === null || down.ask === null) return;
@@ -2119,11 +2679,36 @@ class ResearchLab {
       this.aggregateBotEntry(e, wonE, wonE ? (1 - e.price) / e.price : -1);
     }
 
+    // v3.1: кластеры проигрышей — сколько монет проиграло в одном и том же окне
+    const baseEntries = p.entries.filter((e) => isBase(e.idea));
+    if (baseEntries.length > 0) {
+      const wk = String(p.closeTimeMs);
+      const lw = this.lossWin[wk] ?? (this.lossWin[wk] = { lost: [], seen: [], rvSum: 0, rvN: 0 });
+      if (!lw.seen.includes(p.coin)) lw.seen.push(p.coin);
+      if (baseEntries.some((e) => e.side !== winner) && !lw.lost.includes(p.coin)) lw.lost.push(p.coin);
+      for (const e of baseEntries) {
+        if (e.rv2 != null && Number.isFinite(e.rv2)) {
+          lw.rvSum += e.rv2;
+          lw.rvN++;
+        }
+      }
+      const keys = Object.keys(this.lossWin);
+      if (keys.length > LOSS_WINDOWS_MAX) {
+        keys.sort((a, b) => Number(a) - Number(b));
+        for (const k of keys.slice(0, keys.length - LOSS_WINDOWS_MAX)) delete this.lossWin[k];
+      }
+    }
+
     const earliest = new Map<string, LabEntry>(); // `${idea}|${side}` -> самый ранний вход
     for (const e of p.entries) {
       const won = e.side === winner;
       const roi = won ? (1 - e.price) / e.price : -1;
       bump(this.agg, `${e.idea}|${e.combo}|${e.coin}`, won, roi, e.price);
+
+      // калибровка «справедливой цены»: предсказанная p против фактического исхода
+      if (e.idea.startsWith("fair") && e.fp != null && e.fe != null) {
+        bump(this.fairCal, `${e.idea}|${FAIR_EDGE_LABELS[fairIdx(e.fe)]}`, won, roi, e.fp);
+      }
 
       // журнал сделок реального бота (идеи из LIVE_VARIANTS) — для отчёта по периодам и в долларах
       const size = LIVE_VARIANTS[e.idea];
@@ -2245,8 +2830,9 @@ class ResearchLab {
 
   private collect(idea: string): { combo: string; coin: string; w: number; t: number; roi: number; px: number }[] {
     const out: { combo: string; coin: string; w: number; t: number; roi: number; px: number }[] = [];
+    const prefix = `${idea}|`;
     for (const [key, s] of Object.entries(this.agg)) {
-      if (!key.startsWith(`${idea}|`)) continue;
+      if (!key.startsWith(prefix)) continue;
       const parts = key.split("|");
       out.push({ combo: parts[1], coin: parts[2], w: s.w, t: s.t, roi: s.roi, px: s.px ?? 0 });
     }
@@ -2370,6 +2956,7 @@ class ResearchLab {
     lines.push(" • Надёжно — осторожная оценка винрейта с поправкой на малую выборку");
     lines.push(" • ✅ надёжно выше цены (выгодно даже по осторожной оценке); ⚠️ винрейт выше цены, но данных мало, может быть удача; ❌ невыгодно");
     lines.push(" • Один рынок может попасть в несколько комбинаций по мере того, как идёт время и меняется цена");
+    lines.push(' • Та же сетка с фильтрами бирж: "лаб модель бинанс"');
     lines.push("");
 
     lines.push(`<b>── Все монеты: лучшие 10 комбинаций (минимум ${MODEL_MIN_TRADES} записей) ──</b>`);
@@ -2459,6 +3046,388 @@ class ResearchLab {
     group("Срез по времени до закрытия", 1, MODEL_SEC_BANDS.map(secLabel));
     group("Срез по силе движения", 0, MODEL_Z_BANDS.map(zLabel));
 
+    lines.push("Прибыль — средний результат на $1 ставки (без комиссий).");
+    return lines.join("\n");
+  }
+
+  /** v3.1 / A: Binance-против (и Coinbase, и обе биржи) на всей сетке модели + «доза-эффект». */
+  buildModelBinReport(): string {
+    // индексируем один раз: идея -> сводные строки по комбинациям
+    const cache = new Map<string, PooledRow[]>();
+    const rowsOf = (idea: string): PooledRow[] => {
+      let r = cache.get(idea);
+      if (!r) {
+        r = this.pooled(idea);
+        cache.set(idea, r);
+      }
+      return r;
+    };
+    const sumLabels = (idea: string, idx: number, labels: string[] | null): { w: number; t: number; roi: number; px: number } => {
+      let w = 0;
+      let t = 0;
+      let roi = 0;
+      let px = 0;
+      for (const r of rowsOf(idea)) {
+        if (labels !== null && !labels.includes(r.combo.split(" / ")[idx] ?? "")) continue;
+        w += r.w;
+        t += r.t;
+        roi += r.roi;
+        px += r.px;
+      }
+      return { w, t, roi, px };
+    };
+    const line = (label: string, s: { w: number; t: number; roi: number; px: number }): string => {
+      if (s.t === 0) return `  ${label}: пока нет данных`;
+      const avg = s.px / s.t;
+      const lo = wilsonLower(s.w, s.t);
+      const verdict = lo > avg ? "✅" : s.w / s.t > avg ? "⚠️" : "❌";
+      return `  ${label}: ${s.w}/${s.t} (${winPct(s.w, s.t)}), надёжно ${(lo * 100).toFixed(0)}%, цена ${avg.toFixed(2)}, запас ${signedPct(s.w / s.t - avg)}, прибыль ${roiLabel(s.roi, s.t)} ${verdict}${s.t < 30 ? " (мало данных)" : ""}`;
+    };
+
+    const lines: string[] = [];
+    lines.push("<b>📊 Модель цены + фильтр бирж (вся сетка)</b>");
+    lines.push(
+      "Те же ячейки модели (сила × секунды × цена), но запись делается отдельно по состоянию бирж в момент входа. Binance-против = Binance уже за ценой открытия окна, хотя поток бота в нашу сторону. «Чуть против» = Binance в диапазоне 0…−0.25 от движения потока, «сильно против» = ниже −0.25. Фильтр — условие входа с ожиданием, как в боте. Счёт с момента обновления до v3.1.",
+    );
+    lines.push(`Опрос Binance: удачно ${binance.okCount}, ошибок ${binance.failCount}. Coinbase: удачно ${coinbase.okCount}, ошибок ${coinbase.failCount}.`);
+    lines.push("");
+
+    lines.push("<b>── Итого по всей сетке ──</b>");
+    lines.push(line("без фильтра", sumLabels("model", 0, null)));
+    lines.push(line("Binance против (все)", sumLabels("modelb0", 0, null)));
+    lines.push(line("   из них чуть против (0…−0.25)", sumLabels("modelbW", 0, null)));
+    lines.push(line("   из них сильно против (< −0.25)", sumLabels("modelbS", 0, null)));
+    for (let i = 1; i < BIN_LABELS.length; i++) lines.push(line(BIN_LABELS[i], sumLabels(`modelb${i}`, 0, null)));
+    lines.push("");
+
+    // Лесенка и доза-эффект
+    lines.push("<b>── Проверка гипотез ──</b>");
+    const ladder = [0, 1, 2, 3, 4].map((i) => ({ i, s: sumLabels(`modelb${i}`, 0, null) }));
+    const ok = ladder.filter((x) => x.s.t >= 20);
+    if (ok.length < 3) {
+      lines.push("  лесенка по корзинам Binance: мало данных (нужно ≥3 корзины с 20+ записями)");
+    } else {
+      let mono = true;
+      for (let k = 1; k < ok.length; k++) if (ok[k].s.w / ok[k].s.t > ok[k - 1].s.w / ok[k - 1].s.t + 0.005) mono = false;
+      lines.push(
+        `  лесенка винрейта «против → >120%»: ${ok.map((x) => `${RATIO_SHORT[x.i]} ${winPct(x.s.w, x.s.t)}`).join(" → ")} ${mono ? "✅ гладкая (падает вниз)" : "— не монотонная"}`,
+      );
+    }
+    const wk = sumLabels("modelbW", 0, null);
+    const st = sumLabels("modelbS", 0, null);
+    if (wk.t < 30 || st.t < 30) {
+      lines.push(`  доза-эффект: мало данных (чуть против ${wk.t}, сильно против ${st.t}; нужно ≥30 в каждой)`);
+    } else {
+      const wrW = wk.w / wk.t;
+      const wrS = st.w / st.t;
+      const better = wrS > wrW && st.roi / st.t > wk.roi / wk.t;
+      lines.push(
+        `  доза-эффект: чуть против ${winPct(wk.w, wk.t)} (${wk.t}), сильно против ${winPct(st.w, st.t)} (${st.t}) → ${better ? "✅ «сильно» лучше — идея живая" : "❌ «сильно» не лучше — доказательства нет"}`,
+      );
+    }
+    const base = sumLabels("model", 0, null);
+    const b0 = sumLabels("modelb0", 0, null);
+    if (base.t > 0 && b0.t > 0) {
+      lines.push(
+        `  по всей сетке: без фильтра запас ${signedPct(base.w / base.t - base.px / base.t)}, с Binance против ${signedPct(b0.w / b0.t - b0.px / b0.t)}`,
+      );
+    }
+    lines.push("");
+
+    // Срез по цене токена: именно здесь проверяется гипотеза «на дешёвых ценах 0.85-0.93 эффект жирнее»
+    lines.push("<b>── Срез по цене токена: без фильтра | Binance против | сильно против | Binance >120% ──</b>");
+    for (const band of MODEL_PRICE_BANDS) {
+      const lb = priceLabel(band);
+      const a = sumLabels("model", 2, [lb]);
+      const b = sumLabels("modelb0", 2, [lb]);
+      const c = sumLabels("modelbS", 2, [lb]);
+      const d = sumLabels("modelb4", 2, [lb]);
+      if (a.t === 0 && b.t === 0) continue;
+      const cell = (s: { w: number; t: number; roi: number; px: number }): string =>
+        s.t === 0 ? "—" : `${s.w}/${s.t} ${winPct(s.w, s.t)}, запас ${signedPct(s.w / s.t - s.px / s.t)}, приб. ${roiLabel(s.roi, s.t)}`;
+      lines.push(`  ${lb}: ${cell(a)} | ${cell(b)} | ${cell(c)} | ${cell(d)}`);
+    }
+    lines.push("");
+    const cheapLabels = ["0.85-0.90", "0.90-0.93"];
+    lines.push("<b>── Дешёвые цены 0.85-0.93 (там эффект должен быть жирнее) ──</b>");
+    lines.push(line("без фильтра", sumLabels("model", 2, cheapLabels)));
+    lines.push(line("Binance против", sumLabels("modelb0", 2, cheapLabels)));
+    lines.push(line("   чуть против", sumLabels("modelbW", 2, cheapLabels)));
+    lines.push(line("   сильно против", sumLabels("modelbS", 2, cheapLabels)));
+    lines.push(line("Coinbase против", sumLabels("modelc0", 2, cheapLabels)));
+    lines.push(line("обе биржи против", sumLabels("modelk2", 2, cheapLabels)));
+    lines.push("");
+    lines.push("<b>── Коридор бота 0.93-0.96 (для сравнения) ──</b>");
+    lines.push(line("без фильтра", sumLabels("model", 2, ["0.93-0.96"])));
+    lines.push(line("Binance против", sumLabels("modelb0", 2, ["0.93-0.96"])));
+    lines.push(line("   сильно против", sumLabels("modelbS", 2, ["0.93-0.96"])));
+    lines.push("");
+
+    lines.push("<b>── Coinbase и две биржи сразу (вся сетка) ──</b>");
+    for (let i = 0; i < CB_LABELS.length; i++) lines.push(line(CB_LABELS[i], sumLabels(`modelc${i}`, 0, null)));
+    for (let i = K_LABELS.length - 1; i >= 0; i--) lines.push(line(K_LABELS[i], sumLabels(`modelk${i}`, 0, null)));
+    lines.push("");
+
+    lines.push(`<b>── Лучшие 10 ячеек при Binance против (минимум ${MODEL_MIN_COIN} записей) ──</b>`);
+    const bestB = this.toModelRows(rowsOf("modelb0"))
+      .filter((r) => r.t >= MODEL_MIN_COIN)
+      .sort((a, b) => b.roiAvg - a.roiAvg || b.t - a.t)
+      .slice(0, 10);
+    if (bestB.length === 0) lines.push("  пока недостаточно данных");
+    else bestB.forEach((r, i) => lines.push(this.modelLine(i + 1, r)));
+    lines.push("");
+
+    lines.push("<b>── По монетам: Binance против, вся сетка ──</b>");
+    const byCoinB = this.collect("modelb0");
+    const byCoinBase = this.collect("model");
+    for (const coin of INCLUDED_COINS) {
+      const agg = (list: { coin: string; w: number; t: number; roi: number; px: number }[]) =>
+        list.filter((r) => r.coin === coin).reduce((a, r) => ({ w: a.w + r.w, t: a.t + r.t, roi: a.roi + r.roi, px: a.px + r.px }), { w: 0, t: 0, roi: 0, px: 0 });
+      lines.push(line(`${COIN_SHORT[coin]} против`, agg(byCoinB)));
+      lines.push(line(`${COIN_SHORT[coin]} без фильтра`, agg(byCoinBase)));
+    }
+    lines.push("");
+    lines.push("Прибыль — средний результат на $1 ставки (без комиссий). Одна и та же ситуация может попасть в несколько ячеек подряд, поэтому доверяй устойчивым срезам, а не отдельным ячейкам.");
+    return lines.join("\n");
+  }
+
+  // ───── v3.1 / D: «Справедливая цена» ─────
+
+  buildFairReport(): string {
+    const lines: string[] = [];
+    lines.push("<b>📊 Справедливая цена: p = Φ(d / (σ·√t))</b>");
+    lines.push(
+      "d — расстояние монеты от цены открытия в нашу сторону (в долях цены), t — секунд до закрытия, σ — реальная секундная волатильность из тиков фида за последние 60 или 120 секунд (не ниже 30% от обычной, чтобы «тихий» фид не давал фальшивую уверенность). edge = p − ask. Пишутся все входы в диапазоне ask 0.60-0.99, до 240с до закрытия, при движении в нашу сторону; корзины edge: <0 (контроль), 0-2%, 2-4%, 4-6%, 6%+.",
+    );
+    lines.push("Провал идеи: винрейт не растёт вместе с корзинами edge. Цена в строке — средний ask входа, «модель p» — что обещала модель, «запас» — факт минус цена.");
+    lines.push("");
+
+    const bucketStat = (idea: string, rows: PooledRow[], i: number) => {
+      let w = 0;
+      let t = 0;
+      let roi = 0;
+      let px = 0;
+      for (const r of rows) {
+        if (r.combo.split(" / ")[0] !== FAIR_EDGE_LABELS[i]) continue;
+        w += r.w;
+        t += r.t;
+        roi += r.roi;
+        px += r.px;
+      }
+      const cal = this.fairCal[`${idea}|${FAIR_EDGE_LABELS[i]}`];
+      const avgP = cal && cal.t > 0 ? (cal.px ?? 0) / cal.t : null;
+      return { w, t, roi, px, avgP };
+    };
+    const fmt = (label: string, s: { w: number; t: number; roi: number; px: number; avgP?: number | null }): string => {
+      if (s.t === 0) return `  ${label}: пока нет данных`;
+      const avg = s.px / s.t;
+      const lo = wilsonLower(s.w, s.t);
+      const verdict = lo > avg ? "✅" : s.w / s.t > avg ? "⚠️" : "❌";
+      return `  ${label}: ${s.w}/${s.t} (${winPct(s.w, s.t)}), цена ${avg.toFixed(3)}${s.avgP != null ? `, модель p ${(s.avgP * 100).toFixed(1)}%` : ""}, запас ${signedPct(s.w / s.t - avg)}, надёжно ${(lo * 100).toFixed(0)}%, прибыль ${roiLabel(s.roi, s.t)} ${verdict}${s.t < 30 ? " (мало данных)" : ""}`;
+    };
+
+    for (const fv of FAIR_VARIANTS) {
+      const rows = this.pooled(fv.idea);
+      const total = rows.reduce((a, r) => a + r.t, 0);
+      lines.push(`<b>══ ${fv.idea}: ${fv.label} (записей ${total}) ══</b>`);
+      const stats = FAIR_SHORT.map((_, i) => bucketStat(fv.idea, rows, i));
+      stats.forEach((s, i) => lines.push(fmt(`edge ${FAIR_SHORT[i]}`, s)));
+
+      const ok = stats.map((s, i) => ({ s, i })).filter((x) => x.s.t >= 20);
+      if (ok.length < 3) {
+        lines.push("  растёт ли винрейт с корзинами: мало данных (нужно ≥3 корзины с 20+ записями)");
+      } else {
+        let monoW = true;
+        let monoR = true;
+        for (let k = 1; k < ok.length; k++) {
+          if (ok[k].s.w / ok[k].s.t < ok[k - 1].s.w / ok[k - 1].s.t - 0.005) monoW = false;
+          if (ok[k].s.roi / ok[k].s.t < ok[k - 1].s.roi / ok[k - 1].s.t - 0.005) monoR = false;
+        }
+        lines.push(
+          `  растёт ли винрейт с корзинами: ${ok.map((x) => winPct(x.s.w, x.s.t)).join(" → ")} ${monoW ? "✅ растёт" : "❌ не растёт — по критерию идея мертва"}; прибыль: ${ok.map((x) => roiLabel(x.s.roi, x.s.t)).join(" → ")} ${monoR ? "✅" : "—"}`,
+        );
+        lines.push("  (замечание: у высоких edge цена ниже, поэтому сравнивай не только винрейт, но и «запас» и прибыль)");
+      }
+
+      const cum = (from: number) =>
+        stats.slice(from).reduce((a, s) => ({ w: a.w + s.w, t: a.t + s.t, roi: a.roi + s.roi, px: a.px + s.px }), { w: 0, t: 0, roi: 0, px: 0 });
+      lines.push(fmt("правило «брать при edge ≥ 2%»", cum(2)));
+      lines.push(fmt("правило «брать при edge ≥ 4%»", cum(3)));
+
+      // по монетам при edge ≥ 4%
+      const hi = [FAIR_EDGE_LABELS[3], FAIR_EDGE_LABELS[4]];
+      const byCoin = this.collect(fv.idea).filter((r) => hi.includes(r.combo.split(" / ")[0]));
+      const parts: string[] = [];
+      for (const coin of INCLUDED_COINS) {
+        const x = byCoin.filter((r) => r.coin === coin).reduce((a, r) => ({ w: a.w + r.w, t: a.t + r.t, roi: a.roi + r.roi }), { w: 0, t: 0, roi: 0 });
+        if (x.t > 0) parts.push(`${COIN_SHORT[coin]} ${x.w}/${x.t} ${winPct(x.w, x.t)} (${roiLabel(x.roi, x.t)})`);
+      }
+      lines.push(`  при edge ≥ 4% по монетам: ${parts.length > 0 ? parts.join(" | ") : "пока нет данных"}`);
+
+      // по секундам при edge ≥ 4%
+      const secParts: string[] = [];
+      for (const sb of MODEL_SEC_BANDS) {
+        let w = 0;
+        let t = 0;
+        let roi = 0;
+        for (const r of rows) {
+          const c = r.combo.split(" / ");
+          if (!hi.includes(c[0]) || c[1] !== secLabel(sb)) continue;
+          w += r.w;
+          t += r.t;
+          roi += r.roi;
+        }
+        if (t > 0) secParts.push(`${secLabel(sb)} ${w}/${t} ${winPct(w, t)} (${roiLabel(roi, t)})`);
+      }
+      lines.push(`  при edge ≥ 4% по времени: ${secParts.length > 0 ? secParts.join(" | ") : "пока нет данных"}`);
+      lines.push("");
+    }
+
+    // Сочетание с Binance-против
+    lines.push("<b>══ fair2 + Binance против ══</b>");
+    const rb = this.pooled("fair2b0");
+    const rbTotal = rb.reduce((a, r) => a + r.t, 0);
+    if (rbTotal === 0) {
+      lines.push("  пока нет данных");
+    } else {
+      const st2 = FAIR_SHORT.map((_, i) => bucketStat("fair2b0", rb, i));
+      st2.forEach((s, i) => lines.push(fmt(`edge ${FAIR_SHORT[i]}`, s)));
+      const base2 = FAIR_SHORT.map((_, i) => bucketStat("fair2", this.pooled("fair2"), i));
+      const cumB = (arr: { w: number; t: number; roi: number; px: number }[], from: number) =>
+        arr.slice(from).reduce((a, s) => ({ w: a.w + s.w, t: a.t + s.t, roi: a.roi + s.roi, px: a.px + s.px }), { w: 0, t: 0, roi: 0, px: 0 });
+      lines.push(fmt("edge ≥ 4%, Binance против", cumB(st2, 3)));
+      lines.push(fmt("edge ≥ 4%, без фильтра (для сравнения)", cumB(base2, 3)));
+    }
+    lines.push("");
+
+    lines.push("<b>══ Сравнение с z-моделью ══</b>");
+    const m = this.sumIdea("model");
+    lines.push(m.t > 0 ? `  «Модель цены» (сетка z): ${m.w}/${m.t} (${winPct(m.w, m.t)}), прибыль ${roiLabel(m.roi, m.t)}` : "  «Модель цены»: пока нет данных");
+    lines.push("");
+    lines.push("Прибыль — средний результат на $1 ставки (без комиссий). Одна ситуация может попасть в несколько корзин по мере того, как идёт время.");
+    return lines.join("\n");
+  }
+
+  // ───── v3.1: отчёты по признакам (режим, заражение, траектория) ─────
+
+  /** Строки по набору признаков: для всех профилей вместе и для каждого профиля, плюс правила «что если не входить». */
+  private featReportLines(defNames: string[]): string[] {
+    const lines: string[] = [];
+    for (const name of defNames) {
+      const def = FEATURE_DEFS.find((d) => d.name === name);
+      if (!def) continue;
+      lines.push(`<b>══ ${def.name} ══</b>`);
+      const prefixes = ["all", ...BOT_PROFILES.map((p) => `bot${p.id}`)];
+      for (const prefix of prefixes) {
+        const buckets: Stat[] = def.labels.map((l) => this.featProf[`${prefix}|${def.name}|${l}`] ?? { w: 0, t: 0, roi: 0 });
+        const tot = buckets.reduce((a, s) => ({ w: a.w + s.w, t: a.t + s.t, roi: a.roi + s.roi }), { w: 0, t: 0, roi: 0 });
+        if (tot.t === 0) {
+          if (prefix === "all") lines.push("  пока нет данных");
+          continue;
+        }
+        if (prefix !== "all" && tot.t < 20) continue;
+        lines.push(
+          `<b>── ${prefix === "all" ? "Все профили вместе" : `Профиль ${prefix.slice(3)}`} (входов ${tot.t}, ${winPct(tot.w, tot.t)}, прибыль ${roiLabel(tot.roi, tot.t)}) ──</b>`,
+        );
+        def.labels.forEach((l, i) => {
+          const s = buckets[i];
+          if (s.t === 0) return;
+          lines.push(`  ${l}: ${s.w}/${s.t} (${winPct(s.w, s.t)}), прибыль ${roiLabel(s.roi, s.t)}${s.t < 10 ? " (мало данных)" : ""}`);
+        });
+        for (const rule of FEAT_RULES[name] ?? []) {
+          const ln = cutLine(buckets, rule.remove, rule.label);
+          if (ln) lines.push(ln);
+        }
+      }
+      lines.push("");
+    }
+    return lines;
+  }
+
+  /** v3.1 / C: режим волатильности, часы суток и кластеры одновременных проигрышей. */
+  buildRegimeReport(): string {
+    const lines: string[] = [];
+    lines.push("<b>📊 Режим волатильности и плохие периоды</b>");
+    lines.push(
+      "Идея: бывают периоды, когда сильные движения откатываются, и тогда проигрывают сразу все профили (один плохой час может стереть недели). Проверяем, определяются ли такие периоды признаком «текущая волатильность сильно выше обычной». Признак = реализованная σ монеты за последние 2 / 5 минут (из тиков фида) ÷ обычная секундная σ (та же, что в z). 1.0 = обычный режим. Пишется к каждому базовому входу профилей бота (накапливается с момента обновления до v3.1).",
+    );
+    lines.push("");
+    lines.push(...this.featReportLines([F_REGIME2, F_REGIME5]));
+
+    lines.push("<b>══ Одновременные проигрыши в одном окне ══</b>");
+    const wins = Object.entries(this.lossWin)
+      .map(([k, v]) => ({ close: Number(k), ...v }))
+      .filter((x) => x.seen.length >= 2)
+      .sort((a, b) => a.close - b.close);
+    if (wins.length === 0) {
+      lines.push("  пока нет данных (нужны окна, где входы были минимум у двух монет)");
+    } else {
+      const hist = [0, 0, 0, 0];
+      const rvBy: { s: number; n: number }[] = [0, 1, 2, 3].map(() => ({ s: 0, n: 0 }));
+      for (const x of wins) {
+        const k = Math.min(x.lost.length, 3);
+        hist[k]++;
+        if (x.rvN > 0) {
+          rvBy[k].s += x.rvSum / x.rvN;
+          rvBy[k].n++;
+        }
+      }
+      const names = ["ни одна монета не проиграла", "проиграла 1 монета", "проиграли 2 монеты", "проиграли 3+ монет"];
+      lines.push(`  окон, где входы были у 2+ монет: ${wins.length}`);
+      hist.forEach((n, i) => {
+        lines.push(`  ${names[i]}: ${n}${rvBy[i].n > 0 ? ` (средняя σ2м/обычная на входах: ${(rvBy[i].s / rvBy[i].n).toFixed(2)})` : ""}`);
+      });
+      lines.push("  (если в окнах «проиграли 2-3+ монет» режим заметно выше, чем в окнах «ни одна», плохие периоды определяются волатильностью)");
+      const bad = wins.filter((x) => x.lost.length >= 2).slice(-10).reverse();
+      if (bad.length > 0) {
+        lines.push("  Последние окна с 2+ проигрышами:");
+        for (const x of bad) {
+          const t = new Date(x.close).toISOString().slice(5, 16).replace("T", " ");
+          lines.push(
+            `    ${t} UTC: проиграли ${x.lost.map((c) => COIN_SHORT[c] ?? c).join(", ")} из ${x.seen.map((c) => COIN_SHORT[c] ?? c).join(", ")}${x.rvN > 0 ? `, σ2м/обычная ${(x.rvSum / x.rvN).toFixed(2)}` : ""}`,
+          );
+        }
+      }
+    }
+    lines.push("");
+
+    lines.push("<b>══ Час суток UTC (все профили вместе) ══</b>");
+    let anyH = false;
+    HOUR_LABELS.forEach((h) => {
+      const s = this.featAgg[`${F_HOUR}|${h}`];
+      if (!s || s.t < 5) return;
+      anyH = true;
+      lines.push(`  ${h}:00 → ${s.w}/${s.t} (${winPct(s.w, s.t)}), прибыль ${roiLabel(s.roi, s.t)}${s.t >= 8 && s.roi / s.t < -0.1 ? " ⚠️ плохой час" : ""}`);
+    });
+    if (!anyH) lines.push("  пока недостаточно данных (нужно ≥5 входов в час)");
+    lines.push("");
+    lines.push("Новости парсер не видит: если плохие окна не объясняются ни волатильностью, ни часом, сверь их время (список выше) с календарём событий вручную.");
+    lines.push("Прибыль — средний результат на $1 ставки (без комиссий). «Все профили вместе» считает одну и ту же ситуацию несколько раз (по числу согласных профилей).");
+    return lines.join("\n");
+  }
+
+  /** v3.1 / E */
+  buildContagionReport(): string {
+    const lines: string[] = [];
+    lines.push("<b>📊 Заражение между монетами</b>");
+    lines.push(
+      `Монеты ходят вместе. Для каждого входа считаем, у скольких соседних монет в том же окне токен нашей стороны уже сыпется: строго = был ≥${CONTAGION_PEAK.toFixed(2)}, а сейчас <${CONTAGION_DROP_TO.toFixed(2)}; мягко = был ≥${CONTAGION_SOFT_PEAK.toFixed(2)} и упал на ${CONTAGION_SOFT_DROP.toFixed(2)}+. Провал идеи: если винрейт при «1+» не хуже, чем при «0».`,
+    );
+    lines.push("");
+    lines.push(...this.featReportLines([F_CONTAGION, F_CONTAGION_SOFT]));
+    lines.push("Прибыль — средний результат на $1 ставки (без комиссий).");
+    return lines.join("\n");
+  }
+
+  /** v3.1 / F */
+  buildTrajectoryReport(): string {
+    const lines: string[] = [];
+    lines.push("<b>📊 Траектория токена перед входом</b>");
+    lines.push(
+      `Токен попадает в коридор сверху (падал с 0.99) или снизу (рос с 0.85) — это разные события. Считаем ask сейчас − ask ${TRAJ_LOOKBACK_SEC}с назад (по истории котировок парсера). Гипотеза: «падает» хуже; если окажется наоборот — это тоже находка.`,
+    );
+    lines.push("");
+    lines.push(...this.featReportLines([F_TRAJ]));
     lines.push("Прибыль — средний результат на $1 ставки (без комиссий).");
     return lines.join("\n");
   }
@@ -2854,7 +3823,7 @@ class ResearchLab {
     const lines: string[] = [];
     lines.push("<b>📊 Профили бота и согласие профилей</b>");
     lines.push(
-      `Моделирование ${BOT_PROFILES.length} профилей бота (без фильтра Binance): ${RULES_TEXT}, вход по живому ask, потолок покупки как в боте, держим до резолва.`,
+      `Моделирование ${BOT_PROFILES.length} профилей бота (без фильтра бирж): ${RULES_TEXT}, вход по живому ask, потолок покупки как в боте, держим до резолва.`,
     );
     lines.push("");
     lines.push("<b>── Каждый профиль отдельно (выигрыш/всего, винрейт, доходность на $1) ──</b>");
@@ -2943,6 +3912,23 @@ class ResearchLab {
     );
     lines.push("");
 
+    lines.push("<b>── Новое в v3.1 (по всей сетке, подробно в отдельных командах) ──</b>");
+    const v31: [string, string][] = [
+      ["model", "Модель без фильтра"],
+      ["modelb0", "Модель + Binance против"],
+      ["modelbS", "   сильно против"],
+      ["modelc0", "Модель + Coinbase против"],
+      ["modelk2", "Модель + обе биржи против"],
+      ["fair1", "Справедливая цена σ60 (все корзины)"],
+      ["fair2", "Справедливая цена σ120 (все корзины)"],
+    ];
+    for (const [idea, label] of v31) {
+      const s = this.sumIdea(idea);
+      lines.push(`  ${label}: ${s.t > 0 ? `${s.w}/${s.t} ${winPct(s.w, s.t)}, прибыль на $1 ${roiLabel(s.roi, s.t)}` : "пока нет данных"}`);
+    }
+    lines.push('  ("лаб модель бинанс", "лаб биржи", "лаб справедливая", "лаб режим", "лаб зараза", "лаб траектория")');
+    lines.push("");
+
     let pairCombos = 0;
     let pairGood = 0;
     for (const key of Object.keys(this.pairAgg)) {
@@ -2978,7 +3964,7 @@ class ResearchLab {
     );
     lines.push("");
 
-    lines.push("<b>── Профили бота (моделирование, без фильтра Binance) ──</b>");
+    lines.push("<b>── Профили бота (моделирование, без фильтра бирж) ──</b>");
     for (const prof of BOT_PROFILES) {
       let tw = 0;
       let tt = 0;
@@ -3004,6 +3990,7 @@ class ResearchLab {
         ? `  проверок входов живым стаканом: ${verifyTotal}, подтвердились: ${this.verifyConfirmed}, отклонены: ${this.verifyRejected}`
         : "  проверок входов пока нет",
     );
+    lines.push(`  опрос бирж: Binance ${binance.okCount}/${binance.okCount + binance.failCount}, Coinbase ${coinbase.okCount}/${coinbase.okCount + coinbase.failCount} удачных`);
     lines.push("");
     lines.push('Все команды: "лаб помощь"');
     return lines.join("\n");
@@ -3011,12 +3998,18 @@ class ResearchLab {
 
   buildHelp(): string {
     return [
-      "<b>🧪 LAB — команды</b>",
+      "<b>🧪 LAB v3.1 — команды</b>",
       "лаб — сводка по всем идеям",
       "лаб бот — как торговал бы реальный бот (итог, 24 часа, 7 дней, в долларах)",
       "лаб бинанс — профили бота с фильтром Binance по корзинам (каждая корзина — отдельный бот)",
+      "лаб биржи — то же для Coinbase и «две биржи сразу» (обе против / одна / ни одной)",
       "лаб профили — профили бота и согласие профилей",
       "лаб модель — «Модель цены» (где выгодно покупать вне 0.97-0.98)",
+      "лаб модель бинанс — вся сетка модели с Binance против: лесенка, доза-эффект (чуть/сильно против), дешёвые цены, Coinbase, две биржи",
+      "лаб справедливая — p = Φ(d/(σ√t)), корзины edge = p − ask, растёт ли винрейт",
+      "лаб режим — режим волатильности, часы суток, кластеры одновременных проигрышей",
+      "лаб зараза — просевшие токены у соседних монет",
+      "лаб траектория — токен падает или растёт перед входом",
       "лаб запас — идея «Запас» (z вместо порога)",
       "лаб дешево — «Недооценка» (токен дешевле 0.96)",
       "лаб паника — «Паника без разворота»",
@@ -3041,7 +4034,7 @@ class ResearchLab {
     setInterval(() => this.saveState(), AUTOSAVE_INTERVAL_MS);
     setInterval(() => {
       console.log(
-        `--- статус: апдейтов ${this.updateCount}, рынков обработано ${this.resolvedCount}, ждут резолва ${this.pending.size}, проверок входов ${this.verifyConfirmed + this.verifyRejected} ---`,
+        `--- статус: апдейтов ${this.updateCount}, рынков обработано ${this.resolvedCount}, ждут резолва ${this.pending.size}, проверок входов ${this.verifyConfirmed + this.verifyRejected}, Binance ${binance.okCount}/${binance.failCount}, Coinbase ${coinbase.okCount}/${coinbase.failCount} ---`,
       );
     }, 60 * 1000);
   }
@@ -3098,9 +4091,15 @@ const COMMANDS: Record<string, string[]> = {
   confirm: ["лаб монеты", "/lab_coins"],
   profiles: ["лаб профили", "/lab_profiles"],
   model: ["лаб модель", "/lab_model"],
+  modelbin: ["лаб модель бинанс", "/lab_modelbin"],
   saw: ["лаб пила", "/lab_saw"],
   pair: ["лаб пара", "/lab_pair"],
   binance: ["лаб бинанс", "/lab_binance"],
+  exchanges: ["лаб биржи", "/lab_exchanges"],
+  fair: ["лаб справедливая", "лаб фер", "/lab_fair"],
+  regime: ["лаб режим", "/lab_regime"],
+  contagion: ["лаб зараза", "/lab_contagion"],
+  trajectory: ["лаб траектория", "/lab_traj"],
   losses: ["лаб лоси", "/lab_losses"],
   agree: ["лаб согласие", "/lab_agree"],
   stop: ["лаб стоп", "/lab_stop"],
@@ -3166,6 +4165,9 @@ async function pollTelegramCommands(
           case "model":
             report = lab.buildModelReport();
             break;
+          case "modelbin":
+            report = lab.buildModelBinReport();
+            break;
           case "saw":
             report = lab.buildSawReport();
             break;
@@ -3174,6 +4176,21 @@ async function pollTelegramCommands(
             break;
           case "binance":
             report = lab.buildBinanceReport();
+            break;
+          case "exchanges":
+            report = lab.buildExchangesReport();
+            break;
+          case "fair":
+            report = lab.buildFairReport();
+            break;
+          case "regime":
+            report = lab.buildRegimeReport();
+            break;
+          case "contagion":
+            report = lab.buildContagionReport();
+            break;
+          case "trajectory":
+            report = lab.buildTrajectoryReport();
             break;
           case "losses":
             report = lab.buildLossReport();
@@ -3199,9 +4216,9 @@ async function pollTelegramCommands(
 // ─────────────────────────── Запуск ───────────────────────────
 
 async function main() {
-  console.log("=== LAB v3.0: парсер идей запущен (не торгует; каждый сигнал записывается без лимитов, фильтр Binance с ожиданием) ===");
+  console.log("=== LAB v3.1: парсер идей запущен (не торгует; каждый сигнал записывается без лимитов, фильтр бирж с ожиданием) ===");
   console.log(
-    "Идеи: запас (z), недооценка, паника без разворота, импульс, арбитраж, подтверждение монетами, согласие профилей (7 профилей), модель цены, пила, пара BTC+ETH, Binance по корзинам, лоси, стоп, «лаб бот».",
+    "Идеи: запас (z), недооценка, паника без разворота, импульс, арбитраж, подтверждение монетами, согласие профилей (7 профилей), модель цены (+ Binance/Coinbase по всей сетке), справедливая цена, режим волатильности, заражение, траектория токена, пила, пара BTC+ETH, Binance/Coinbase по корзинам, лоси, стоп, «лаб бот».",
   );
 
   btcPriceFeed.start();
@@ -3211,6 +4228,7 @@ async function main() {
   dogePriceFeed.start();
   volTracker.start();
   binance.start();
+  coinbase.start();
 
   const logger = createLogger(false);
   const botToken = process.env.LAB_TELEGRAM_BOT_TOKEN ?? process.env.TELEGRAM_BOT_TOKEN;
