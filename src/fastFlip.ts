@@ -185,6 +185,7 @@ interface EntryProfile {
   sizeUsd: number; // размер ставки в USD именно для сделок этого профиля
   requireLiveBid?: boolean; // true — перед покупкой проверить ЖИВОЙ bid: он не должен быть ниже priceLow (как в парсере LAB)
   binanceRatio?: { min: number; max: number }; // фильтр: Binance прошёл от открытия окна [min, max) от движения по потоку бота (0.5-0.8 = 50-80%)
+  binanceAgainst?: boolean; // отдельный вариант: направленное движение Binance строго против движения основного потока (ratio < 0)
 }
 
 function makeUniformThresholds(value: number): Record<string, number> {
@@ -493,6 +494,30 @@ const settings = {
   ] as EntryProfile[],
 };
 
+// Отдельные исследовательские варианты 8/9: те же настройки профилей 6/7,
+// но Binance обязан двигаться строго против направленного движения основного потока.
+// Оригинальные профили 6/7 и их фильтры оставлены без изменений.
+const profile6 = settings.profiles[5];
+const profile7 = settings.profiles[6];
+settings.profiles.push(
+  {
+    ...profile6,
+    name: "Профиль 8 (Запас — Binance против)",
+    entryWindowSec: { ...profile6.entryWindowSec },
+    pctMoveThresholds: { ...profile6.pctMoveThresholds },
+    binanceRatio: undefined,
+    binanceAgainst: true,
+  },
+  {
+    ...profile7,
+    name: "Профиль 9 (Модель — Binance против)",
+    entryWindowSec: { ...profile7.entryWindowSec },
+    pctMoveThresholds: { ...profile7.pctMoveThresholds },
+    binanceRatio: undefined,
+    binanceAgainst: true,
+  },
+);
+
 interface TokenInfo {
   market: CryptoUpDownMarket;
   side: "Up" | "Down";
@@ -675,7 +700,7 @@ class FastFlipMarketBot {
     const profilesLines = settings.profiles
       .map(
         (p, i) =>
-          `  [${i + 1}] ${p.name} — размер $${p.sizeUsd}, режим ${p.mode}, коридор ${formatCorridorLabel(p)}${p.binanceRatio ? `, фильтр Binance ${Math.round(p.binanceRatio.min * 100)}-${Math.round(p.binanceRatio.max * 100)}% от потока` : ""}, монета(окно/порог): ` +
+          `  [${i + 1}] ${p.name} — размер $${p.sizeUsd}, режим ${p.mode}, коридор ${formatCorridorLabel(p)}${p.binanceAgainst ? ", фильтр Binance: строго против потока (ratio < 0)" : p.binanceRatio ? `, фильтр Binance ${Math.round(p.binanceRatio.min * 100)}-${Math.round(p.binanceRatio.max * 100)}% от потока` : ""}, монета(окно/порог): ` +
           COINS.map((c) => `${c}(${p.entryWindowSec[c] ?? "?"}с/${formatParamValue(p, c)})`).join(", "),
       )
       .join("\n");
@@ -727,9 +752,9 @@ class FastFlipMarketBot {
     openTimeMs: number,
   ): { ok: boolean; note?: string } {
     const rule = profile.binanceRatio;
-    if (!rule) return { ok: true };
-    const lo = Math.round(rule.min * 100);
-    const hi = Math.round(rule.max * 100);
+    if (!rule && !profile.binanceAgainst) return { ok: true };
+    const lo = rule ? Math.round(rule.min * 100) : null;
+    const hi = rule ? Math.round(rule.max * 100) : null;
     const bo = binance.getPriceAt(market.coin, openTimeMs);
     const bn = binance.getLatest(market.coin);
     const pmDir = side === "Up" ? pctMove : -pctMove;
@@ -742,7 +767,9 @@ class FastFlipMarketBot {
     } else {
       const binDir = ((bn - bo) / bo) * (side === "Up" ? 1 : -1);
       ratio = binDir / pmDir;
-      if (ratio < rule.min || ratio >= rule.max) {
+      if (profile.binanceAgainst) {
+        if (ratio >= 0) reason = `Binance не против потока: отношение ${(ratio * 100).toFixed(0)}%, нужно строго меньше 0%`;
+      } else if (rule && (ratio < rule.min || ratio >= rule.max)) {
         reason = `Binance прошёл ${(ratio * 100).toFixed(0)}% от потока, нужно ${lo}-${hi}%`;
       }
     }
@@ -755,7 +782,9 @@ class FastFlipMarketBot {
       }
       return { ok: false };
     }
-    return { ok: true, note: `Binance: прошёл ${(ratio * 100).toFixed(0)}% от потока (фильтр ${lo}-${hi}%)` };
+    return { ok: true, note: profile.binanceAgainst
+      ? `Binance против потока: отношение ${(ratio * 100).toFixed(0)}% (строго < 0%)`
+      : `Binance: прошёл ${(ratio * 100).toFixed(0)}% от потока (фильтр ${lo}-${hi}%)` };
   }
 
   async refreshMarkets(): Promise<void> {
@@ -891,7 +920,10 @@ class FastFlipMarketBot {
 
     // Проверяем профили по очереди — первый, который полностью совпал
     // (цена по своему priceMode + окно + порог движения), даёт сигнал на вход.
-    for (let profileIdx = 0; profileIdx < settings.profiles.length; profileIdx++) {
+    // Варианты 8/9 проверяются первыми: иначе исходные профили 6/7 перехватили бы
+    // тот же сигнал до варианта с Binance-против. Индексы профилей и Telegram-команды не меняются.
+    const profileEvaluationOrder = [7, 8, 0, 1, 2, 3, 4, 5, 6];
+    for (const profileIdx of profileEvaluationOrder) {
       const profile = settings.profiles[profileIdx];
       const windowForCoin = profile.entryWindowSec[market.coin];
       if (windowForCoin === undefined) continue; // монета без настроенного окна в этом профиле — пропускаем
@@ -1497,12 +1529,12 @@ async function pollTelegramCommands(
 async function main() {
   // МЕТКА ВЕРСИИ — если в логах при старте бота НЕТ этой строки,
   // значит запущен не этот файл (старая сборка / другой процесс).
-  console.log("=== FASTFLIP BUILD: v7.12 — НЕСКОЛЬКО ПОЗИЦИЙ ОДНОВРЕМЕННО (лимит окно 3, лимит всего 6) + фильтр Binance у П7 ===");
+  console.log("=== FASTFLIP BUILD: v7.13 — ДОБАВЛЕНЫ ПРОФИЛИ 8/9 BINANCE ПРОТИВ (ratio < 0), ПРОФИЛИ 1-7 СОХРАНЕНЫ ===");
   console.log(`Режим: ${DRY_RUN ? "DRY_RUN (без реальных сделок, полная симуляция)" : "⚠️  LIVE — РЕАЛЬНЫЕ ДЕНЬГИ"}`);
   console.log(`Коридор по умолчанию (если у профиля свой не задан): ${settings.entryPrice}-${settings.maxEntryPrice} | Квота: ${settings.quotaPerHour}/час`);
   for (const [i, p] of settings.profiles.entries()) {
     console.log(
-      `  Профиль ${i + 1} "${p.name}" [${p.mode}], коридор ${formatCorridorLabel(p)}, размер $${p.sizeUsd}, монета(окно/порог): ` +
+      `  Профиль ${i + 1} "${p.name}" [${p.mode}], коридор ${formatCorridorLabel(p)}${p.binanceAgainst ? ", Binance строго против потока (ratio < 0)" : p.binanceRatio ? `, Binance ${Math.round(p.binanceRatio.min * 100)}-${Math.round(p.binanceRatio.max * 100)}% от потока` : ""}, размер $${p.sizeUsd}, монета(окно/порог): ` +
         COINS.map((c) => `${c}(${p.entryWindowSec[c] ?? "?"}с/${formatParamValue(p, c)})`).join(", "),
     );
   }
