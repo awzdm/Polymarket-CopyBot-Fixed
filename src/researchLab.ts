@@ -1,5 +1,5 @@
 /**
- * LAB v3.1 — исследовательский парсер идей (НЕ торгует, только собирает статистику).
+ * LAB v3.2 — исследовательский парсер идей (НЕ торгует, только собирает статистику).
  * Работает отдельным процессом, свой файл состояния (research-lab-state.json),
  * свои команды в Telegram (все начинаются со слова "лаб").
  *
@@ -10,6 +10,10 @@
  *   1) Binance-фильтр работает как в боте: это УСЛОВИЕ входа с ожиданием, а не метка;
  *   2) перед записью входа — живой стакан: ask не выше потолка коридора, живой bid не ниже низа коридора;
  *   3) цена входа = живой ask, итог только по официальному резолву.
+ *
+ * НОВОЕ В v3.2: «лаб темка» — скальпинг от начала пятиминутки. В начале окна «покупаем» Up и Down (по рынку по ask и лимиткой
+ *  на уровнях 0.50 / 0.48 / 0.45 / 0.40 / 0.35 с ожиданием 60с и 180с) и «продаём» лимиткой на +2/+3/+4/+5/+7/+10 центов от входа.
+ *  Не достигли цели до закрытия — держим до резолва. Общая статистика, по сторонам (Up/Down) и по каждой монете.
  *
  * НОВОЕ В v3.1 (файл состояния остаётся совместимым: старая статистика НЕ сбрасывается, новые идеи копятся с нуля):
  *  A) «лаб модель бинанс» — Binance-против на ВСЕЙ сетке модели (+ «доза-эффект»: чуть против / сильно против);
@@ -112,6 +116,31 @@ const COIN_SHORT: Record<string, string> = {
 const volTracker = new VolatilityTracker(PRICE_FEEDS);
 
 // ─────────────────────────── Сетки идей ───────────────────────────
+
+// v3.2 / «Темка»: покупка в начале окна и продажа по тейк-профиту.
+const TEMKA_OPEN_MAX_SEC = 30; // рынок берём в игру, только если мы застали его не позже N секунд после открытия окна (иначе статистика грязная)
+const TEMKA_MARKET_ASK_MIN = 0.3; // «по рынку» на открытии: ask должен быть в разумных пределах (не перекошенный стакан)
+const TEMKA_MARKET_ASK_MAX = 0.7;
+const TEMKA_LIMIT_LEVELS = [0.5, 0.48, 0.45, 0.4, 0.35]; // уровни лимитных покупок (ждут, пока ask опустится до уровня)
+const TEMKA_LIMIT_WAITS = [60, 180]; // сколько секунд от открытия окна лимитка живёт
+const TEMKA_TP_DELTAS = [0.02, 0.03, 0.04, 0.05, 0.07, 0.1]; // тейк-профит: +N от цены входа (при входе 0.50 это 0.52 / 0.53 / 0.54 / 0.55 / 0.57 / 0.60)
+const TEMKA_MIN_SIZE = 5; // на лучшем уровне стакана должно быть минимум столько акций, чтобы вход/выход считались исполненными
+const TEMKA_CONFIRM_COOLDOWN_MS = 1000; // не чаще 1 проверки живым стаканом на токен в секунду
+const TEMKA_MIN_FILLS = 30; // минимум входов для общего топа и значков ✅/❌
+const TEMKA_MIN_FILLS_COIN = 15; // минимум входов для топа по монете
+
+interface TemkaMode {
+  id: string;
+  label: string;
+  level?: number;
+  waitSec?: number;
+}
+const TEMKA_MODES: TemkaMode[] = [
+  { id: "m", label: "по рынку на открытии окна" },
+  ...TEMKA_LIMIT_LEVELS.flatMap((l) =>
+    TEMKA_LIMIT_WAITS.map((w) => ({ id: `l${l.toFixed(2)}w${w}`, label: `лимит ${l.toFixed(2)}, ждём ${w}с`, level: l, waitSec: w })),
+  ),
+];
 
 // 1. «Запас»
 const Z_LEVELS = [1.0, 1.5, 2.0, 2.5, 3.0, 4.0];
@@ -930,11 +959,40 @@ interface ArbMarketInfo {
   size99: number | null;
 }
 
+/** Одна «ордер-позиция» идеи «Темка»: покупка (по рынку или лимиткой) и набор тейк-профитов. */
+interface TemkaPos {
+  mode: string; // см. TEMKA_MODES
+  side: "Up" | "Down";
+  level?: number; // для лимитки: цена, по которой ждём покупку
+  deadlineMs?: number; // для лимитки: до какого момента ждём
+  filled: boolean;
+  price: number; // цена входа
+  fillTs: number;
+  hits: (number | null)[]; // по каждому TP: секунд от входа до достижения цели (null — не достигнута)
+}
+
+/** Агрегат «Темки»: ключ `${режим}|${h | индекс TP}|${монета | *}|${сторона | *}`. */
+interface TStat {
+  n: number; // ордеров поставлено (только в строке "h")
+  f: number; // сколько вошло
+  w: number; // из вошедших: выиграло при удержании до резолва (только "h")
+  px: number; // сумма цен входа (только "h")
+  roiH: number; // сумма доходностей «держим до резолва»
+  roiH2: number; // сумма квадратов (для доверительного интервала)
+  hit: number; // сколько раз достигнут TP (строки по TP)
+  hitSec: number; // сумма секунд до TP
+  roiT: number; // сумма доходностей «TP, иначе держим до резолва»
+  roiT2: number;
+  nhW: number; // не достигли TP, но выиграли на резолве
+}
+
 interface PendingMarket {
   closeTimeMs: number;
   coin: string;
   entries: LabEntry[];
   arb: ArbMarketInfo | null;
+  temka?: TemkaPos[]; // v3.2
+  temkaInit?: boolean; // v3.2: ордера «Темки» по этому рынку уже поставлены (или рынок пропущен)
 }
 
 interface ArbAgg {
@@ -1189,6 +1247,12 @@ class ResearchLab {
   private lastVerifyAt = new Map<string, number>();
   private arbSampling = false;
 
+  // v3.2 «Темка»
+  private temkaAgg: Record<string, TStat> = {};
+  private temkaOpening = new Set<string>(); // eventSlug: сейчас идёт постановка ордеров
+  private temkaConfirming = new Set<string>(); // tokenId: сейчас идёт проверка живым стаканом
+  private temkaLastConfirm = new Map<string, number>();
+
   private pending = new Map<string, PendingMarket>();
   private settled = new Set<string>();
 
@@ -1371,6 +1435,7 @@ class ResearchLab {
         pairs: this.pairs,
         winners: [...this.winners.entries()],
         arbAgg: this.arbAgg,
+        temkaAgg: this.temkaAgg,
         pending: [...this.pending.entries()],
         settled: [...this.settled].slice(-MAX_SETTLED_REMEMBERED),
         marketsSeenCount: this.marketsSeenCount,
@@ -1426,6 +1491,7 @@ class ResearchLab {
       this.winners = new Map(data.winners ?? []);
       for (const e of this.pairs) this.pairFired.add(pairKey(e.pk, e.closeTimeMs, e.side));
       this.arbAgg = data.arbAgg ?? {};
+      this.temkaAgg = data.temkaAgg ?? {};
       this.pending = new Map(data.pending ?? []);
       this.settled = new Set(data.settled ?? []);
       this.marketsSeenCount = data.marketsSeenCount ?? 0;
@@ -1517,6 +1583,9 @@ class ResearchLab {
     for (const tokenId of this.askHist.keys()) {
       if (!this.tokenIndex.has(tokenId)) this.askHist.delete(tokenId);
     }
+    for (const tokenId of this.temkaLastConfirm.keys()) {
+      if (!this.tokenIndex.has(tokenId)) this.temkaLastConfirm.delete(tokenId);
+    }
     for (const tokenId of this.lastVerifyAt.keys()) {
       if (!this.tokenIndex.has(tokenId)) this.lastVerifyAt.delete(tokenId);
     }
@@ -1600,6 +1669,9 @@ class ResearchLab {
 
     // после входа отслеживаем, насколько низко опускается bid токена (для идеи «Стоп»)
     this.trackAfterEntry(side, hasBid ? (update.bestBid as number) : null, p, now);
+
+    // v3.2 «Темка»: постановка ордеров в начале окна, проверка исполнения лимиток и тейк-профитов
+    this.temkaTick(market, side, p, q, now);
 
     // «Пара BTC+ETH» — своя проверка (два рынка сразу), со своим кулдауном
     if (PAIR_COINS.includes(market.coin)) this.tryPair(market, side);
@@ -2615,6 +2687,182 @@ class ResearchLab {
     return count;
   }
 
+  // ───── v3.2 «Темка»: покупка в начале окна, продажа по тейк-профиту ─────
+
+  private tstat(key: string): TStat {
+    return this.temkaAgg[key] ?? (this.temkaAgg[key] = { n: 0, f: 0, w: 0, px: 0, roiH: 0, roiH2: 0, hit: 0, hitSec: 0, roiT: 0, roiT2: 0, nhW: 0 });
+  }
+
+  /**
+   * В первые TEMKA_OPEN_MAX_SEC секунд окна берём живые стаканы обеих сторон и ставим «ордера» всех режимов:
+   * «по рынку» входит по живому ask сразу; лимитки входят сразу, только если ask уже не выше уровня, иначе ждут.
+   * Если рынок замечен позже, он целиком пропускается, чтобы не смешивать входы на разном времени окна.
+   */
+  private async temkaTryOpen(market: CryptoUpDownMarket, p: PendingMarket): Promise<void> {
+    if (p.temkaInit || this.temkaOpening.has(market.eventSlug)) return;
+    const openMs = market.closeTimeMs - market.windowMinutes * 60 * 1000;
+    const elapsed = (Date.now() - openMs) / 1000;
+    if (elapsed < 0) return;
+    if (elapsed > TEMKA_OPEN_MAX_SEC) {
+      p.temkaInit = true;
+      p.temka = [];
+      return;
+    }
+    this.temkaOpening.add(market.eventSlug);
+    try {
+      const [up, down] = await Promise.all([fetchBook(market.upTokenId), fetchBook(market.downTokenId)]);
+      if (!up || !down) return; // повторим на следующем тике / замере, пока не прошло TEMKA_OPEN_MAX_SEC
+      if (this.pending.get(market.eventSlug) !== p || p.temkaInit) return;
+      const t = Date.now();
+      const list: TemkaPos[] = [];
+      for (const [side, tok, b] of [
+        ["Up", market.upTokenId, up],
+        ["Down", market.downTokenId, down],
+      ] as const) {
+        this.quotes.set(tok, { bid: b.bid, ask: b.ask });
+        for (const m of TEMKA_MODES) {
+          const pos: TemkaPos = {
+            mode: m.id,
+            side,
+            level: m.level,
+            deadlineMs: m.waitSec !== undefined ? openMs + m.waitSec * 1000 : undefined,
+            filled: false,
+            price: 0,
+            fillTs: 0,
+            hits: TEMKA_TP_DELTAS.map(() => null),
+          };
+          const ask = b.ask;
+          if (ask !== null && b.askSize >= TEMKA_MIN_SIZE) {
+            const okMarket = m.id === "m" && ask >= TEMKA_MARKET_ASK_MIN && ask <= TEMKA_MARKET_ASK_MAX;
+            const okLimit = m.level !== undefined && ask > 0 && ask <= m.level + 1e-9;
+            if (okMarket || okLimit) {
+              pos.filled = true;
+              pos.price = ask;
+              pos.fillTs = t;
+            }
+          }
+          list.push(pos);
+        }
+      }
+      p.temka = list;
+      p.temkaInit = true;
+    } catch (err) {
+      console.error("[temka] ошибка постановки:", (err as Error).message);
+    } finally {
+      this.temkaOpening.delete(market.eventSlug);
+    }
+  }
+
+  /** На каждом тике токена: ищем «кандидатов» на исполнение лимитки или тейк-профита и подтверждаем живым стаканом. */
+  private temkaTick(market: CryptoUpDownMarket, side: "Up" | "Down", p: PendingMarket, q: Quote, now: number): void {
+    if (!p.temkaInit) {
+      void this.temkaTryOpen(market, p);
+      return;
+    }
+    const list = p.temka;
+    if (!list || list.length === 0) return;
+    let candidate = false;
+    for (const pos of list) {
+      if (pos.side !== side) continue;
+      if (!pos.filled) {
+        if (pos.level === undefined || pos.deadlineMs === undefined || now > pos.deadlineMs) continue;
+        if (q.ask !== null && q.ask <= pos.level + 1e-9) candidate = true;
+      } else if (q.bid !== null) {
+        for (let i = 0; i < TEMKA_TP_DELTAS.length; i++) {
+          const target = pos.price + TEMKA_TP_DELTAS[i];
+          if (pos.hits[i] === null && target <= 0.99 + 1e-9 && q.bid >= target - 1e-9) {
+            candidate = true;
+            break;
+          }
+        }
+      }
+      if (candidate) break;
+    }
+    if (candidate) void this.temkaConfirm(market, side, p);
+  }
+
+  /**
+   * Живой стакан токена (REST): лимитка считается исполненной по своей цене, если ask опустился до уровня и на нём есть объём;
+   * тейк-профит считается исполненным по цене цели, если живой bid не ниже цели и на нём есть объём.
+   */
+  private async temkaConfirm(market: CryptoUpDownMarket, side: "Up" | "Down", p: PendingMarket): Promise<void> {
+    const tokenId = side === "Up" ? market.upTokenId : market.downTokenId;
+    if (this.temkaConfirming.has(tokenId)) return;
+    if (Date.now() - (this.temkaLastConfirm.get(tokenId) ?? 0) < TEMKA_CONFIRM_COOLDOWN_MS) return;
+    this.temkaConfirming.add(tokenId);
+    this.temkaLastConfirm.set(tokenId, Date.now());
+    try {
+      const book = await fetchBook(tokenId);
+      if (!book) return;
+      this.quotes.set(tokenId, { bid: book.bid, ask: book.ask });
+      if (book.ask !== null) this.pushAsk(tokenId, Date.now(), book.ask);
+      if (this.pending.get(market.eventSlug) !== p || !p.temka) return;
+      const t = Date.now();
+      for (const pos of p.temka) {
+        if (pos.side !== side) continue;
+        if (!pos.filled) {
+          if (pos.level === undefined || pos.deadlineMs === undefined || t > pos.deadlineMs) continue;
+          if (book.ask !== null && book.ask <= pos.level + 1e-9 && book.askSize >= TEMKA_MIN_SIZE) {
+            pos.filled = true;
+            pos.price = pos.level;
+            pos.fillTs = t;
+          }
+        } else if (book.bid !== null && book.bidSize >= TEMKA_MIN_SIZE) {
+          for (let i = 0; i < TEMKA_TP_DELTAS.length; i++) {
+            const target = pos.price + TEMKA_TP_DELTAS[i];
+            if (pos.hits[i] === null && target <= 0.99 + 1e-9 && book.bid >= target - 1e-9) {
+              pos.hits[i] = Math.max(0, (t - pos.fillTs) / 1000);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error("[temka] ошибка проверки:", (err as Error).message);
+    } finally {
+      this.temkaConfirming.delete(tokenId);
+    }
+  }
+
+  /** Резолв рынка: считаем итог каждой «ордер-позиции» и пишем в общую статистику, по стороне, по монете и по монете+стороне. */
+  private temkaSettle(p: PendingMarket, winner: "Up" | "Down"): void {
+    if (!p.temka) return;
+    for (const pos of p.temka) {
+      const filled = pos.filled && pos.price > 0;
+      const won = pos.side === winner;
+      const roiH = filled ? (won ? (1 - pos.price) / pos.price : -1) : 0;
+      for (const ck of [p.coin, "*"]) {
+        for (const sk of [pos.side, "*"]) {
+          const suffix = `${ck}|${sk}`;
+          const h = this.tstat(`${pos.mode}|h|${suffix}`);
+          h.n++;
+          if (!filled) continue;
+          h.f++;
+          if (won) h.w++;
+          h.px += pos.price;
+          h.roiH += roiH;
+          h.roiH2 += roiH * roiH;
+          TEMKA_TP_DELTAS.forEach((d, i) => {
+            if (pos.price + d > 0.99 + 1e-9) return;
+            const s = this.tstat(`${pos.mode}|${i}|${suffix}`);
+            const hs = pos.hits[i];
+            const hit = hs !== null && hs !== undefined;
+            const r = hit ? d / pos.price : roiH;
+            s.f++;
+            s.roiH += roiH;
+            s.roiT += r;
+            s.roiT2 += r * r;
+            if (hit) {
+              s.hit++;
+              s.hitSec += hs as number;
+            } else if (won) {
+              s.nhW++;
+            }
+          });
+        }
+      }
+    }
+  }
+
   // ───── арбитраж: замер живыми стаканами ─────
 
   async sampleArb(): Promise<void> {
@@ -2626,6 +2874,7 @@ class ResearchLab {
         list.map(async (m) => {
           const p = this.ensurePending(m);
           if (!p) return;
+          void this.temkaTryOpen(m, p);
           const [up, down] = await Promise.all([fetchBook(m.upTokenId), fetchBook(m.downTokenId)]);
           if (!up || !down) return;
 
@@ -2783,6 +3032,8 @@ class ResearchLab {
       if (p.arb.minSum <= 0.97 + 1e-9) a.h97++;
       if (p.arb.minSum <= 0.95 + 1e-9) a.h95++;
     }
+
+    this.temkaSettle(p, winner);
 
     this.dropPending(slug);
     this.resolvedCount++;
@@ -3724,6 +3975,146 @@ class ResearchLab {
     return lines.join("\n");
   }
 
+  // ───── v3.2 «Темка»: отчёт ─────
+
+  private tget(mode: string, idx: string | number, coin: string, side: string): TStat | undefined {
+    return this.temkaAgg[`${mode}|${idx}|${coin}|${side}`];
+  }
+
+  /** Знак «надёжно»: ✅ если нижняя граница 95% интервала средней прибыли выше нуля, ❌ если верхняя ниже нуля. */
+  private tFlag(s: TStat): string {
+    if (s.f < TEMKA_MIN_FILLS) return "";
+    const mean = s.roiT / s.f;
+    const se = Math.sqrt(Math.max(0, s.roiT2 / s.f - mean * mean) / s.f);
+    return mean - 1.96 * se > 0 ? "✅" : mean + 1.96 * se < 0 ? "❌" : "";
+  }
+
+  private temkaLine(label: string, mode: string, coin: string, side: string): string {
+    const h = this.tget(mode, "h", coin, side);
+    if (!h || h.n === 0) return `  ${label}: пока нет данных`;
+    if (h.f === 0) return `  ${label}: ордеров ${h.n}, ни один не исполнился`;
+    const parts: string[] = [];
+    TEMKA_TP_DELTAS.forEach((d, i) => {
+      const s = this.tget(mode, i, coin, side);
+      if (!s || s.f === 0) return;
+      parts.push(`+${Math.round(d * 100)}¢ ${winPct(s.hit, s.f)} → ${roiLabel(s.roiT, s.f)}${this.tFlag(s)}`);
+    });
+    return `  ${label}: вошли ${h.f}/${h.n} (${winPct(h.f, h.n)}), цена ${(h.px / h.f).toFixed(3)}, без TP ${winPct(h.w, h.f)} → ${roiLabel(h.roiH, h.f)}${h.f < 10 ? " (мало данных)" : ""} | TP: ${parts.join(" | ")}`;
+  }
+
+  buildTemkaReport(): string {
+    const lines: string[] = [];
+    const modeLabel = (id: string): string => TEMKA_MODES.find((m) => m.id === id)?.label ?? id;
+    lines.push("<b>📊 Темка: покупка в начале окна, продажа по тейк-профиту</b>");
+    lines.push(
+      `В первые ${TEMKA_OPEN_MAX_SEC}с каждого 5-минутного окна «покупаем» и Up, и Down: либо по рынку по живому ask, либо лимиткой на уровнях ${TEMKA_LIMIT_LEVELS.map((l) => l.toFixed(2)).join(" / ")} (лимитка ждёт ${TEMKA_LIMIT_WAITS.join(" или ")}с от открытия окна, пока ask не опустится до уровня; цена входа = уровень). Сразу ставим «продажу» на +${TEMKA_TP_DELTAS.map((d) => Math.round(d * 100)).join(" / +")} центов от входа (при входе 0.50 это ${TEMKA_TP_DELTAS.map((d) => (0.5 + d).toFixed(2)).join(" / ")}). Не достигли цели до закрытия окна — держим до официального резолва.`,
+    );
+    lines.push(
+      `Исполнение считается только по живому стакану (REST) с объёмом от ${TEMKA_MIN_SIZE} акций на лучшем уровне: покупка — когда ask не выше уровня, продажа — когда bid не ниже цели (по цене цели, то есть без везения). Рынки, замеченные позже ${TEMKA_OPEN_MAX_SEC}с после открытия, пропускаются. Комиссии не учтены (у входов по рынку они могут быть, у лимиток обычно нет — проверь тарифы на этих рынках).`,
+    );
+    lines.push(
+      "Как читать строку: «вошли» — сколько ордеров исполнилось; «без TP» — винрейт и прибыль, если просто держать до резолва; «+3¢ 64% → +2.1%» — цель +3 цента достигнута в 64% входов, итоговая прибыль на $1 с учётом тех, кто не дошёл и ушёл на резолв. ✅ — прибыль значимо выше нуля (95%), ❌ — значимо ниже. Прибыль считается на $1 ставки.",
+    );
+    lines.push(`Рынков обработано всего: ${this.resolvedCount}. Данные считаются с момента запуска v3.2.`);
+    lines.push("");
+
+    lines.push("<b>══ Общая статистика (все монеты, Up и Down вместе) ══</b>");
+    for (const m of TEMKA_MODES) lines.push(this.temkaLine(m.label, m.id, "*", "*"));
+    lines.push("");
+
+    // Лучшие комбинации
+    const allCombos: { mode: string; i: number; s: TStat; mean: number }[] = [];
+    for (const m of TEMKA_MODES) {
+      TEMKA_TP_DELTAS.forEach((_, i) => {
+        const s = this.tget(m.id, i, "*", "*");
+        if (s && s.f >= TEMKA_MIN_FILLS) allCombos.push({ mode: m.id, i, s, mean: s.roiT / s.f });
+      });
+    }
+    lines.push(`<b>══ Лучшие 10 комбинаций вход + цель (минимум ${TEMKA_MIN_FILLS} входов) ══</b>`);
+    if (allCombos.length === 0) {
+      lines.push(`  пока недостаточно данных (нужно ≥${TEMKA_MIN_FILLS} входов на комбинацию)`);
+    } else {
+      allCombos
+        .sort((a, b) => b.mean - a.mean)
+        .slice(0, 10)
+        .forEach((c, k) => {
+          const h = this.tget(c.mode, "h", "*", "*") as TStat;
+          lines.push(
+            `  ${k + 1}. ${modeLabel(c.mode)} → цель +${Math.round(TEMKA_TP_DELTAS[c.i] * 100)}¢: вошли ${c.s.f}, цель достигнута ${winPct(c.s.hit, c.s.f)}${c.s.hit > 0 ? ` (в среднем за ${(c.s.hitSec / c.s.hit).toFixed(0)}с)` : ""}, прибыль ${roiLabel(c.s.roiT, c.s.f)} ${this.tFlag(c.s)} | без TP ${roiLabel(c.s.roiH, c.s.f)}, цена входа ${(h.px / Math.max(h.f, 1)).toFixed(3)}`,
+          );
+        });
+      const worst = [...allCombos].sort((a, b) => a.mean - b.mean).slice(0, 3).filter((c) => c.mean < 0);
+      if (worst.length > 0) {
+        lines.push("  Худшие:");
+        for (const c of worst) {
+          lines.push(`     ${modeLabel(c.mode)} → +${Math.round(TEMKA_TP_DELTAS[c.i] * 100)}¢: вошли ${c.s.f}, цель ${winPct(c.s.hit, c.s.f)}, прибыль ${roiLabel(c.s.roiT, c.s.f)} ${this.tFlag(c.s)}`);
+        }
+      }
+    }
+    lines.push("");
+
+    // Up против Down
+    lines.push("<b>══ Up против Down (все монеты) ══</b>");
+    for (const m of TEMKA_MODES) {
+      lines.push(this.temkaLine(`${m.label} — Up`, m.id, "*", "Up"));
+      lines.push(this.temkaLine(`${m.label} — Down`, m.id, "*", "Down"));
+    }
+    const diffs: { mode: string; i: number; z: number; pu: number; pd: number; fu: number; fd: number }[] = [];
+    for (const m of TEMKA_MODES) {
+      TEMKA_TP_DELTAS.forEach((_, i) => {
+        const u = this.tget(m.id, i, "*", "Up");
+        const d = this.tget(m.id, i, "*", "Down");
+        if (!u || !d || u.f < TEMKA_MIN_FILLS || d.f < TEMKA_MIN_FILLS) return;
+        const pu = u.hit / u.f;
+        const pd = d.hit / d.f;
+        const pp = (u.hit + d.hit) / (u.f + d.f);
+        const se = Math.sqrt(pp * (1 - pp) * (1 / u.f + 1 / d.f));
+        if (se <= 0) return;
+        diffs.push({ mode: m.id, i, z: (pu - pd) / se, pu, pd, fu: u.f, fd: d.f });
+      });
+    }
+    lines.push("  Есть ли закономерность по стороне (разница в доле достигнутых целей, |z| ≥ 2):");
+    const sig = diffs.filter((x) => Math.abs(x.z) >= 2).sort((a, b) => Math.abs(b.z) - Math.abs(a.z)).slice(0, 8);
+    if (diffs.length === 0) {
+      lines.push("     пока мало данных (нужно ≥30 входов и по Up, и по Down)");
+    } else if (sig.length === 0) {
+      lines.push(`     нет: из ${diffs.length} сравнений значимой разницы между Up и Down нет`);
+    } else {
+      for (const x of sig) {
+        lines.push(
+          `     ${modeLabel(x.mode)}, цель +${Math.round(TEMKA_TP_DELTAS[x.i] * 100)}¢: Up ${winPct(Math.round(x.pu * x.fu), x.fu)} (${x.fu}) против Down ${winPct(Math.round(x.pd * x.fd), x.fd)} (${x.fd}), z=${x.z.toFixed(1)}`,
+        );
+      }
+      lines.push(`     (из ${diffs.length} сравнений около ${Math.max(1, Math.round(diffs.length * 0.05))} значимых ожидается чисто случайно, поэтому верь только устойчивой картине по многим соседним строкам)`);
+    }
+    lines.push("");
+
+    // По монетам
+    lines.push("<b>══ По монетам (Up и Down вместе) ══</b>");
+    for (const coin of INCLUDED_COINS) {
+      const h0 = this.tget("m", "h", coin, "*");
+      lines.push(`<b>── ${coin}${h0 ? ` (рынков с входом по рынку: ${h0.n})` : ""} ──</b>`);
+      for (const m of TEMKA_MODES) lines.push(this.temkaLine(m.label, m.id, coin, "*"));
+      const cc: { mode: string; i: number; s: TStat; mean: number }[] = [];
+      for (const m of TEMKA_MODES) {
+        TEMKA_TP_DELTAS.forEach((_, i) => {
+          const s = this.tget(m.id, i, coin, "*");
+          if (s && s.f >= TEMKA_MIN_FILLS_COIN) cc.push({ mode: m.id, i, s, mean: s.roiT / s.f });
+        });
+      }
+      const best = cc.sort((a, b) => b.mean - a.mean)[0];
+      lines.push(
+        best
+          ? `  Лучшая комбинация: ${modeLabel(best.mode)} → +${Math.round(TEMKA_TP_DELTAS[best.i] * 100)}¢: вошли ${best.s.f}, цель ${winPct(best.s.hit, best.s.f)}, прибыль ${roiLabel(best.s.roiT, best.s.f)}`
+          : `  Лучшая комбинация: пока мало данных (нужно ≥${TEMKA_MIN_FILLS_COIN} входов)`,
+      );
+      lines.push("");
+    }
+
+    lines.push("Идеи для следующих проверок: стоп-лосс и выход по времени, вход по направлению монеты (после движения), покупка более дешёвой стороны, вход не только в начале окна.");
+    return lines.join("\n");
+  }
+
   buildArbReport(): string {
     const lines: string[] = [];
     lines.push("<b>📊 Идея «Арбитраж Up+Down»</b>");
@@ -3912,6 +4303,17 @@ class ResearchLab {
     );
     lines.push("");
 
+    {
+      const th = this.tget("m", "h", "*", "*");
+      const t3 = this.tget("m", 1, "*", "*");
+      lines.push("<b>── Темка (подробно: «лаб темка») ──</b>");
+      lines.push(
+        th && th.f > 0 && t3 && t3.f > 0
+          ? `  вход по рынку на открытии: ${th.f} входов, цель +3¢ достигнута в ${winPct(t3.hit, t3.f)}, прибыль на $1 ${roiLabel(t3.roiT, t3.f)} (без TP ${roiLabel(th.roiH, th.f)})`
+          : "  пока нет данных",
+      );
+      lines.push("");
+    }
     lines.push("<b>── Новое в v3.1 (по всей сетке, подробно в отдельных командах) ──</b>");
     const v31: [string, string][] = [
       ["model", "Модель без фильтра"],
@@ -3998,7 +4400,7 @@ class ResearchLab {
 
   buildHelp(): string {
     return [
-      "<b>🧪 LAB v3.1 — команды</b>",
+      "<b>🧪 LAB v3.2 — команды</b>",
       "лаб — сводка по всем идеям",
       "лаб бот — как торговал бы реальный бот (итог, 24 часа, 7 дней, в долларах)",
       "лаб бинанс — профили бота с фильтром Binance по корзинам (каждая корзина — отдельный бот)",
@@ -4006,6 +4408,7 @@ class ResearchLab {
       "лаб профили — профили бота и согласие профилей",
       "лаб модель — «Модель цены» (где выгодно покупать вне 0.97-0.98)",
       "лаб модель бинанс — вся сетка модели с Binance против: лесенка, доза-эффект (чуть/сильно против), дешёвые цены, Coinbase, две биржи",
+      "лаб темка — покупка в начале окна (по рынку и лимитками 0.50-0.35) и продажа по +2…+10 центов; общая стата, Up/Down, по монетам",
       "лаб справедливая — p = Φ(d/(σ√t)), корзины edge = p − ask, растёт ли винрейт",
       "лаб режим — режим волатильности, часы суток, кластеры одновременных проигрышей",
       "лаб зараза — просевшие токены у соседних монет",
@@ -4082,6 +4485,7 @@ function normalizeCmd(raw: string): string {
 
 const COMMANDS: Record<string, string[]> = {
   summary: ["лаб", "/lab"],
+  temka: ["лаб темка", "/lab_temka"],
   live: ["лаб бот", "/lab_bot"],
   margin: ["лаб запас", "/lab_margin"],
   cheap: ["лаб дешево", "/lab_cheap"],
@@ -4180,6 +4584,9 @@ async function pollTelegramCommands(
           case "exchanges":
             report = lab.buildExchangesReport();
             break;
+          case "temka":
+            report = lab.buildTemkaReport();
+            break;
           case "fair":
             report = lab.buildFairReport();
             break;
@@ -4216,9 +4623,9 @@ async function pollTelegramCommands(
 // ─────────────────────────── Запуск ───────────────────────────
 
 async function main() {
-  console.log("=== LAB v3.1: парсер идей запущен (не торгует; каждый сигнал записывается без лимитов, фильтр бирж с ожиданием) ===");
+  console.log("=== LAB v3.2: парсер идей запущен (не торгует; каждый сигнал записывается без лимитов, фильтр бирж с ожиданием) ===");
   console.log(
-    "Идеи: запас (z), недооценка, паника без разворота, импульс, арбитраж, подтверждение монетами, согласие профилей (7 профилей), модель цены (+ Binance/Coinbase по всей сетке), справедливая цена, режим волатильности, заражение, траектория токена, пила, пара BTC+ETH, Binance/Coinbase по корзинам, лоси, стоп, «лаб бот».",
+    "Идеи: запас (z), недооценка, паника без разворота, импульс, арбитраж, подтверждение монетами, согласие профилей (7 профилей), модель цены (+ Binance/Coinbase по всей сетке), справедливая цена, «темка» (скальп от начала окна), режим волатильности, заражение, траектория токена, пила, пара BTC+ETH, Binance/Coinbase по корзинам, лоси, стоп, «лаб бот».",
   );
 
   btcPriceFeed.start();
