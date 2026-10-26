@@ -56,8 +56,10 @@ import { appendMarketRecord, compressOldDays, buildPage, buildExchangeSummary, M
 
 // ─────────────────────────── Общие настройки ───────────────────────────
 
-const STATE_FILE = path.resolve(process.cwd(), "research-lab-state.json");
-const LAB_DATA_DIR = path.resolve(process.cwd(), "lab-data"); // v3.3: карточки рынков (лента цен + все сделки), без лимита по времени
+// Где хранить файлы: постоянный диск Railway (RAILWAY_VOLUME_MOUNT_PATH) или папка из LAB_DATA_PATH, иначе рабочая папка.
+const STORAGE_DIR = process.env.LAB_DATA_PATH || process.env.RAILWAY_VOLUME_MOUNT_PATH || process.cwd();
+const STATE_FILE = path.resolve(STORAGE_DIR, "research-lab-state.json");
+const LAB_DATA_DIR = path.resolve(STORAGE_DIR, "lab-data"); // v3.3: карточки рынков (лента цен + все сделки), без лимита по времени
 const TAPE_MS = 5 * 1000; // лента цен: раз в 5с
 const STATE_VERSION = 4; // v3.1 совместима с v3.0: новые поля читаются с запасными значениями
 const AUTOSAVE_INTERVAL_MS = 60 * 1000;
@@ -5101,7 +5103,8 @@ async function pollTelegramCommands(
 // ─────────────────────────── Запуск ───────────────────────────
 
 async function main() {
-  console.log("=== LAB v3.3: парсер идей запущен (не торгует; каждый сигнал записывается без лимитов, фильтр бирж с ожиданием) ===");
+  console.log(`Файлы данных: ${STORAGE_DIR}${STORAGE_DIR === process.cwd() ? " (рабочая папка — при пересоздании контейнера пропадут!)" : " (постоянный диск)"}`);
+  console.log("=== LAB v3.4: парсер идей запущен (не торгует; каждый сигнал записывается без лимитов, фильтр бирж с ожиданием) ===");
   console.log(
     "Идеи: запас (z), недооценка, паника без разворота, импульс, арбитраж, подтверждение монетами, согласие профилей (7 профилей), модель цены (+ Binance/Coinbase по всей сетке), справедливая цена, «темка» (скальп от начала окна), режим волатильности, заражение, траектория токена, пила, пара BTC+ETH, Binance/Coinbase по корзинам, лоси, стоп, «лаб бот».",
   );
