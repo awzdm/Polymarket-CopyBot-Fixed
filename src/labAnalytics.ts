@@ -620,6 +620,7 @@ export async function buildExchangeSummary(dir: string, sinceMs: number, periodL
   const botSet = new Set(data.ideas.map((n, i) => (/^bot\d+$/.test(n) ? i : -1)).filter((i) => i >= 0));
   const modelI = ideaIdx("model");
   const groups: { title: string; test: (r: (number | null)[]) => boolean }[] = [
+    { title: "Профиль 7 (как в «лаб бинанс»)", test: (r) => r[4] === ideaIdx("bot7") },
     { title: "Профили бота 1-7 вместе", test: (r) => botSet.has(r[4] as number) },
     { title: "Модель цены (вся сетка)", test: (r) => modelI >= 0 && r[4] === modelI },
   ];
