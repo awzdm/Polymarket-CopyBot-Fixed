@@ -36,6 +36,7 @@ export interface RawTrade {
   sp30?: number | null;
   bin?: number | null; // движение Binance в нашу сторону (доля)
   cb?: number | null; // движение Coinbase в нашу сторону (доля)
+  xs?: Record<string, number | null>; // v3.4: Bybit(by)/OKX(ok)/Kraken(kr)/Bitget(bg), доля
   rv2?: number | null;
   rv5?: number | null;
   cg?: number | null;
@@ -150,6 +151,14 @@ export const OFFSETS = [5, 10, 15, 20, 30, 45, 60, 90, 120];
 const TP_DELTAS_PAGE = [0.03, 0.05, 0.1];
 const TEMKA_IDX: Record<string, number> = { "0.03": 1, "0.05": 3, "0.1": 5 };
 
+/** Дополнительные биржи (ключи как в RawTrade.xs). */
+export const XEX = [
+  { key: "by", label: "Bybit" },
+  { key: "ok", label: "OKX" },
+  { key: "kr", label: "Kraken" },
+  { key: "bg", label: "Bitget" },
+];
+
 export const COLS: ColDef[] = [
   { k: "px", label: "Цена входа (ask)", g: "entry", d: 3, hint: "по какой цене купили" },
   { k: "spr", label: "Спред ask−bid", g: "entry", d: 3, hint: "насколько стакан был широким в момент входа" },
@@ -162,6 +171,13 @@ export const COLS: ColDef[] = [
   { k: "cbr", label: "Coinbase / поток", g: "entry", d: 2, hint: "то же для Coinbase" },
   { k: "bk", label: "Корзина Binance (0-4)", g: "entry", d: 0, hint: "0 против, 1 <50%, 2 50-80%, 3 80-120%, 4 >120%" },
   { k: "ck", label: "Корзина Coinbase (0-4)", g: "entry", d: 0, hint: "то же для Coinbase" },
+  ...XEX.flatMap((x) => [
+    { k: `xr_${x.key}`, label: `${x.label} / поток`, g: "entry" as const, d: 2, hint: `во сколько раз ${x.label} прошёл от открытия относительно потока; меньше 0 — против` },
+    { k: `xb_${x.key}`, label: `Корзина ${x.label} (0-4)`, g: "entry" as const, d: 0, hint: "0 против, 1 <50%, 2 50-80%, 3 80-120%, 4 >120%" },
+  ]),
+  { k: "nex", label: "Бирж с данными (из всех)", g: "entry", d: 0, hint: "сколько бирж дали цену к моменту входа" },
+  { k: "nag", label: "Бирж против", g: "entry", d: 0, hint: "сколько бирж уже по другую сторону от цены открытия (корзина 0)" },
+  { k: "ncf", label: "Бирж подтверждают (≥50% потока)", g: "entry", d: 0, hint: "корзины 2-4: биржа прошла в нашу сторону не меньше половины потока" },
   { k: "rv2", label: "Режим волатильности 2м", g: "entry", d: 2, hint: "σ за 2 минуты ÷ обычная σ" },
   { k: "rv5", label: "Режим волатильности 5м", g: "entry", d: 2, hint: "σ за 5 минут ÷ обычная σ" },
   { k: "cg", label: "Соседей с просевшим токеном", g: "entry", d: 0, hint: "заражение: строго" },
@@ -296,6 +312,24 @@ export function computeRow(
     set("cbr", r, 2);
     set("ck", binBucket(r), 0);
   }
+  // консенсус бирж: Binance, Coinbase и остальные
+  const bks: number[] = [];
+  if (tr.pm && tr.pm > 0) {
+    if (tr.bin !== null && tr.bin !== undefined) bks.push(binBucket(tr.bin / tr.pm));
+    if (tr.cb !== null && tr.cb !== undefined) bks.push(binBucket(tr.cb / tr.pm));
+    for (const x of XEX) {
+      const v = tr.xs ? tr.xs[x.key] : null;
+      if (v !== null && v !== undefined) {
+        const r = v / tr.pm;
+        set(`xr_${x.key}`, r, 2);
+        set(`xb_${x.key}`, binBucket(r), 0);
+        bks.push(binBucket(r));
+      }
+    }
+    set("nex", bks.length, 0);
+    set("nag", bks.filter((b) => b === 0).length, 0);
+    set("ncf", bks.filter((b) => b >= 2).length, 0);
+  }
   set("rv2", tr.rv2, 2);
   set("rv5", tr.rv5, 2);
   set("cg", tr.cg, 0);
@@ -413,6 +447,7 @@ export interface PageData {
   idCols: string[];
   offsets: number[];
   rows: (number | null)[][];
+  exchanges: { label: string; b: string; r: string }[];
   cells: Record<string, number[]>; // "idea|combo" -> [n, wins, sumRoi, sumPx, nMarkets] — по ВСЕМ сделкам (до выборки)
 }
 
@@ -543,6 +578,7 @@ export async function buildPageData(dir: string, opt: PageOptions): Promise<Page
     ideas,
     combos,
     cols: COLS,
+    exchanges: [{ label: "Binance", b: "bk", r: "bin" }, { label: "Coinbase", b: "ck", r: "cbr" }, ...XEX.map((x) => ({ label: x.label, b: `xb_${x.key}`, r: `xr_${x.key}` }))],
     idCols: ID_COLS,
     offsets: OFFSETS,
     rows,
@@ -571,4 +607,77 @@ export async function buildPage(
   }
   const data = await buildPageData(dir, { ...opt, maxRows: 5000 });
   return { html: renderPageHtml(data), data };
+}
+
+// ───────────────────────── Сводка по биржам (для Telegram) ─────────────────────────
+
+/** Текст для «лаб биржи все»: по каждой бирже корзины 0-4 и совместные сигналы бирж, для профилей бота и «Модели цены». */
+export async function buildExchangeSummary(dir: string, sinceMs: number, periodLabel: string): Promise<string> {
+  const data = await buildPageData(dir, { sinceMs, periodLabel, maxRows: 2_000_000 });
+  const ideaIdx = (id: string): number => data.ideas.indexOf(id);
+  const NI = ID_COLS.length;
+  const col = (k: string): number => NI + COLS.findIndex((c) => c.k === k);
+  const botSet = new Set(data.ideas.map((n, i) => (/^bot\d+$/.test(n) ? i : -1)).filter((i) => i >= 0));
+  const modelI = ideaIdx("model");
+  const groups: { title: string; test: (r: (number | null)[]) => boolean }[] = [
+    { title: "Профили бота 1-7 вместе", test: (r) => botSet.has(r[4] as number) },
+    { title: "Модель цены (вся сетка)", test: (r) => modelI >= 0 && r[4] === modelI },
+  ];
+  const pxI = col("px");
+  const st = (rs: (number | null)[][]): string => {
+    if (rs.length === 0) return "нет данных";
+    let w = 0, roi = 0, px = 0;
+    for (const r of rs) {
+      const won = r[3] === 1;
+      const p = r[pxI] as number;
+      w += won ? 1 : 0;
+      px += p;
+      roi += won ? (1 - p) / p : -1;
+    }
+    const n = rs.length;
+    const edge = (w / n - px / n) * 100;
+    return `${n} сд., побед ${((w / n) * 100).toFixed(1)}% (цена ${(px / n).toFixed(2)}, запас ${edge >= 0 ? "+" : ""}${edge.toFixed(1)} п.п.), ROI ${((roi / n) * 100).toFixed(1)}%`;
+  };
+  const BL = ["против", "<50%", "50-80%", "80-120%", ">120%"];
+  const lines: string[] = [];
+  lines.push(`<b>🏦 Биржи: каждая отдельно и вместе (${periodLabel})</b>`);
+  lines.push(`Рынков ${data.meta.markets}, сделок ${data.meta.trades}. Данные по новым биржам копятся с момента их подключения.`);
+  lines.push("Корзина = во сколько раз биржа прошла от открытия окна относительно потока бота: «против» — биржа уже по другую сторону.");
+  lines.push("Сделки одного рынка в разных ячейках пересекаются, поэтому смотри на порядок, а не на сотые доли.");
+  for (const g of groups) {
+    const rows = data.rows.filter(g.test);
+    lines.push("");
+    lines.push(`<b>━━ ${g.title}: ${rows.length} сд. ━━</b>`);
+    for (const ex of data.exchanges) {
+      const bi = col(ex.b);
+      const have = rows.filter((r) => r[bi] !== null);
+      lines.push(`<b>${ex.label}</b> (данные есть у ${have.length})`);
+      if (have.length === 0) {
+        lines.push("  пока нет данных");
+        continue;
+      }
+      for (let b = 0; b < 5; b++) lines.push(`  ${BL[b]}: ${st(have.filter((r) => r[bi] === b))}`);
+    }
+    const iNag = col("nag"), iNcf = col("ncf"), iNex = col("nex");
+    const haveC = rows.filter((r) => r[iNex] !== null && (r[iNex] as number) >= 2);
+    lines.push("<b>Вместе: сколько бирж против</b>");
+    for (const [name, f] of [
+      ["ни одна", (n: number) => n === 0],
+      ["1", (n: number) => n === 1],
+      ["2", (n: number) => n === 2],
+      ["3 и больше", (n: number) => n >= 3],
+    ] as [string, (n: number) => boolean][]) lines.push(`  ${name}: ${st(haveC.filter((r) => f(r[iNag] as number)))}`);
+    lines.push("<b>Вместе: сколько бирж подтверждают (≥50% потока)</b>");
+    for (const [name, f] of [
+      ["0", (n: number) => n === 0],
+      ["1", (n: number) => n === 1],
+      ["2", (n: number) => n === 2],
+      ["3", (n: number) => n === 3],
+      ["4 и больше", (n: number) => n >= 4],
+    ] as [string, (n: number) => boolean][]) lines.push(`  ${name}: ${st(haveC.filter((r) => f(r[iNcf] as number)))}`);
+    lines.push(`  ВСЕ биржи с данными подтверждают: ${st(haveC.filter((r) => r[iNcf] === r[iNex]))}`);
+  }
+  lines.push("");
+  lines.push("Любую комбинацию бирж (например OKX против + Binance подтверждает) и разбор по ячейкам — на странице: «лаб страница».");
+  return lines.join("\n");
 }
