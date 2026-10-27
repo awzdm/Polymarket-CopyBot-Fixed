@@ -494,8 +494,8 @@ const settings = {
       },
       mode: "margin",
       priceMode: "corridor",
-      priceLow: 0.93,
-      priceHigh: 0.96,
+      priceLow: 0.92,
+      priceHigh: 0.98,
       pctMoveThresholds: {
         Bitcoin: 2.0,
         Ethereum: 2.0,
