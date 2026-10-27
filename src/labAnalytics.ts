@@ -639,7 +639,7 @@ export async function buildExchangeSummary(dir: string, sinceMs: number, periodL
     const edge = (w / n - px / n) * 100;
     return `${n} сд., побед ${((w / n) * 100).toFixed(1)}% (цена ${(px / n).toFixed(2)}, запас ${edge >= 0 ? "+" : ""}${edge.toFixed(1)} п.п.), ROI ${((roi / n) * 100).toFixed(1)}%`;
   };
-  const BL = ["против", "<50%", "50-80%", "80-120%", ">120%"];
+  const BL = ["против", "меньше 50%", "50-80%", "80-120%", "больше 120%"];
   const lines: string[] = [];
   lines.push(`<b>🏦 Биржи: каждая отдельно и вместе (${periodLabel})</b>`);
   lines.push(`Рынков ${data.meta.markets}, сделок ${data.meta.trades}. Данные по новым биржам копятся с момента их подключения.`);
