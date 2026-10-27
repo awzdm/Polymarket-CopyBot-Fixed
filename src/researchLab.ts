@@ -97,6 +97,11 @@ const RULES_TEXT =
   ONE_PER_MARKET || MAX_PER_WINDOW < 100 || MAX_OPEN_TOTAL < 100
     ? `${ONE_PER_MARKET ? "одна позиция на рынок, " : ""}${MAX_PER_WINDOW < 100 ? `не больше ${MAX_PER_WINDOW} в окне, ` : ""}${MAX_OPEN_TOTAL < 100 ? `не больше ${MAX_OPEN_TOTAL} открытых` : "без лимита открытых"}`
     : "без лимитов: записывается каждый сигнал";
+// v3.6: «как бы покупает» — для идей отсюда LAB пишет в лог и в Telegram момент покупки (бумажная торговля, ордеров не шлёт),
+// чтобы сверять с реальным ботом секунда в секунду. size — ставка в $, sizeRefPrice — цена, от которой бот считает число акций (нижняя граница коридора).
+const PAPER_TRADE: Record<string, { size: number; sizeRefPrice: number; cap: number }> = {
+  bot7b0: { size: 5, sizeRefPrice: 0.92, cap: 0.98 }, // профиль 9 бота: «Модель — Binance против»
+};
 const ABOVE_CAP_MAX_ASK = 0.995; // v3.5: сигналы профилей с ask выше потолка пишем (идея bot{N}hi), пока ask не выше этого
 const BOT_ENTRY_PRICE = 0.97; // бот считает размер в акциях как «доллары / 0.97»
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -979,8 +984,8 @@ const BOT_PROFILES: BotProfile[] = [
     id: 7,
     mode: "margin",
     priceMode: "corridor",
-    priceLow: 0.93,
-    priceHigh: 0.96,
+    priceLow: 0.92, // v3.6: как в боте сейчас (было 0.93-0.96)
+    priceHigh: 0.98,
     requireLiveBid: true,
     windowSec: { Bitcoin: 180, Ethereum: 180, Solana: 180, XRP: 180, Dogecoin: 180 },
     param: { Bitcoin: 2.0, Ethereum: 2.0, Solana: 2.0, XRP: 2.0, Dogecoin: 2.0 },
@@ -2636,7 +2641,7 @@ class ResearchLab {
       this.firedKeys.add(key);
       this.takeSlot(idea, combo, market.closeTimeMs);
       const c = getConf();
-      p.entries.push({
+      const entryRec: LabEntry = {
         idea,
         combo,
         coin: market.coin,
@@ -2652,7 +2657,9 @@ class ResearchLab {
         pk: peak,
         ...(isBase(idea) ? { agreeN: agreeNow } : {}),
         ...(extra ?? {}),
-      });
+      };
+      p.entries.push(entryRec);
+      if (PAPER_TRADE[idea] !== undefined) this.paperBuy(idea, market, side, entryRec, getRatioOf("b"));
     };
 
     // ── 1. «Запас» ──
@@ -3174,6 +3181,37 @@ class ResearchLab {
     }
   }
 
+  // ───── v3.6: «как бы покупает» ─────
+
+  /** Куда отправлять текст о бумажной покупке/итоге (ставится в main: Telegram). */
+  onPaperText: ((text: string) => void) | null = null;
+
+  private paperBuy(idea: string, market: CryptoUpDownMarket, side: "Up" | "Down", e: LabEntry, ratio: number | null): void {
+    const cfg = PAPER_TRADE[idea];
+    const shares = cfg.size / cfg.sizeRefPrice;
+    const t = new Date(e.ts).toISOString().slice(11, 23);
+    const text =
+      `📝 LAB БЫ КУПИЛ [${idea}, $${cfg.size}] ${t} UTC\n` +
+      `${COIN_SHORT[market.coin] ?? market.coin} ${market.windowMinutes}м ${side}, ask ${e.price.toFixed(3)}, bid ${e.bid0 != null ? e.bid0.toFixed(3) : "—"} (потолок бота ${cfg.cap})\n` +
+      `до закрытия ${e.sec}с, z ${e.z != null ? e.z.toFixed(2) : "—"}, Binance ${ratio !== null ? `${(ratio * 100).toFixed(0)}%` : "—"} от потока, ~${shares.toFixed(2)} акций\n` +
+      `${market.eventSlug}`;
+    console.log(text.replace(/\n/g, " | "));
+    this.onPaperText?.(text);
+  }
+
+  private paperSettle(p: PendingMarket, slug: string, winner: "Up" | "Down"): void {
+    for (const e of p.entries) {
+      const cfg = PAPER_TRADE[e.idea];
+      if (cfg === undefined) continue;
+      const won = e.side === winner;
+      const shares = cfg.size / cfg.sizeRefPrice;
+      const pnl = won ? shares * (1 - e.price) : -shares * e.price;
+      const text = `${won ? "✅" : "❌"} LAB БЫ: итог [${e.idea}] ${COIN_SHORT[e.coin] ?? e.coin} ${e.side} по ${e.price.toFixed(3)}: ${won ? "победа" : "проигрыш"} ${pnl >= 0 ? "+" : "−"}$${Math.abs(pnl).toFixed(2)} (${slug})`;
+      console.log(text);
+      this.onPaperText?.(text);
+    }
+  }
+
   // ───── v3.3: лента цен и карточки рынков ─────
 
   /** Раз в 5с пишет в каждый живой рынок строку ленты: bid/ask обеих сторон, монета и биржи (bps от открытия окна). */
@@ -3410,6 +3448,7 @@ class ResearchLab {
 
     this.temkaSettle(p, winner);
     this.recordMarket(slug, p, winner);
+    this.paperSettle(p, slug, winner);
 
     this.dropPending(slug);
     if ((p.wm ?? 5) === TARGET_WINDOW_MINUTES) this.resolvedCount++;
@@ -4781,7 +4820,7 @@ class ResearchLab {
 
   buildHelp(): string {
     return [
-      "<b>🧪 LAB v3.3 — команды</b>",
+      "<b>🧪 LAB v3.6 — команды</b>",
       "лаб — сводка по всем идеям",
       "лаб бот — как торговал бы реальный бот (итог, 24 часа, 7 дней, в долларах)",
       "лаб бинанс — профили бота с фильтром Binance по корзинам (каждая корзина — отдельный бот)",
@@ -5141,6 +5180,7 @@ async function main() {
   const telegram = createTelegramNotifier(botToken, chatId, logger);
 
   const lab = new ResearchLab();
+  if (telegram) lab.onPaperText = (text) => void telegram.send(escapeTelegramHtml(text));
   lab.start();
 
   if (telegram && botToken && chatId) {
