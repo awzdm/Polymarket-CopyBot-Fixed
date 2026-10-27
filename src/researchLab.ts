@@ -97,6 +97,7 @@ const RULES_TEXT =
   ONE_PER_MARKET || MAX_PER_WINDOW < 100 || MAX_OPEN_TOTAL < 100
     ? `${ONE_PER_MARKET ? "одна позиция на рынок, " : ""}${MAX_PER_WINDOW < 100 ? `не больше ${MAX_PER_WINDOW} в окне, ` : ""}${MAX_OPEN_TOTAL < 100 ? `не больше ${MAX_OPEN_TOTAL} открытых` : "без лимита открытых"}`
     : "без лимитов: записывается каждый сигнал";
+const ABOVE_CAP_MAX_ASK = 0.995; // v3.5: сигналы профилей с ask выше потолка пишем (идея bot{N}hi), пока ask не выше этого
 const BOT_ENTRY_PRICE = 0.97; // бот считает размер в акциях как «доллары / 0.97»
 const DAY_MS = 24 * 60 * 60 * 1000;
 const LIVE_LOG_MAX = 4000;
@@ -2797,6 +2798,7 @@ class ResearchLab {
     };
 
     const holding: number[] = [];
+    const aboveCap: number[] = [];
     for (const prof of BOT_PROFILES) {
       const win = prof.windowSec[market.coin];
       if (win === undefined || secToClose > win) continue;
@@ -2840,6 +2842,8 @@ class ResearchLab {
       // сигнал профиля есть — дальше как перед покупкой в боте: потолок цены и живой bid
       if (ask > high) {
         noteLiveFail(prof.id, "покупка не прошла: ask выше потолка коридора");
+        // v3.5: записываем и такие сигналы отдельной идеей bot{N}hi — «а что было бы, если бы потолок был выше»
+        if (ask <= ABOVE_CAP_MAX_ASK && !(prof.requireLiveBid && (bid === null || bid < low - 1e-9))) aboveCap.push(prof.id);
         continue;
       }
       if (prof.requireLiveBid && (bid === null || bid < low - 1e-9)) {
@@ -2849,6 +2853,10 @@ class ResearchLab {
       holding.push(prof.id);
     }
     agreeNow = holding.length;
+    for (const id of aboveCap) {
+      const lo = ask <= 0.97 ? 0.96 : ask <= 0.98 ? 0.97 : ask <= 0.99 ? 0.98 : 0.99;
+      emit(`bot${id}hi`, `ask ${lo.toFixed(2)}-${(lo + 0.01).toFixed(2)} (выше потолка)`);
+    }
     for (const id of holding) {
       emit(`bot${id}`, "профиль");
       const rb = getRatio();
@@ -4843,13 +4851,21 @@ function splitReportIntoChunks(report: string, maxLen: number = TELEGRAM_MAX_CHU
   return chunks.length > 0 ? chunks : [""];
 }
 
+/** Telegram (parse_mode HTML) не принимает «голые» < > &: оставляем только теги <b>, <i>, <u>, <s>, <code>, <pre>, остальное экранируем. */
+function escapeTelegramHtml(text: string): string {
+  const parts = text.split(/(<\/?(?:b|i|u|s|code|pre)>)/);
+  return parts
+    .map((part, i) => (i % 2 === 1 ? part : part.replace(/&(?!(?:amp|lt|gt|quot);)/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")))
+    .join("");
+}
+
 async function sendReportToTelegram(
   telegram: ReturnType<typeof createTelegramNotifier>,
   report: string,
 ): Promise<void> {
   const chunks = splitReportIntoChunks(report);
   for (let i = 0; i < chunks.length; i++) {
-    const text = i === 0 ? chunks[i] : `<b>...продолжение (${i + 1}/${chunks.length})</b>\n\n${chunks[i]}`;
+    const text = escapeTelegramHtml(i === 0 ? chunks[i] : `<b>...продолжение (${i + 1}/${chunks.length})</b>\n\n${chunks[i]}`);
     try {
       await telegram?.send(text);
     } catch (err) {
@@ -5104,7 +5120,7 @@ async function pollTelegramCommands(
 
 async function main() {
   console.log(`Файлы данных: ${STORAGE_DIR}${STORAGE_DIR === process.cwd() ? " (рабочая папка — при пересоздании контейнера пропадут!)" : " (постоянный диск)"}`);
-  console.log("=== LAB v3.4: парсер идей запущен (не торгует; каждый сигнал записывается без лимитов, фильтр бирж с ожиданием) ===");
+  console.log("=== LAB v3.5: парсер идей запущен (не торгует; каждый сигнал записывается без лимитов, фильтр бирж с ожиданием) ===");
   console.log(
     "Идеи: запас (z), недооценка, паника без разворота, импульс, арбитраж, подтверждение монетами, согласие профилей (7 профилей), модель цены (+ Binance/Coinbase по всей сетке), справедливая цена, «темка» (скальп от начала окна), режим волатильности, заражение, траектория токена, пила, пара BTC+ETH, Binance/Coinbase по корзинам, лоси, стоп, «лаб бот».",
   );
