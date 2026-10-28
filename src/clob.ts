@@ -19,6 +19,26 @@ export interface ClobConfig {
   apiCreds?: ApiKeyCreds;
 }
 
+/** Снимок стакана токена из потока (websocket) на момент сигнала — позволяет не делать REST-запрос стакана перед ордером. */
+export interface OrderSnapshot {
+  bid: number | null;
+  ask: number | null;
+  ageMs: number; // сколько мс назад пришёл этот снимок
+}
+
+export interface OrderTiming {
+  path: "fast" | "slow"; // fast — без REST-запроса стакана (по снимку из потока), slow — со свежим REST-стаканом
+  bookMs: number; // сколько заняла подготовка (REST-стакан; у fast почти 0)
+  postMs: number; // сколько заняла подпись и отправка ордера до ответа биржи
+}
+
+/** Снимок из потока старше этого считаем устаревшим и идём по медленному пути (со свежим REST-стаканом). */
+const FAST_SNAPSHOT_MAX_AGE_MS = 2000;
+/** Метаданные рынка (tick size, neg-risk, минимальный размер) для быстрого пути не старше этого. */
+const FAST_META_MAX_AGE_MS = 4 * 60 * 1000;
+/** warmMeta обновляет метаданные токена, только если им больше этого. */
+const WARM_META_REFRESH_MS = 2 * 60 * 1000;
+
 export interface MarketMeta {
   tickSize: string;
   minOrderSize: number;
@@ -160,6 +180,32 @@ export class ClobService {
     return { bestAsk, bestBid, ...meta };
   }
 
+  /** Метаданные из кэша, если они свежее maxAgeMs; иначе null (запросов не делает). */
+  private peekMeta(tokenId: string, maxAgeMs: number): MarketMeta | null {
+    const cached = this.metaCache.get(tokenId);
+    return cached && Date.now() - cached.ts <= maxAgeMs ? cached.meta : null;
+  }
+
+  /**
+   * Заранее подгружает метаданные рынков (tick size, neg-risk, мин. размер) для списка токенов, чтобы быстрый путь покупки
+   * не ходил за ними перед ордером. Безопасно звать часто: уже свежие токены пропускаются. Ошибки глушатся.
+   */
+  async warmMeta(tokenIds: string[]): Promise<void> {
+    for (const id of tokenIds) {
+      const cached = this.metaCache.get(id);
+      if (cached && Date.now() - cached.ts < WARM_META_REFRESH_MS) continue;
+      try {
+        const ob = await this.client.getOrderBook(id);
+        this.metaCache.set(id, {
+          meta: { tickSize: String(ob.tick_size), minOrderSize: Number(ob.min_order_size), negRisk: Boolean(ob.neg_risk) },
+          ts: Date.now(),
+        });
+      } catch {
+        // не страшно: перед ордером метаданные запросятся обычным путём
+      }
+    }
+  }
+
   private roundToTick(
     price: number,
     tickSize: string,
@@ -174,10 +220,11 @@ export class ClobService {
     const factor = 1 / tick;
     const raw = price * factor;
 
+    // 1e-9 — защита от ошибок двоичных дробей (0.93 * 100 может дать 92.999999…, и floor «съел» бы целый тик)
     const rounded =
       side === Side.BUY
-        ? Math.floor(raw)
-        : Math.ceil(raw);
+        ? Math.floor(raw + 1e-9)
+        : Math.ceil(raw - 1e-9);
 
     return rounded / factor;
   }
@@ -226,10 +273,24 @@ export class ClobService {
     maxSlippagePct?: number; // буфер сверх живого best ask/bid, default 0.5%
     maxBuyPrice?: number; // ЖЁСТКИЙ потолок для BUY — не покупать, если живой ask уже выше
     minBidPrice?: number; // для BUY — не входить, если живой bid ниже этой цены (или bid нет)
-  }): Promise<{ status: string; filledSize?: string; filledUsdc?: string; orderId?: string | null }> {
+    snapshot?: OrderSnapshot; // v4: свежий снимок стакана из потока — позволяет пропустить REST-запрос стакана (быстрый путь, только BUY)
+    priceAtCap?: boolean; // v4: ставить цену FAK-ордера ровно на maxBuyPrice (а не на live ask + буфер)
+  }): Promise<{ status: string; filledSize?: string; filledUsdc?: string; orderId?: string | null; timing?: OrderTiming }> {
     const { tokenId, side, size } = params;
 
-    const book = await this.getTopOfBook(tokenId);
+    // v4: БЫСТРЫЙ ПУТЬ. Если есть свежий снимок стакана из потока и свежие метаданные рынка — не ходим за стаканом по REST:
+    // проверки потолка и bid делаем по снимку. Защита от переплаты не ослабевает: ордер FAK всё равно уходит с ценой не выше
+    // maxBuyPrice, и если живой ask выше — биржа просто ничего не исполнит.
+    const tStart = Date.now();
+    const snap = params.snapshot;
+    const fastMeta =
+      side === Side.BUY && snap && snap.ageMs <= FAST_SNAPSHOT_MAX_AGE_MS ? this.peekMeta(tokenId, FAST_META_MAX_AGE_MS) : null;
+    const path: "fast" | "slow" = fastMeta && snap ? "fast" : "slow";
+    const book =
+      fastMeta && snap
+        ? { bestAsk: snap.ask, bestBid: snap.bid, ...fastMeta }
+        : await this.getTopOfBook(tokenId);
+    const bookMs = Date.now() - tStart;
 
     // Жёсткий кап ДО расчёта буфера — не "догоняем" цену сверх задуманного
     // профилем предела, просто отменяем вход. Для SELL кап не применяется
@@ -274,8 +335,12 @@ export class ClobService {
     // Если задан maxBuyPrice — итоговая цена ордера (с учётом буфера) тоже
     // не должна его превышать, даже когда сам bestAsk был чуть ниже предела,
     // а буфер slippage вытолкнул расчётную цену выше. Обрезаем сверху.
+    // v4 (priceAtCap): цена FAK-ордера = сам потолок. Раньше цена была «live ask + 0.5%» с округлением вниз до тика, то есть ровно
+    // на видимом ask: если ask успевал подняться на один тик за время до биржи (но оставался в пределах потолка), ордер не
+    // исполнялся («no orders found to match»). FAK платит по реальным ask-ам, а цена — только предел, так что потолок безопасен.
     if (side === Side.BUY && params.maxBuyPrice !== undefined) {
-      cappedPrice = Math.min(cappedPrice, this.roundToTick(params.maxBuyPrice, book.tickSize, side));
+      const capTick = this.roundToTick(params.maxBuyPrice, book.tickSize, side);
+      cappedPrice = params.priceAtCap ? capTick : Math.min(cappedPrice, capTick);
     }
 
     if (size < book.minOrderSize) {
@@ -303,20 +368,37 @@ export class ClobService {
       throw new Error(`Invalid market order amount computed (${amount}) for tokenId=${tokenId}`);
     }
 
-    const resp = await this.client.createAndPostMarketOrder(
-      {
-        tokenID: tokenId,
-        amount,
-        side,
-        price: cappedPrice,
-        orderType: OrderType.FAK,
-      },
-      {
-        tickSize: book.tickSize as any,
-        negRisk: book.negRisk,
-      },
-      OrderType.FAK,
-    );
+    // Если быстрый путь использовал устаревшие метаданные рынка (например, сменился tick size) — один раз повторяем медленным путём.
+    const retrySlow = async (why: string): Promise<ReturnType<ClobService["placeLimitOrder"]>> => {
+      this.logger.info("Fast path failed on market meta — retrying with fresh REST book", { tokenId, why });
+      this.metaCache.delete(tokenId);
+      return this.placeLimitOrder({ ...params, snapshot: undefined });
+    };
+    const META_ERR = /tick|neg.?risk|precision|decimal/i;
+
+    const tPost = Date.now();
+    let resp;
+    try {
+      resp = await this.client.createAndPostMarketOrder(
+        {
+          tokenID: tokenId,
+          amount,
+          side,
+          price: cappedPrice,
+          orderType: OrderType.FAK,
+        },
+        {
+          tickSize: book.tickSize as any,
+          negRisk: book.negRisk,
+        },
+        OrderType.FAK,
+      );
+    } catch (err) {
+      const msg = (err as Error).message ?? String(err);
+      if (path === "fast" && META_ERR.test(msg)) return retrySlow(msg);
+      throw err;
+    }
+    const postMs = Date.now() - tPost;
 
     this.logger.info("Market FAK order submitted (priced off live book)", {
       tokenId,
@@ -326,6 +408,9 @@ export class ClobService {
       cappedPrice,
       maxBuyPrice: params.maxBuyPrice,
       minBidPrice: params.minBidPrice,
+      path,
+      bookMs,
+      postMs,
       traderPrice: params.price,
       size,
       response: resp,
@@ -352,6 +437,7 @@ export class ClobService {
 
     if (respAny.success !== true) {
       const reason = respAny.error || respAny.errorMsg || `CLOB rejected the order (status: ${respAny.status})`;
+      if (path === "fast" && META_ERR.test(reason)) return retrySlow(reason);
       throw new Error(reason);
     }
     if (respAny.status !== "matched") {
@@ -365,6 +451,7 @@ export class ClobService {
       filledSize: respAny.makingAmount,
       filledUsdc: respAny.takingAmount,
       orderId: respAny.orderID ?? null,
+      timing: { path, bookMs, postMs },
     };
   }
 
