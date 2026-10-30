@@ -531,7 +531,7 @@ export async function buildPageData(dir: string, opt: PageOptions): Promise<Page
   const rnd01 = mulberry(12345);
   // сначала считаем, сколько всего строк, и если помещаемся — берём всё
   if (trades <= opt.maxRows) {
-    for (const list of byCell.values()) rows.push(...list);
+    for (const list of byCell.values()) for (const r of list) rows.push(r);
   } else {
     // ячейки с малым числом сделок берём целиком, остаток бюджета делим между большими
     const entries = [...byCell.entries()].sort((a, b) => a[1].length - b[1].length);
@@ -540,7 +540,7 @@ export async function buildPageData(dir: string, opt: PageOptions): Promise<Page
     for (const [, list] of entries) {
       const share = Math.max(40, Math.floor(budget / left));
       if (list.length <= share) {
-        rows.push(...list);
+        for (const r of list) rows.push(r);
         budget -= list.length;
       } else {
         // выборка без повторов
@@ -549,7 +549,7 @@ export async function buildPageData(dir: string, opt: PageOptions): Promise<Page
           const j = Math.floor(rnd01() * (i + 1));
           [picked[i], picked[j]] = [picked[j], picked[i]];
         }
-        rows.push(...picked.slice(0, share));
+        for (let i = 0; i < share; i++) rows.push(picked[i]);
         budget -= share;
         sampled = true;
       }
@@ -588,8 +588,11 @@ export async function buildPageData(dir: string, opt: PageOptions): Promise<Page
 
 /** Собирает HTML: данные кладутся в <script type="application/json">. */
 export function renderPageHtml(data: PageData): string {
-  const json = JSON.stringify(data).replace(/</g, "\\u003c");
-  return PAGE_TEMPLATE.replace("/*__DATA__*/null", () => json);
+  // v3.8: сжимаем строки сделок (gzip+base64) — в файл помещаются все сделки, страница распаковывает их при открытии
+  const { rows, ...rest } = data;
+  const json = JSON.stringify({ ...rest, rows: [] }).replace(/</g, "\\u003c");
+  const b64 = zlib.gzipSync(Buffer.from(JSON.stringify(rows)), { level: 6 }).toString("base64");
+  return PAGE_TEMPLATE.replace("/*__ROWS__*/", () => b64).replace("/*__DATA__*/null", () => json);
 }
 
 /** Строит страницу и возвращает HTML. Если получилось больше maxBytes, пересобирает с меньшим числом строк. */
@@ -598,15 +601,18 @@ export async function buildPage(
   opt: Omit<PageOptions, "maxRows"> & { maxRows?: number },
   maxBytes = 45 * 1024 * 1024,
 ): Promise<{ html: string; data: PageData }> {
-  let maxRows = opt.maxRows ?? 100_000;
-  for (let attempt = 0; attempt < 5; attempt++) {
+  // v3.8: по умолчанию берём ВСЕ сделки. Если файл не влезает в maxBytes — оставляем столько строк, сколько влезет.
+  let maxRows = opt.maxRows ?? 5_000_000;
+  let last: { html: string; data: PageData } | null = null;
+  for (let attempt = 0; attempt < 4; attempt++) {
     const data = await buildPageData(dir, { ...opt, maxRows });
     const html = renderPageHtml(data);
-    if (Buffer.byteLength(html) <= maxBytes || maxRows <= 5000) return { html, data };
-    maxRows = Math.floor(maxRows / 2);
+    last = { html, data };
+    const size = Buffer.byteLength(html);
+    if (size <= maxBytes || maxRows <= 5000) return last;
+    maxRows = Math.max(5000, Math.floor(((data.rows.length * maxBytes) / size) * 0.9));
   }
-  const data = await buildPageData(dir, { ...opt, maxRows: 5000 });
-  return { html: renderPageHtml(data), data };
+  return last!;
 }
 
 // ───────────────────────── Сводка по биржам (для Telegram) ─────────────────────────
