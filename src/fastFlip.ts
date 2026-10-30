@@ -1,9 +1,14 @@
 /**
- * "Быстрый флип" v7.15 — РЫНОЧНЫЕ ордера на ВХОД, держим ДО ОФИЦИАЛЬНОГО
+ * "Быстрый флип" v7.16 — РЫНОЧНЫЕ ордера на ВХОД, держим ДО ОФИЦИАЛЬНОГО
  * РЕЗОЛВА. Никаких лимиток на выход и никаких продаж по тику цены.
  *
+ * v7.16 (относительно v7.15):
+ *  1) ДОБАВЛЕН ПРОФИЛЬ 11 «Справедливая цена σ120»: edge 0–2%, 120–180с до закрытия,
+ *     ask токена 0.80–0.85. Edge считается как p − ask по σ за последние 120с.
+ *     Профили 1–10 и их условия не меняются.
+ *
  * v7.15 (относительно v7.14):
- *  1) УБРАН СПИСОК ACTIVE_PROFILE_ORDER. Все 10 профилей проверяются по порядку и считаются включёнными по умолчанию.
+ *  1) УБРАН СПИСОК ACTIVE_PROFILE_ORDER. Все профили проверяются по порядку и считаются включёнными по умолчанию.
  *     Отдельной логики включения/выключения профилей больше нет; условия и параметры самих стратегий не менялись.
  *
  * v7.14 (относительно v7.13):
@@ -189,7 +194,7 @@ const PROFILE_1_DEFAULT_THRESHOLDS: Record<string, number> = {
 interface EntryProfile {
   name: string;
   entryWindowSec: Record<string, number>;
-  mode: "fixed" | "adaptive" | "margin";
+  mode: "fixed" | "adaptive" | "margin" | "fair";
   priceMode: "corridor" | "touch-drop" | "none" | "retouch";
   priceLow?: number; // свой коридор для профиля; если не задан — общий settings.entryPrice
   priceHigh?: number; // свой коридор для профиля; если не задан — общий settings.maxEntryPrice
@@ -215,6 +220,7 @@ function formatParamValue(profile: EntryProfile, coin: string): string {
   const v = profile.pctMoveThresholds[coin] ?? 0;
   if (profile.mode === "adaptive") return `${v.toFixed(1)}x`;
   if (profile.mode === "margin") return `z≥${v.toFixed(1)}${profile.maxZ !== undefined ? `, z<${profile.maxZ.toFixed(1)}` : ""}`;
+  if (profile.mode === "fair") return "edge 0–2%";
   return `${(v * 100).toFixed(2)}%`;
 }
 
@@ -235,6 +241,60 @@ function formatCorridorLabel(p: EntryProfile): string {
 }
 
 const volTracker = new VolatilityTracker(PRICE_FEEDS);
+
+/** Стандартная нормальная CDF; та же аппроксимация, что используется в researchLab.ts. */
+function normCdf(x: number): number {
+  const t = 1 / (1 + 0.2316419 * Math.abs(x));
+  const d = 0.3989422804014327 * Math.exp((-x * x) / 2);
+  const p = d * t * (0.31938153 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
+  return x > 0 ? 1 - p : p;
+}
+
+/**
+ * Edge справедливой цены по σ за 120с:
+ * p = Φ(dirMove / (σ * √t)); edge = p − ask.
+ * dirMove должен быть положительным движением монеты в сторону покупаемого токена.
+ */
+function fairEdge120(
+  coin: string,
+  feed: CoinPriceFeed,
+  dirMove: number,
+  secToClose: number,
+  ask: number,
+  now: number,
+): number | null {
+  if (dirMove <= 0 || ask <= 0 || ask >= 1) return null;
+
+  let prevP: number | null = null;
+  let prevT = 0;
+  let sumSq = 0;
+  let sumDt = 0;
+  let n = 0;
+
+  const consider = (t: number, px: number | null): void => {
+    if (px === null || px <= 0) return;
+    if (prevP !== null && t > prevT) {
+      const r = Math.log(px / prevP);
+      sumSq += r * r;
+      sumDt += (t - prevT) / 1000;
+      n++;
+    }
+    prevP = px;
+    prevT = t;
+  };
+
+  for (let t = now - 120_000; t < now; t += 5_000) consider(t, feed.getPriceAt(t));
+  consider(now, feed.getLatestPrice());
+  if (n < 12 || sumDt <= 0) return null;
+
+  let sig = Math.sqrt(sumSq / sumDt);
+  const v = volTracker.getRecentVolatility(coin, now);
+  if (v !== null && v > 1e-6) sig = Math.max(sig, (0.3 * v) / Math.sqrt(300));
+  if (!(sig > 0)) return null;
+
+  const p = normCdf(dirMove / (sig * Math.sqrt(Math.max(secToClose, 1))));
+  return p - ask;
+}
 
 // ─── Binance: цена монет, опрос REST раз в секунду, история за 15 минут (без внешних библиотек) ───
 const BINANCE_SYMBOLS: Record<string, string> = {
@@ -555,6 +615,22 @@ settings.profiles.push({
   requireLiveBid: true,
   minSecToClose: 120,
   maxZ: 3,
+});
+
+// v7.16: профиль 11 «Справедливая цена σ120».
+// Вход только при edge = pFair - ask в диапазоне [0%, 2%), ask 0.80–0.85,
+// и строго за 120–180 секунд до закрытия. Порог движения отдельно не используется.
+settings.profiles.push({
+  name: "Профиль 11 (Справедливая цена σ120)",
+  entryWindowSec: makeUniformThresholds(180),
+  mode: "fair",
+  priceMode: "corridor",
+  priceLow: 0.80,
+  priceHigh: 0.85,
+  pctMoveThresholds: makeUniformThresholds(0),
+  sizeUsd: 5,
+  requireLiveBid: false,
+  minSecToClose: 120,
 });
 
 interface TokenInfo {
@@ -968,6 +1044,27 @@ class FastFlipMarketBot {
       if (secToClose > windowForCoin) continue; // этот профиль ещё не "открылся" по времени для этой монеты
       if (profile.minSecToClose !== undefined && secToClose < profile.minSecToClose) continue; // уже слишком поздно для этого профиля
 
+      // Специальная логика профиля 11: для fair edge используем именно ask,
+      // а не bid/last, иначе сравнение p − ask было бы некорректным.
+      if (profile.mode === "fair") {
+        const ask = update.bestAsk;
+        if (ask === null || ask < (profile.priceLow ?? 0.80) || ask > (profile.priceHigh ?? 0.85)) continue;
+
+        const dirMove = side === "Up" ? pctMove : -pctMove;
+        if (dirMove <= 0) continue;
+
+        const edge = fairEdge120(market.coin, feed, dirMove, secToClose, ask, Date.now());
+        if (edge === null || edge < 0 || edge >= 0.02) continue;
+
+        const binFair = this.binanceCheck(profile, profileIdx, market, side, pctMove, openTimeMs);
+        if (!binFair.ok) continue;
+
+        this.beginAttempt(market);
+        const fairTokenId = side === "Up" ? market.upTokenId : market.downTokenId;
+        this.executeMarketEntry(market, side, fairTokenId, ask, secToClose, pctMove, profile, edge, binFair.note);
+        return;
+      }
+
       const priceLow = profile.priceLow ?? settings.entryPrice;
       const priceHigh = profile.priceHigh ?? settings.maxEntryPrice;
 
@@ -1121,11 +1218,13 @@ class FastFlipMarketBot {
     const size = profile.sizeUsd / (profile.priceLow ?? settings.entryPrice);
     const rawParam = profile.pctMoveThresholds[market.coin] ?? 0;
     const thresholdLabel =
-      profile.mode === "adaptive"
-        ? `${rawParam.toFixed(1)}x → фактический порог ${(pctThresholdUsed * 100).toFixed(3)}%`
-        : profile.mode === "margin"
-          ? `запас z≥${rawParam.toFixed(1)}${profile.maxZ !== undefined ? `, z<${profile.maxZ.toFixed(1)}` : ""} → фактический z ${pctThresholdUsed.toFixed(2)}`
-          : `${(pctThresholdUsed * 100).toFixed(2)}%`;
+      profile.mode === "fair"
+        ? `справедливый edge ${(pctThresholdUsed * 100).toFixed(2)}% (p − ask)`
+        : profile.mode === "adaptive"
+          ? `${rawParam.toFixed(1)}x → фактический порог ${(pctThresholdUsed * 100).toFixed(3)}%`
+          : profile.mode === "margin"
+            ? `запас z≥${rawParam.toFixed(1)}${profile.maxZ !== undefined ? `, z<${profile.maxZ.toFixed(1)}` : ""} → фактический z ${pctThresholdUsed.toFixed(2)}`
+            : `${(pctThresholdUsed * 100).toFixed(2)}%`;
 
     console.log(
       `\n⚡ ВХОД ПО РЫНКУ [${profile.name}]: [${market.coin} / 5мин] "${market.title}"\n` +
@@ -1570,7 +1669,7 @@ async function pollTelegramCommands(
 async function main() {
   // МЕТКА ВЕРСИИ — если в логах при старте бота НЕТ этой строки,
   // значит запущен не этот файл (старая сборка / другой процесс).
-  console.log("=== FASTFLIP BUILD: v7.15 — ВСЕ ПРОФИЛИ 1-10 ВКЛЮЧЕНЫ, РАЗМЕР ОТ НИЖНЕЙ ГРАНИЦЫ КОРИДОРА ===");
+  console.log("=== FASTFLIP BUILD: v7.16 — ВСЕ ПРОФИЛИ 1-11 ВКЛЮЧЕНЫ, РАЗМЕР ОТ НИЖНЕЙ ГРАНИЦЫ КОРИДОРА ===");
   console.log(`Режим: ${DRY_RUN ? "DRY_RUN (без реальных сделок, полная симуляция)" : "⚠️  LIVE — РЕАЛЬНЫЕ ДЕНЬГИ"}`);
   console.log(`Коридор по умолчанию (если у профиля свой не задан): ${settings.entryPrice}-${settings.maxEntryPrice} | Квота: ${settings.quotaPerHour}/час`);
   console.log(`В торговле профили: ${settings.profiles.map((_, i) => i + 1).join(", ")} (все включены)`);
@@ -1590,7 +1689,7 @@ async function main() {
   solPriceFeed.start();
   xrpPriceFeed.start();
   dogePriceFeed.start();
-  volTracker.start(); // нужен для adaptive-профилей (Профиль 2) и «Запаса» / «Модели» (Профили 6-10)
+  volTracker.start(); // нужен для adaptive-профилей (Профиль 2) и «Запаса» / «Модели» (Профили 6-11)
   binance.start(); // нужен для фильтра Binance (Профили 7-9)
 
   let clob: ClobService | null = null;
