@@ -1,5 +1,5 @@
 /**
- * LAB v3.8 — исследовательский парсер идей. По умолчанию НЕ торгует; с LAB_TRADE=on реально покупает bot7b0 (профиль 9) и fair2 (edge 2-4% / 60-120с / 0.93-0.96) через clob.ts. Ставки: «лаб объем».
+ * LAB v3.9 — исследовательский парсер идей. По умолчанию НЕ торгует; с LAB_TRADE=on реально покупает стратегии из TRADE_CFGS (bot7b0, fair2, fair85, model93) через clob.ts, каждая независимо от остальных. Ставки: «лаб объем».
  * Работает отдельным процессом, свой файл состояния (research-lab-state.json),
  * свои команды в Telegram (все начинаются со слова "лаб").
  *
@@ -110,10 +110,23 @@ interface TradeCfg {
   sizeRefPrice: number; // цена, от которой считаем число акций (нижняя граница коридора)
   cap: number; // потолок цены покупки
   minBid?: number; // не входить, если живой bid ниже
+  /** Дополнительное условие входа (проверяется один раз, в момент первого срабатывания ячейки — как считает страница). */
+  filter?: (e: LabEntry, tb60: number | null) => boolean;
+  needTb60?: boolean; // условию нужен показатель «bid токена: вход − 60с назад»
 }
 const TRADE_CFGS: TradeCfg[] = [
   { name: "bot7b0", idea: "bot7b0", label: "профиль 9: Модель, Binance против", size: 5, sizeRefPrice: 0.92, cap: 0.98, minBid: 0.92 },
   { name: "fair2", idea: "fair2", combo: "edge 2-4% / 60-120с / 0.93-0.96", label: "Справедливая цена σ120с, edge 2-4%, 60-120с, ask 0.93-0.96", size: 5, sizeRefPrice: 0.93, cap: 0.96 },
+  // №1: та же «справедливая цена», но edge 4-6%, вход 0.85-0.90; только если до закрытия ≤89с и ни одна другая монета не подтверждает (≥0.10%)
+  {
+    name: "fair85", idea: "fair2", combo: "edge 4-6% / 60-120с / 0.85-0.90", label: "Справедливая цена σ120с, edge 4-6%, 60-120с, ask 0.85-0.90, до закрытия ≤89с, другие монеты 0",
+    size: 5, sizeRefPrice: 0.85, cap: 0.9, filter: (e) => e.sec <= 89 && e.c10 === 0,
+  },
+  // №3: «Модель цены», сила 1-1.5, 60-120с, ask 0.93-0.96; только если токен за последние 60с вырос по bid не меньше чем на 0.48
+  {
+    name: "model93", idea: "model", combo: "сила 1-1.5 / 60-120с / 0.93-0.96", label: "Модель цены, сила 1-1.5, 60-120с, ask 0.93-0.96, bid токена за 60с вырос ≥0.48",
+    size: 5, sizeRefPrice: 0.93, cap: 0.96, needTb60: true, filter: (_e, tb60) => tb60 !== null && tb60 >= 0.48,
+  },
 ];
 const cfgFor = (idea: string, combo: string): TradeCfg | undefined => TRADE_CFGS.find((c) => c.idea === idea && (c.combo === undefined || c.combo === combo));
 const MAX_STAKE = Number(process.env.LAB_MAX_STAKE ?? "50");
@@ -135,11 +148,11 @@ function saveLiveCfg(): void {
   }
 }
 // v3.7: РЕАЛЬНАЯ торговля теми же идеями (PAPER_TRADE). Включается переменной LAB_TRADE=on (нужны PRIVATE_KEY, FUNDER_ADDRESS и т.д. как у бота).
-// Правила — как у бота: одна позиция на рынок, не больше 3 в окне, не больше 6 открытых, не больше 60 в час.
+// v3.9: каждая стратегия торгует независимо (одна позиция на рынок — только внутри стратегии); общие лимиты широкие: 12 в окне, 30 открытых, 200 в час (env LAB_MAX_PER_WINDOW / LAB_MAX_OPEN / LAB_QUOTA_PER_HOUR).
 const LIVE_TRADE_ENV = (process.env.LAB_TRADE ?? "off").toLowerCase() === "on";
-const LIVE_MAX_PER_WINDOW = Number(process.env.LAB_MAX_PER_WINDOW ?? "3");
-const LIVE_MAX_OPEN = Number(process.env.LAB_MAX_OPEN ?? "6");
-const LIVE_QUOTA_PER_HOUR = Number(process.env.LAB_QUOTA_PER_HOUR ?? "60");
+const LIVE_MAX_PER_WINDOW = Number(process.env.LAB_MAX_PER_WINDOW ?? "12"); // v3.9: стратегии независимы, лимит общий и широкий
+const LIVE_MAX_OPEN = Number(process.env.LAB_MAX_OPEN ?? "30");
+const LIVE_QUOTA_PER_HOUR = Number(process.env.LAB_QUOTA_PER_HOUR ?? "200");
 const LIVE_ATTEMPTS = 3; // сколько раз пробуем купить, если ордер не исполнился (FAK без встречных заявок)
 const LIVE_RETRY_DELAY_MS = 700;
 const LIVE_MIN_SEC_LEFT = 3; // не пытаемся покупать, если до закрытия меньше стольких секунд
@@ -1819,7 +1832,10 @@ class ResearchLab {
       if (now - ts > PAIR_PRUNE_MS) this.pairLastVerify.delete(k);
     }
     this.pruneWindows(now);
-    for (const s of this.liveSlugs) if (!activeSlugs.has(s) && !this.pending.has(s) && !this.liveFills.has(s)) this.liveSlugs.delete(s);
+    for (const k of this.liveSlugs) {
+      const s = k.slice(k.indexOf("|") + 1);
+      if (!activeSlugs.has(s) && !this.pending.has(s) && !this.liveFills.has(k)) this.liveSlugs.delete(k);
+    }
     for (const k of this.liveWindowCount.keys()) if (k < now - 3600_000) this.liveWindowCount.delete(k);
     if (this.liveEnabled && this.clob) void Promise.resolve((this.clob as any).warmMeta?.(tokenIds)).catch(() => {}); // метаданные рынков заранее — быстрый путь ордера
 
@@ -2715,8 +2731,16 @@ class ResearchLab {
         ...(extra ?? {}),
       };
       p.entries.push(entryRec);
-      if (cfgFor(idea, combo) !== undefined) {
-        if (this.liveEnabled && this.clob) void this.liveBuy(idea, market, side, entryRec, getRatioOf("b"));
+      const tcfg = cfgFor(idea, combo);
+      if (tcfg !== undefined) {
+        // дополнительное условие входа стратегии (считается один раз, в момент первого срабатывания ячейки — так же, как в статистике страницы)
+        let pass = true;
+        if (tcfg.filter) {
+          const tb60 = tcfg.needTb60 ? this.tokenBidDelta(p, market, side, bid, 60, now) : null;
+          pass = tcfg.filter(entryRec, tb60);
+        }
+        if (!pass) this.tradeSkipped.add(`${tcfg.name}|${market.eventSlug}|${side}`);
+        else if (this.liveEnabled && this.clob) void this.liveBuy(idea, market, side, entryRec, getRatioOf("b"));
         else this.paperBuy(idea, market, side, entryRec, getRatioOf("b"));
       }
     };
@@ -3263,7 +3287,7 @@ class ResearchLab {
   private clob: ClobService | null = null;
   liveEnabled = false; // рантайм-переключатель («лаб торговля вкл/выкл»)
   private liveSlugs = new Set<string>(); // рынки, где уже была попытка живой покупки
-  private liveFills = new Map<string, { idea: string; coin: string; side: "Up" | "Down"; shares: number; avg: number; usd: number }>();
+  private liveFills = new Map<string, { slug: string; idea: string; coin: string; side: "Up" | "Down"; shares: number; avg: number; usd: number }>(); // ключ: «стратегия|рынок»
   private liveWindowCount = new Map<number, number>();
   private liveTimes: number[] = [];
   private liveStats = { bought: 0, failed: 0, skipped: 0, wins: 0, losses: 0, pnl: 0 };
@@ -3296,10 +3320,8 @@ class ResearchLab {
     const name = `${COIN_SHORT[market.coin] ?? market.coin} ${market.windowMinutes}м ${side}`;
     const head = `[${cfg.name}, $${cfg.size}] ${name}, ask ${e.price.toFixed(3)}, bid ${e.bid0 != null ? e.bid0.toFixed(3) : "—"}, z ${e.z != null ? e.z.toFixed(2) : "—"}, Binance ${ratio !== null ? `${(ratio * 100).toFixed(0)}%` : "—"}, до закрытия ${e.sec}с`;
     if (!this.clob) return;
-    if (this.liveSlugs.has(slug)) {
-      this.note(`ℹ️ LAB пропустил ${head}\nв этом рынке уже есть позиция другой стратегии (одна позиция на рынок)\n${slug}`);
-      return;
-    }
+    const lk = `${cfg.name}|${slug}`;
+    if (this.liveSlugs.has(lk)) return; // эта же стратегия в этом рынке уже пробовала (другие стратегии не мешают)
     const now = Date.now();
     this.liveTimes = this.liveTimes.filter((t) => now - t < 3600_000);
     const limit =
@@ -3311,12 +3333,12 @@ class ResearchLab {
             ? `квота ${LIVE_QUOTA_PER_HOUR} в час`
             : null;
     if (limit !== null) {
-      this.liveSlugs.add(slug);
+      this.liveSlugs.add(lk);
       this.liveStats.skipped++;
       this.note(`⛔ LAB НЕ КУПИЛ (лимит: ${limit})\n${head}\n${slug}`);
       return;
     }
-    this.liveSlugs.add(slug);
+    this.liveSlugs.add(lk);
     this.pendingLive++;
     this.liveWindowCount.set(market.closeTimeMs, (this.liveWindowCount.get(market.closeTimeMs) ?? 0) + 1);
 
@@ -3354,7 +3376,7 @@ class ResearchLab {
             errors.push(`попытка ${attempt}: биржа ответила без заполнения (сырые ${rawA}/${rawB})`);
           } else {
             const usd = filledSize * avgPrice;
-            this.liveFills.set(slug, { idea: cfg.name, coin: e.coin, side, shares: filledSize, avg: avgPrice, usd });
+            this.liveFills.set(lk, { slug, idea: cfg.name, coin: e.coin, side, shares: filledSize, avg: avgPrice, usd });
             this.liveTimes.push(Date.now());
             this.liveStats.bought++;
             this.note(
@@ -3379,29 +3401,58 @@ class ResearchLab {
     }
   }
   private pendingLive = 0;
+  private tradeSkipped = new Set<string>(); // «стратегия|рынок|сторона»: ячейка сработала, но дополнительное условие входа не выполнено
 
-  private liveSettle(slug: string, winner: "Up" | "Down"): boolean {
-    const f = this.liveFills.get(slug);
-    if (!f) return false;
-    this.liveFills.delete(slug);
-    const won = f.side === winner;
-    const pnl = won ? f.shares * (1 - f.avg) : -f.usd;
-    this.liveStats.pnl += pnl;
-    if (won) this.liveStats.wins++;
-    else this.liveStats.losses++;
-    this.note(`${won ? "✅" : "❌"} LAB итог [${f.idea}] ${COIN_SHORT[f.coin] ?? f.coin} ${f.side} по ${f.avg.toFixed(3)}: ${won ? "победа" : "проигрыш"} ${pnl >= 0 ? "+" : "−"}$${Math.abs(pnl).toFixed(2)} (всего ${this.liveStats.pnl >= 0 ? "+" : "−"}$${Math.abs(this.liveStats.pnl).toFixed(2)}) ${slug}`);
-    return true;
+  /** «Bid токена: вход − N с назад» — как на странице: bid сейчас минус последний bid той же стороны на момент (вход − N с), не старше 12 с в ленте. */
+  private tokenBidDelta(p: PendingMarket, market: CryptoUpDownMarket, side: "Up" | "Down", bidNow: number | null, backSec: number, nowMs: number): number | null {
+    if (bidNow === null || !p.tape || p.tape.length === 0) return null;
+    const openMs = market.closeTimeMs - market.windowMinutes * 60 * 1000;
+    const entryT = (nowMs - openMs) / 1000;
+    if (entryT - backSec < -1) return null;
+    const target = entryT - backSec;
+    const col = side === "Up" ? 1 : 3;
+    const tp = p.tape;
+    let idx = -1;
+    for (let i = tp.length - 1; i >= 0; i--) {
+      if ((tp[i][0] as number) <= target) {
+        idx = i;
+        break;
+      }
+    }
+    for (let i = idx; i >= 0 && target - (tp[i][0] as number) <= 12; i--) {
+      const v = tp[i][col];
+      if (v !== null && v !== undefined) return Math.round((bidNow - v) * 1000) / 1000;
+    }
+    return null;
+  }
+
+  /** Закрывает все живые позиции рынка (их может быть несколько — по одной на стратегию). Возвращает имена стратегий, у которых была покупка. */
+  private liveSettle(slug: string, winner: "Up" | "Down"): Set<string> {
+    const bought = new Set<string>();
+    for (const [k, f] of [...this.liveFills]) {
+      if (f.slug !== slug) continue;
+      this.liveFills.delete(k);
+      bought.add(f.idea);
+      const won = f.side === winner;
+      const pnl = won ? f.shares * (1 - f.avg) : -f.usd;
+      this.liveStats.pnl += pnl;
+      if (won) this.liveStats.wins++;
+      else this.liveStats.losses++;
+      this.note(`${won ? "✅" : "❌"} LAB итог [${f.idea}] ${COIN_SHORT[f.coin] ?? f.coin} ${f.side} по ${f.avg.toFixed(3)}: ${won ? "победа" : "проигрыш"} ${pnl >= 0 ? "+" : "−"}$${Math.abs(pnl).toFixed(2)} (всего ${this.liveStats.pnl >= 0 ? "+" : "−"}$${Math.abs(this.liveStats.pnl).toFixed(2)}) ${slug}`);
+    }
+    return bought;
   }
 
   private paperSettle(p: PendingMarket, slug: string, winner: "Up" | "Down"): void {
-    const wasBought = this.liveSettle(slug, winner);
+    const boughtNames = this.liveSettle(slug, winner);
     for (const e of p.entries) {
       const cfg = cfgFor(e.idea, e.combo);
       if (cfg === undefined) continue;
+      if (this.tradeSkipped.delete(`${cfg.name}|${slug}|${e.side}`)) continue; // условие входа не выполнено — стратегия там не торговала
       const won = e.side === winner;
-      if (this.liveSlugs.has(slug)) {
+      if (this.liveSlugs.has(`${cfg.name}|${slug}`)) {
         // живая попытка была: если не купили — сообщаем, сколько упустили/сэкономили
-        if (!wasBought) {
+        if (!boughtNames.has(cfg.name)) {
           const sh = cfg.size / cfg.sizeRefPrice;
           const pn = won ? sh * (1 - e.price) : -sh * e.price;
           this.note(`ℹ️ LAB: рынок ${slug} закрыт, мы там НЕ купили; ${won ? "упущено" : "избежали"} ${pn >= 0 ? "+" : "−"}$${Math.abs(pn).toFixed(2)}`);
