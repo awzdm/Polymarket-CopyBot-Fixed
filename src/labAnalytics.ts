@@ -600,7 +600,7 @@ export function renderPageHtml(data: PageData): string {
 export async function buildPage(
   dir: string,
   opt: Omit<PageOptions, "maxRows"> & { maxRows?: number },
-  maxBytes = 45 * 1024 * 1024,
+  maxBytes = 48 * 1024 * 1024, // лимит Telegram на файл 50 МБ
 ): Promise<{ html: string; data: PageData }> {
   // v3.8: по умолчанию берём ВСЕ сделки. Если файл не влезает в maxBytes — оставляем столько строк, сколько влезет.
   let maxRows = opt.maxRows ?? 5_000_000;
