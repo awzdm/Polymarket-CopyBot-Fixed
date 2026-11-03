@@ -1,5 +1,5 @@
 /**
- * LAB v3.8 — исследовательский парсер идей. По умолчанию НЕ торгует; с LAB_TRADE=on реально покупает bot7b0 (профиль 9) и fair2 (edge 2-4% / 60-120с / 0.93-0.96) через clob.ts. Ставки: «лаб объем».
+ * LAB v3.9 — исследовательский парсер идей. По умолчанию НЕ торгует; с LAB_TRADE=on реально покупает стратегии из TRADE_CFGS (bot7b0, fair2, fair85, model93) через clob.ts, каждая независимо от остальных. Ставки: «лаб объем».
  * Работает отдельным процессом, свой файл состояния (research-lab-state.json),
  * свои команды в Telegram (все начинаются со слова "лаб").
  *
@@ -110,36 +110,83 @@ interface TradeCfg {
   sizeRefPrice: number; // цена, от которой считаем число акций (нижняя граница коридора)
   cap: number; // потолок цены покупки
   minBid?: number; // не входить, если живой bid ниже
+  /** Дополнительное условие входа (проверяется один раз, в момент первого срабатывания ячейки — как считает страница). */
+  filter?: (e: LabEntry, tb60: number | null) => boolean;
+  needTb60?: boolean; // условию нужен показатель «bid токена: вход − 60с назад»
+  shares?: number; // v4.0: если задано — всегда покупаем столько акций (ставка в $ тогда не используется)
+  on: boolean; // v4.0: стратегия торгует (команда «лаб тс вкл/выкл»); выключенная только пишется в статистику
+  goalP: number; // v4.0: дневная цель по прибыли, $ (0 = выкл): набрала за день (UTC) — до конца дня не покупает
+  goalL: number; // v4.0: дневной стоп по убытку, $ (0 = выкл)
 }
 const TRADE_CFGS: TradeCfg[] = [
-  { name: "bot7b0", idea: "bot7b0", label: "профиль 9: Модель, Binance против", size: 5, sizeRefPrice: 0.92, cap: 0.98, minBid: 0.92 },
-  { name: "fair2", idea: "fair2", combo: "edge 2-4% / 60-120с / 0.93-0.96", label: "Справедливая цена σ120с, edge 2-4%, 60-120с, ask 0.93-0.96", size: 5, sizeRefPrice: 0.93, cap: 0.96 },
+  { name: "bot7b0", idea: "bot7b0", label: "профиль 9: Модель, Binance против", size: 5, sizeRefPrice: 0.92, cap: 0.98, minBid: 0.92, on: false, goalP: 0, goalL: 0 },
+  { name: "fair2", idea: "fair2", combo: "edge 2-4% / 60-120с / 0.93-0.96", label: "Справедливая цена σ120с, edge 2-4%, 60-120с, ask 0.93-0.96", size: 5, sizeRefPrice: 0.93, cap: 0.96, on: true, goalP: 0, goalL: 0 },
+  // №1: та же «справедливая цена», но edge 4-6%, вход 0.85-0.90; только если до закрытия ≤89с и ни одна другая монета не подтверждает (≥0.10%)
+  {
+    name: "fair85", idea: "fair2", combo: "edge 4-6% / 60-120с / 0.85-0.90", label: "Справедливая цена σ120с, edge 4-6%, 60-120с, ask 0.85-0.90, до закрытия ≤89с, другие монеты 0",
+    size: 5, sizeRefPrice: 0.85, cap: 0.9, filter: (e) => e.sec <= 89 && e.c10 === 0, on: false, goalP: 0, goalL: 0,
+  },
+  // №3: «Модель цены», сила 1-1.5, 60-120с, ask 0.93-0.96; только если токен за последние 60с вырос по bid не меньше чем на 0.48
+  {
+    name: "model93", idea: "model", combo: "сила 1-1.5 / 60-120с / 0.93-0.96", label: "Модель цены, сила 1-1.5, 60-120с, ask 0.93-0.96, bid токена за 60с вырос ≥0.48",
+    size: 5, sizeRefPrice: 0.93, cap: 0.96, needTb60: true, filter: (_e, tb60) => tb60 !== null && tb60 >= 0.48, on: false, goalP: 0, goalL: 0,
+  },
+  // v4.0: №4 «σ60с, edge<0, 120-180с, 0.60-0.70 + Coinbase/поток 3.44…17.07». Coinbase/поток = движение Coinbase ÷ движение нашей монеты (как на странице, округление до сотых).
+  // Всегда 5 акций (при цене 0.60-0.70 это $3.00-$3.50).
+  {
+    name: "cb4", idea: "fair1", combo: "edge <0 / 120-180с / 0.60-0.70", label: "№4 σ60с, edge<0, 120-180с, ask 0.60-0.70, Coinbase/поток 3.44-17.07",
+    size: 3, sizeRefPrice: 0.6, cap: 0.7, shares: 5, on: true, goalP: 0, goalL: 0,
+    filter: (e) => {
+      if (e.pm == null || !(e.pm > 0) || e.cb == null) return false;
+      const r = Math.round((e.cb / e.pm) * 100) / 100;
+      return r >= 3.44 && r <= 17.07;
+    },
+  },
 ];
 const cfgFor = (idea: string, combo: string): TradeCfg | undefined => TRADE_CFGS.find((c) => c.idea === idea && (c.combo === undefined || c.combo === combo));
 const MAX_STAKE = Number(process.env.LAB_MAX_STAKE ?? "50");
-const minStakeOf = (c: TradeCfg): number => Math.ceil(5 * c.sizeRefPrice * 100) / 100; // у биржи минимум 5 акций
+const MAX_SHARES = Number(process.env.LAB_MAX_SHARES ?? "100");
+const MIN_SHARES = 5; // у биржи минимум 5 акций
+const minStakeOf = (c: TradeCfg): number => Math.ceil(MIN_SHARES * c.sizeRefPrice * 100) / 100;
+const sharesOf = (c: TradeCfg): number => (c.shares !== undefined && c.shares > 0 ? c.shares : c.size / c.sizeRefPrice);
+const stakeTxt = (c: TradeCfg): string => (c.shares !== undefined && c.shares > 0 ? `${c.shares} акций` : `$${c.size}`);
+const limitsTxt = (c: TradeCfg): string => `цель ${c.goalP > 0 ? `+$${c.goalP}` : "выкл"}, стоп ${c.goalL > 0 ? `−$${c.goalL}` : "выкл"}`;
 const LIVE_CFG_FILE = path.resolve(process.env.LAB_DATA_PATH || process.env.RAILWAY_VOLUME_MOUNT_PATH || process.cwd(), "lab-live-config.json");
 function loadLiveCfg(): void {
   try {
-    const o = JSON.parse(fs.readFileSync(LIVE_CFG_FILE, "utf8")) as Record<string, number>;
+    const o = JSON.parse(fs.readFileSync(LIVE_CFG_FILE, "utf8")) as Record<string, any>;
     for (const c of TRADE_CFGS) if (typeof o[c.name] === "number" && o[c.name] >= minStakeOf(c) && o[c.name] <= MAX_STAKE) c.size = o[c.name];
+    const v2 = o.__v2 as Record<string, { shares?: number | null; on?: boolean; goalP?: number; goalL?: number }> | undefined;
+    if (v2 && typeof v2 === "object") {
+      for (const c of TRADE_CFGS) {
+        const x = v2[c.name];
+        if (!x) continue;
+        if (typeof x.on === "boolean") c.on = x.on;
+        if (x.shares === null) c.shares = undefined;
+        else if (typeof x.shares === "number" && x.shares >= MIN_SHARES && x.shares <= MAX_SHARES) c.shares = x.shares;
+        if (typeof x.goalP === "number" && x.goalP >= 0) c.goalP = x.goalP;
+        if (typeof x.goalL === "number" && x.goalL >= 0) c.goalL = x.goalL;
+      }
+    }
   } catch {
-    /* файла ещё нет — ставки по умолчанию */
+    /* файла ещё нет — настройки по умолчанию */
   }
 }
 function saveLiveCfg(): void {
   try {
-    fs.writeFileSync(LIVE_CFG_FILE, JSON.stringify(Object.fromEntries(TRADE_CFGS.map((c) => [c.name, c.size]))));
+    const o: Record<string, any> = Object.fromEntries(TRADE_CFGS.map((c) => [c.name, c.size]));
+    o.__v2 = Object.fromEntries(TRADE_CFGS.map((c) => [c.name, { shares: c.shares ?? null, on: c.on, goalP: c.goalP, goalL: c.goalL }]));
+    fs.writeFileSync(LIVE_CFG_FILE, JSON.stringify(o));
   } catch (err) {
-    console.log("[live-cfg] не удалось сохранить ставки:", (err as Error).message);
+    console.log("[live-cfg] не удалось сохранить настройки:", (err as Error).message);
   }
 }
 // v3.7: РЕАЛЬНАЯ торговля теми же идеями (PAPER_TRADE). Включается переменной LAB_TRADE=on (нужны PRIVATE_KEY, FUNDER_ADDRESS и т.д. как у бота).
-// Правила — как у бота: одна позиция на рынок, не больше 3 в окне, не больше 6 открытых, не больше 60 в час.
+// v3.9: каждая стратегия торгует независимо (одна позиция на рынок — только внутри стратегии); общие лимиты широкие: 12 в окне, 30 открытых, 200 в час (env LAB_MAX_PER_WINDOW / LAB_MAX_OPEN / LAB_QUOTA_PER_HOUR).
 const LIVE_TRADE_ENV = (process.env.LAB_TRADE ?? "off").toLowerCase() === "on";
-const LIVE_MAX_PER_WINDOW = Number(process.env.LAB_MAX_PER_WINDOW ?? "3");
-const LIVE_MAX_OPEN = Number(process.env.LAB_MAX_OPEN ?? "6");
-const LIVE_QUOTA_PER_HOUR = Number(process.env.LAB_QUOTA_PER_HOUR ?? "60");
+const LIVE_MAX_PER_WINDOW = Number(process.env.LAB_MAX_PER_WINDOW ?? "12"); // v3.9: стратегии независимы, лимит общий и широкий
+const LIVE_MAX_OPEN = Number(process.env.LAB_MAX_OPEN ?? "30");
+const LIVE_QUOTA_PER_HOUR = Number(process.env.LAB_QUOTA_PER_HOUR ?? "200");
 const LIVE_ATTEMPTS = 3; // сколько раз пробуем купить, если ордер не исполнился (FAK без встречных заявок)
 const LIVE_RETRY_DELAY_MS = 700;
 const LIVE_MIN_SEC_LEFT = 3; // не пытаемся покупать, если до закрытия меньше стольких секунд
@@ -1819,7 +1866,10 @@ class ResearchLab {
       if (now - ts > PAIR_PRUNE_MS) this.pairLastVerify.delete(k);
     }
     this.pruneWindows(now);
-    for (const s of this.liveSlugs) if (!activeSlugs.has(s) && !this.pending.has(s) && !this.liveFills.has(s)) this.liveSlugs.delete(s);
+    for (const k of this.liveSlugs) {
+      const s = k.slice(k.indexOf("|") + 1);
+      if (!activeSlugs.has(s) && !this.pending.has(s) && !this.liveFills.has(k)) this.liveSlugs.delete(k);
+    }
     for (const k of this.liveWindowCount.keys()) if (k < now - 3600_000) this.liveWindowCount.delete(k);
     if (this.liveEnabled && this.clob) void Promise.resolve((this.clob as any).warmMeta?.(tokenIds)).catch(() => {}); // метаданные рынков заранее — быстрый путь ордера
 
@@ -2715,8 +2765,27 @@ class ResearchLab {
         ...(extra ?? {}),
       };
       p.entries.push(entryRec);
-      if (cfgFor(idea, combo) !== undefined) {
-        if (this.liveEnabled && this.clob) void this.liveBuy(idea, market, side, entryRec, getRatioOf("b"));
+      const tcfg = cfgFor(idea, combo);
+      if (tcfg !== undefined) {
+        // дополнительное условие входа стратегии (считается один раз, в момент первого срабатывания ячейки — так же, как в статистике страницы)
+        let pass = true;
+        if (tcfg.filter) {
+          const tb60 = tcfg.needTb60 ? this.tokenBidDelta(p, market, side, bid, 60, now) : null;
+          pass = tcfg.filter(entryRec, tb60);
+        }
+        const tkey = `${tcfg.name}|${market.eventSlug}|${side}`;
+        const dayBlk = pass && tcfg.on ? this.dayBlock(tcfg) : null;
+        if (!pass) this.tradeSkipped.add(tkey);
+        else if (!tcfg.on) {
+          /* стратегия выключена командой «лаб тс выкл»: в статистику пишем, не торгуем */
+        } else if (dayBlk !== null) {
+          this.tradeSkipped.add(tkey);
+          const ds = this.dayState(tcfg.name);
+          if (!ds.told) {
+            ds.told = true;
+            this.note(`🎯 LAB [${tcfg.name}]: ${dayBlk}. До 00:00 UTC новых покупок нет.`);
+          }
+        } else if (this.liveEnabled && this.clob) void this.liveBuy(idea, market, side, entryRec, getRatioOf("b"));
         else this.paperBuy(idea, market, side, entryRec, getRatioOf("b"));
       }
     };
@@ -3245,12 +3314,39 @@ class ResearchLab {
   /** Куда отправлять текст о бумажной покупке/итоге (ставится в main: Telegram). */
   onPaperText: ((text: string) => void) | null = null;
 
+  // v4.0: дневная цель / дневной стоп (по закрытым сделкам стратегии, день по UTC)
+  private dayPnl = new Map<string, { day: number; real: number; told: boolean }>();
+  private dayState(name: string): { day: number; real: number; told: boolean } {
+    const d = Math.floor(Date.now() / DAY_MS);
+    let st = this.dayPnl.get(name);
+    if (!st || st.day !== d) {
+      st = { day: d, real: 0, told: false };
+      this.dayPnl.set(name, st);
+    }
+    return st;
+  }
+  private addDayPnl(name: string, pnl: number): void {
+    this.dayState(name).real += pnl;
+  }
+  private dayBlock(c: TradeCfg): string | null {
+    const st = this.dayState(c.name);
+    if (c.goalP > 0 && st.real >= c.goalP - 1e-9) return `дневная цель +$${c.goalP} достигнута (сегодня ${st.real >= 0 ? "+" : "−"}$${Math.abs(st.real).toFixed(2)})`;
+    if (c.goalL > 0 && st.real <= -c.goalL + 1e-9) return `дневной стоп −$${c.goalL} сработал (сегодня −$${Math.abs(st.real).toFixed(2)})`;
+    return null;
+  }
+  dayLimitsText(): string {
+    return TRADE_CFGS.map((c) => {
+      const st = this.dayState(c.name);
+      return `• ${c.name} ${c.on ? "🟢" : "⏸"} ${stakeTxt(c)}, ${limitsTxt(c)}; сегодня закрыто ${st.real >= 0 ? "+" : "−"}$${Math.abs(st.real).toFixed(2)}${this.dayBlock(c) ? " — остановлена на день" : ""}`;
+    }).join("\n");
+  }
+
   private paperBuy(idea: string, market: CryptoUpDownMarket, side: "Up" | "Down", e: LabEntry, ratio: number | null): void {
     const cfg = cfgFor(idea, e.combo)!;
-    const shares = cfg.size / cfg.sizeRefPrice;
+    const shares = sharesOf(cfg);
     const t = new Date(e.ts).toISOString().slice(11, 23);
     const text =
-      `📝 LAB БЫ КУПИЛ [${cfg.name}, $${cfg.size}] ${t} UTC\n` +
+      `📝 LAB БЫ КУПИЛ [${cfg.name}, ${stakeTxt(cfg)}] ${t} UTC\n` +
       `${COIN_SHORT[market.coin] ?? market.coin} ${market.windowMinutes}м ${side}, ask ${e.price.toFixed(3)}, bid ${e.bid0 != null ? e.bid0.toFixed(3) : "—"} (потолок бота ${cfg.cap})\n` +
       `до закрытия ${e.sec}с, z ${e.z != null ? e.z.toFixed(2) : "—"}, Binance ${ratio !== null ? `${(ratio * 100).toFixed(0)}%` : "—"} от потока, ~${shares.toFixed(2)} акций\n` +
       `${market.eventSlug}`;
@@ -3263,7 +3359,7 @@ class ResearchLab {
   private clob: ClobService | null = null;
   liveEnabled = false; // рантайм-переключатель («лаб торговля вкл/выкл»)
   private liveSlugs = new Set<string>(); // рынки, где уже была попытка живой покупки
-  private liveFills = new Map<string, { idea: string; coin: string; side: "Up" | "Down"; shares: number; avg: number; usd: number }>();
+  private liveFills = new Map<string, { slug: string; idea: string; coin: string; side: "Up" | "Down"; shares: number; avg: number; usd: number }>(); // ключ: «стратегия|рынок»
   private liveWindowCount = new Map<number, number>();
   private liveTimes: number[] = [];
   private liveStats = { bought: 0, failed: 0, skipped: 0, wins: 0, losses: 0, pnl: 0 };
@@ -3284,7 +3380,7 @@ class ResearchLab {
     const s = this.liveStats;
     return (
       `Торговля LAB: ${this.liveEnabled && this.clob ? "🟢 РЕАЛЬНАЯ" : this.clob ? "⏸ выключена (бумажная)" : "⚪ не подключена (бумажная)"}\n` +
-      `Стратегии: ${TRADE_CFGS.map((c) => `${c.name} $${c.size}`).join(", ")} (менять: «лаб объем»)\n` +
+      `Стратегии:\n${this.dayLimitsText()}\n(менять: «лаб тс», «лаб объем», «лаб акций», «лаб лимит»)\n` +
       `Куплено ${s.bought}, не удалось ${s.failed}, пропущено по лимитам ${s.skipped}; закрыто: ${s.wins} побед / ${s.losses} проигрышей, итог ${s.pnl >= 0 ? "+" : "−"}$${Math.abs(s.pnl).toFixed(2)}\n` +
       `Открыто сейчас: ${this.liveFills.size} (лимит ${LIVE_MAX_OPEN}); за последний час покупок: ${this.liveTimes.filter((t) => Date.now() - t < 3600_000).length}/${LIVE_QUOTA_PER_HOUR}`
     );
@@ -3294,12 +3390,10 @@ class ResearchLab {
     const cfg = cfgFor(idea, e.combo)!;
     const slug = market.eventSlug;
     const name = `${COIN_SHORT[market.coin] ?? market.coin} ${market.windowMinutes}м ${side}`;
-    const head = `[${cfg.name}, $${cfg.size}] ${name}, ask ${e.price.toFixed(3)}, bid ${e.bid0 != null ? e.bid0.toFixed(3) : "—"}, z ${e.z != null ? e.z.toFixed(2) : "—"}, Binance ${ratio !== null ? `${(ratio * 100).toFixed(0)}%` : "—"}, до закрытия ${e.sec}с`;
+    const head = `[${cfg.name}, ${stakeTxt(cfg)}] ${name}, ask ${e.price.toFixed(3)}, bid ${e.bid0 != null ? e.bid0.toFixed(3) : "—"}, z ${e.z != null ? e.z.toFixed(2) : "—"}, Binance ${ratio !== null ? `${(ratio * 100).toFixed(0)}%` : "—"}, до закрытия ${e.sec}с`;
     if (!this.clob) return;
-    if (this.liveSlugs.has(slug)) {
-      this.note(`ℹ️ LAB пропустил ${head}\nв этом рынке уже есть позиция другой стратегии (одна позиция на рынок)\n${slug}`);
-      return;
-    }
+    const lk = `${cfg.name}|${slug}`;
+    if (this.liveSlugs.has(lk)) return; // эта же стратегия в этом рынке уже пробовала (другие стратегии не мешают)
     const now = Date.now();
     this.liveTimes = this.liveTimes.filter((t) => now - t < 3600_000);
     const limit =
@@ -3311,17 +3405,17 @@ class ResearchLab {
             ? `квота ${LIVE_QUOTA_PER_HOUR} в час`
             : null;
     if (limit !== null) {
-      this.liveSlugs.add(slug);
+      this.liveSlugs.add(lk);
       this.liveStats.skipped++;
       this.note(`⛔ LAB НЕ КУПИЛ (лимит: ${limit})\n${head}\n${slug}`);
       return;
     }
-    this.liveSlugs.add(slug);
+    this.liveSlugs.add(lk);
     this.pendingLive++;
     this.liveWindowCount.set(market.closeTimeMs, (this.liveWindowCount.get(market.closeTimeMs) ?? 0) + 1);
 
     const tokenId = side === "Up" ? market.upTokenId : market.downTokenId;
-    const size = cfg.size / cfg.sizeRefPrice;
+    const size = sharesOf(cfg);
     const errors: string[] = [];
     const t0 = Date.now();
     try {
@@ -3354,7 +3448,7 @@ class ResearchLab {
             errors.push(`попытка ${attempt}: биржа ответила без заполнения (сырые ${rawA}/${rawB})`);
           } else {
             const usd = filledSize * avgPrice;
-            this.liveFills.set(slug, { idea: cfg.name, coin: e.coin, side, shares: filledSize, avg: avgPrice, usd });
+            this.liveFills.set(lk, { slug, idea: cfg.name, coin: e.coin, side, shares: filledSize, avg: avgPrice, usd });
             this.liveTimes.push(Date.now());
             this.liveStats.bought++;
             this.note(
@@ -3379,37 +3473,69 @@ class ResearchLab {
     }
   }
   private pendingLive = 0;
+  private tradeSkipped = new Set<string>(); // «стратегия|рынок|сторона»: ячейка сработала, но дополнительное условие входа не выполнено
 
-  private liveSettle(slug: string, winner: "Up" | "Down"): boolean {
-    const f = this.liveFills.get(slug);
-    if (!f) return false;
-    this.liveFills.delete(slug);
-    const won = f.side === winner;
-    const pnl = won ? f.shares * (1 - f.avg) : -f.usd;
-    this.liveStats.pnl += pnl;
-    if (won) this.liveStats.wins++;
-    else this.liveStats.losses++;
-    this.note(`${won ? "✅" : "❌"} LAB итог [${f.idea}] ${COIN_SHORT[f.coin] ?? f.coin} ${f.side} по ${f.avg.toFixed(3)}: ${won ? "победа" : "проигрыш"} ${pnl >= 0 ? "+" : "−"}$${Math.abs(pnl).toFixed(2)} (всего ${this.liveStats.pnl >= 0 ? "+" : "−"}$${Math.abs(this.liveStats.pnl).toFixed(2)}) ${slug}`);
-    return true;
+  /** «Bid токена: вход − N с назад» — как на странице: bid сейчас минус последний bid той же стороны на момент (вход − N с), не старше 12 с в ленте. */
+  private tokenBidDelta(p: PendingMarket, market: CryptoUpDownMarket, side: "Up" | "Down", bidNow: number | null, backSec: number, nowMs: number): number | null {
+    if (bidNow === null || !p.tape || p.tape.length === 0) return null;
+    const openMs = market.closeTimeMs - market.windowMinutes * 60 * 1000;
+    const entryT = (nowMs - openMs) / 1000;
+    if (entryT - backSec < -1) return null;
+    const target = entryT - backSec;
+    const col = side === "Up" ? 1 : 3;
+    const tp = p.tape;
+    let idx = -1;
+    for (let i = tp.length - 1; i >= 0; i--) {
+      if ((tp[i][0] as number) <= target) {
+        idx = i;
+        break;
+      }
+    }
+    for (let i = idx; i >= 0 && target - (tp[i][0] as number) <= 12; i--) {
+      const v = tp[i][col];
+      if (v !== null && v !== undefined) return Math.round((bidNow - v) * 1000) / 1000;
+    }
+    return null;
+  }
+
+  /** Закрывает все живые позиции рынка (их может быть несколько — по одной на стратегию). Возвращает имена стратегий, у которых была покупка. */
+  private liveSettle(slug: string, winner: "Up" | "Down"): Set<string> {
+    const bought = new Set<string>();
+    for (const [k, f] of [...this.liveFills]) {
+      if (f.slug !== slug) continue;
+      this.liveFills.delete(k);
+      bought.add(f.idea);
+      const won = f.side === winner;
+      const pnl = won ? f.shares * (1 - f.avg) : -f.usd;
+      this.liveStats.pnl += pnl;
+      this.addDayPnl(f.idea, pnl);
+      if (won) this.liveStats.wins++;
+      else this.liveStats.losses++;
+      this.note(`${won ? "✅" : "❌"} LAB итог [${f.idea}] ${COIN_SHORT[f.coin] ?? f.coin} ${f.side} по ${f.avg.toFixed(3)}: ${won ? "победа" : "проигрыш"} ${pnl >= 0 ? "+" : "−"}$${Math.abs(pnl).toFixed(2)} (всего ${this.liveStats.pnl >= 0 ? "+" : "−"}$${Math.abs(this.liveStats.pnl).toFixed(2)}) ${slug}`);
+    }
+    return bought;
   }
 
   private paperSettle(p: PendingMarket, slug: string, winner: "Up" | "Down"): void {
-    const wasBought = this.liveSettle(slug, winner);
+    const boughtNames = this.liveSettle(slug, winner);
     for (const e of p.entries) {
       const cfg = cfgFor(e.idea, e.combo);
       if (cfg === undefined) continue;
+      if (this.tradeSkipped.delete(`${cfg.name}|${slug}|${e.side}`)) continue; // условие входа не выполнено (или дневной лимит) — стратегия там не торговала
+      if (!cfg.on && !this.liveSlugs.has(`${cfg.name}|${slug}`)) continue; // стратегия выключена
       const won = e.side === winner;
-      if (this.liveSlugs.has(slug)) {
+      if (this.liveSlugs.has(`${cfg.name}|${slug}`)) {
         // живая попытка была: если не купили — сообщаем, сколько упустили/сэкономили
-        if (!wasBought) {
-          const sh = cfg.size / cfg.sizeRefPrice;
+        if (!boughtNames.has(cfg.name)) {
+          const sh = sharesOf(cfg);
           const pn = won ? sh * (1 - e.price) : -sh * e.price;
           this.note(`ℹ️ LAB: рынок ${slug} закрыт, мы там НЕ купили; ${won ? "упущено" : "избежали"} ${pn >= 0 ? "+" : "−"}$${Math.abs(pn).toFixed(2)}`);
         }
         continue;
       }
-      const shares = cfg.size / cfg.sizeRefPrice;
+      const shares = sharesOf(cfg);
       const pnl = won ? shares * (1 - e.price) : -shares * e.price;
+      this.addDayPnl(cfg.name, pnl);
       const text = `${won ? "✅" : "❌"} LAB БЫ: итог [${e.idea}] ${COIN_SHORT[e.coin] ?? e.coin} ${e.side} по ${e.price.toFixed(3)}: ${won ? "победа" : "проигрыш"} ${pnl >= 0 ? "+" : "−"}$${Math.abs(pnl).toFixed(2)} (${slug})`;
       console.log(text);
       this.onPaperText?.(text);
@@ -5050,8 +5176,11 @@ class ResearchLab {
       "лаб согласие — винрейт в зависимости от числа профилей с сигналом",
       "лаб стоп — стоп-лосс: насколько проседает цена после входа",
       "лаб биржи все — Binance, Coinbase, Bybit, OKX, Kraken, Bitget: каждая отдельно по корзинам и вместе (сколько бирж против / подтверждают); можно «лаб биржи все 3» (дней)",
-      "лаб страница — страница-разбор файлом: все идеи и ячейки, чем победы отличаются от поражений (можно: «лаб страница 24ч», «3д», «30д», «все», «15», «btc»)",
+      "лаб страница — страница-разбор файлом: все идеи и ячейки, чем победы отличаются от поражений (без периода — всё время; можно: «лаб страница 24ч», «3д», «7д», «30д», «15», «btc»)",
       "лаб объем — ставки торговых стратегий LAB; «лаб объем bot7b0 6», «лаб объем fair2 5», «лаб объем все 5»",
+      "лаб тс — стратегии LAB: список, «лаб тс выкл fair2», «лаб тс вкл cb4»",
+      "лаб акций — покупать всегда N акций: «лаб акций cb4 5» (выкл — обратно в $)",
+      "лаб лимит — дневная цель/стоп: «лаб лимит cb4 цель 20», «лаб лимит cb4 убыток 15», «лаб лимит все выкл»",
       "лаб торговля — состояние реальной торговли LAB; «лаб торговля выкл» — аварийно выключить, «лаб торговля вкл» — включить",
       "лаб помощь — этот список",
     ].join("\n");
@@ -5156,8 +5285,8 @@ async function handlePageCommand(
   text: string,
 ): Promise<void> {
   const args = text.replace(/^(лаб страница|\/lab_page)/, "").trim().split(" ").filter(Boolean);
-  let days: number | null = 7;
-  let label = "7 дней";
+  let days: number | null = null; // v4.1: по умолчанию ВСЁ время (раньше было 7 дней — старые дни обрезались)
+  let label = "всё время";
   let wm: number | undefined;
   let coin: string | undefined;
   for (const a of args) {
@@ -5257,7 +5386,7 @@ async function pollTelegramCommands(
 
         if (text === "лаб объем" || text.startsWith("лаб объем ") || text === "/lab_size" || text.startsWith("/lab_size ")) {
           const args = text.replace(/^(лаб объем|\/lab_size)/, "").trim().split(" ").filter(Boolean);
-          const list = () => TRADE_CFGS.map((c) => `• ${c.name}: $${c.size} (минимум $${minStakeOf(c).toFixed(2)}, максимум $${MAX_STAKE}) — ${c.label}`).join("\n");
+          const list = () => TRADE_CFGS.map((c) => `• ${c.on ? "" : "⏸ "}${c.name}: ${stakeTxt(c)}${c.shares ? ` (в долларах $${c.size}, не используется)` : ""} (минимум $${minStakeOf(c).toFixed(2)}, максимум $${MAX_STAKE}) — ${c.label}`).join("\n");
           if (args.length === 0) {
             await telegram?.send(escapeTelegramHtml(`Ставки LAB:\n${list()}\n\nИзменить: «лаб объем bot7b0 6», «лаб объем fair2 5», «лаб объем все 5». Действует на новые покупки.`));
           } else {
@@ -5291,6 +5420,79 @@ async function pollTelegramCommands(
             }
           } else {
             await telegram?.send(escapeTelegramHtml(lab.liveStatusText() + '\nУправление: "лаб торговля вкл" / "лаб торговля выкл"'));
+          }
+          continue;
+        }
+
+        // v4.0: управление стратегиями — вкл/выкл, ставка в акциях, дневные лимиты
+        if (text === "лаб тс" || text.startsWith("лаб тс ") || text === "/lab_ts" || text.startsWith("/lab_ts ")) {
+          const args = text.replace(/^(лаб тс|\/lab_ts)/, "").trim().split(" ").filter(Boolean);
+          const act = args.find((a) => a === "вкл" || a === "выкл");
+          const nm = args.find((a) => a !== "вкл" && a !== "выкл");
+          const names = TRADE_CFGS.map((c) => c.name).join(", ");
+          if (!act) {
+            await telegram?.send(escapeTelegramHtml(`Стратегии LAB:\n${lab.dayLimitsText()}\n\nВыключить: «лаб тс выкл fair2». Включить: «лаб тс вкл cb4». Все сразу: «лаб тс выкл все». Выключенная не торгует, но статистика по ней пишется.`));
+          } else {
+            const targets = nm === "все" ? TRADE_CFGS : TRADE_CFGS.filter((c) => c.name === nm);
+            if (!nm || targets.length === 0) await telegram?.send(escapeTelegramHtml(`Назови стратегию: ${names} или «все». Пример: лаб тс ${act} ${TRADE_CFGS[0].name}`));
+            else {
+              for (const c of targets) c.on = act === "вкл";
+              saveLiveCfg();
+              await telegram?.send(escapeTelegramHtml(`${act === "вкл" ? "🟢 Включено" : "⏸ Выключено"}: ${targets.map((c) => c.name).join(", ")}. Уже открытые позиции доигрываются, новых покупок у выключенных нет.\n${lab.dayLimitsText()}`));
+            }
+          }
+          continue;
+        }
+
+        if (text === "лаб акций" || text.startsWith("лаб акций ") || text === "/lab_shares" || text.startsWith("/lab_shares ")) {
+          const args = text.replace(/^(лаб акций|\/lab_shares)/, "").trim().split(" ").filter(Boolean);
+          const list = () => TRADE_CFGS.map((c) => `• ${c.name}: ${stakeTxt(c)}`).join("\n");
+          if (args.length < 2) {
+            await telegram?.send(escapeTelegramHtml(`Ставки:\n${list()}\n\nПокупать всегда N акций: «лаб акций cb4 5» (минимум ${MIN_SHARES}, максимум ${MAX_SHARES}). Вернуться к ставке в долларах: «лаб акций cb4 выкл».`));
+          } else {
+            const targets = args[0] === "все" ? TRADE_CFGS : TRADE_CFGS.filter((c) => c.name === args[0]);
+            const off = args[1] === "выкл";
+            const val = Number(args[1].replace(",", "."));
+            if (targets.length === 0) await telegram?.send(escapeTelegramHtml(`Не знаю стратегию «${args[0]}». Доступны: ${TRADE_CFGS.map((c) => c.name).join(", ")}, все.`));
+            else if (!off && (!Number.isFinite(val) || val < MIN_SHARES || val > MAX_SHARES)) await telegram?.send(escapeTelegramHtml(`Число акций от ${MIN_SHARES} до ${MAX_SHARES}, например: лаб акций ${targets[0].name} 5`));
+            else {
+              for (const c of targets) c.shares = off ? undefined : val;
+              saveLiveCfg();
+              await telegram?.send(escapeTelegramHtml(`✅ ${targets.map((c) => c.name).join(", ")}: ${off ? "ставка снова в долларах" : `теперь всегда ${val} акций`}. Действует на новые покупки.\n${list()}`));
+            }
+          }
+          continue;
+        }
+
+        if (text === "лаб лимит" || text.startsWith("лаб лимит ") || text === "/lab_limit" || text.startsWith("/lab_limit ")) {
+          const args = text.replace(/^(лаб лимит|\/lab_limit)/, "").trim().split(" ").filter(Boolean);
+          const help = `Дневные лимиты (по закрытым сделкам стратегии, день по UTC, считается отдельно по каждой):\n${lab.dayLimitsText()}\n\nЦель по прибыли: «лаб лимит cb4 цель 20» — набрала +$20 за день, до 00:00 UTC не покупает.\nСтоп по убытку: «лаб лимит cb4 убыток 15».\nСнять: «лаб лимит cb4 выкл» (оба) или «лаб лимит cb4 цель выкл». Вместо cb4 можно «все».`;
+          if (args.length < 2) await telegram?.send(escapeTelegramHtml(help));
+          else {
+            const targets = args[0] === "все" ? TRADE_CFGS : TRADE_CFGS.filter((c) => c.name === args[0]);
+            const what = args[1];
+            const rawV = args[2];
+            if (targets.length === 0) await telegram?.send(escapeTelegramHtml(`Не знаю стратегию «${args[0]}». Доступны: ${TRADE_CFGS.map((c) => c.name).join(", ")}, все.`));
+            else if (what === "выкл") {
+              for (const c of targets) {
+                c.goalP = 0;
+                c.goalL = 0;
+              }
+              saveLiveCfg();
+              await telegram?.send(escapeTelegramHtml(`✅ Дневные лимиты сняты: ${targets.map((c) => c.name).join(", ")}.\n${lab.dayLimitsText()}`));
+            } else if (what === "цель" || what === "убыток") {
+              const off = rawV === "выкл" || rawV === "0";
+              const v = Number((rawV ?? "").replace(",", "."));
+              if (!off && (!Number.isFinite(v) || v <= 0 || v > 100000)) await telegram?.send(escapeTelegramHtml(`Укажи сумму в $ числом, например: лаб лимит ${targets[0].name} ${what} ${what === "цель" ? 20 : 15}`));
+              else {
+                for (const c of targets) {
+                  if (what === "цель") c.goalP = off ? 0 : v;
+                  else c.goalL = off ? 0 : v;
+                }
+                saveLiveCfg();
+                await telegram?.send(escapeTelegramHtml(`✅ ${what === "цель" ? "Дневная цель" : "Дневной стоп"} ${off ? "снят" : `$${v}`}: ${targets.map((c) => c.name).join(", ")}. Действует с новых покупок; сегодняшний итог уже учтён.\n${lab.dayLimitsText()}`));
+              }
+            } else await telegram?.send(escapeTelegramHtml(help));
           }
           continue;
         }
@@ -5454,7 +5656,7 @@ async function main() {
         );
         lab.setClob(clob);
         lab.liveEnabled = true;
-        const t = `🟢 LAB: РЕАЛЬНАЯ торговля включена. ${TRADE_CFGS.map((c) => `${c.name} $${c.size} (потолок ${c.cap}${c.minBid !== undefined ? `, мин. bid ${c.minBid}` : ""})`).join("; ")}. Лимиты: ${LIVE_MAX_PER_WINDOW} в окне, ${LIVE_MAX_OPEN} открытых, ${LIVE_QUOTA_PER_HOUR}/час. Выключить: «лаб торговля выкл».`;
+        const t = `🟢 LAB: РЕАЛЬНАЯ торговля включена. ${TRADE_CFGS.filter((c) => c.on).map((c) => `${c.name} ${stakeTxt(c)} (потолок ${c.cap}${c.minBid !== undefined ? `, мин. bid ${c.minBid}` : ""})`).join("; ")}. Лимиты: ${LIVE_MAX_PER_WINDOW} в окне, ${LIVE_MAX_OPEN} открытых, ${LIVE_QUOTA_PER_HOUR}/час. Выключить: «лаб торговля выкл».`;
         console.log(t);
         lab.onPaperText?.(t);
       } catch (err) {
