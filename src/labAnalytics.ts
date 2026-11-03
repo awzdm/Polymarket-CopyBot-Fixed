@@ -495,6 +495,7 @@ export async function buildPageData(dir: string, opt: PageOptions): Promise<Page
     const series: [Series | null, Series | null] = [null, null];
     const ci = idx(coinMap, coins, m.coin);
     for (const tr of m.trades) {
+      if (tr.i.startsWith("temka:")) continue; // v4: «темки» на странице не показываем (и не кладём в файл)
       const ii = idx(ideaMap, ideas, tr.i);
       const co = idx(comboMap, combos, tr.c);
       const row = computeRow(m, tr, id, ci, ii, co, series);
