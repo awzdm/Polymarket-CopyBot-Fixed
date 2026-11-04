@@ -142,6 +142,11 @@ const TRADE_CFGS: TradeCfg[] = [
       return r >= 3.44 && r <= 17.07;
     },
   },
+  // v4.2: «Справедливая цена (σ 120с) · edge 0-2% / 120-180с / 0.90-0.93». Ставка $5 (≈5.6 акции); в акциях: «лаб акций f120 5».
+  {
+    name: "f120", idea: "fair2", combo: "edge 0-2% / 120-180с / 0.90-0.93", label: "Справедливая цена σ120с, edge 0-2%, 120-180с, ask 0.90-0.93",
+    size: 5, sizeRefPrice: 0.9, cap: 0.93, on: true, goalP: 0, goalL: 0,
+  },
 ];
 const cfgFor = (idea: string, combo: string): TradeCfg | undefined => TRADE_CFGS.find((c) => c.idea === idea && (c.combo === undefined || c.combo === combo));
 const MAX_STAKE = Number(process.env.LAB_MAX_STAKE ?? "50");
