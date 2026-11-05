@@ -456,6 +456,7 @@ export interface PageData {
   offsets: number[];
   rows: (number | null)[][];
   exchanges: { label: string; b: string; r: string }[];
+  paths?: Record<string, (number | null)[]>; // v4.4: путь bid по секундам (шаг 2с, в центах) для сделок «торговых» ячеек; ключ = рынок.сторона.время входа
   cells: Record<string, number[]>; // "idea|combo" -> [n, wins, sumRoi, sumPx, nMarkets] — по ВСЕМ сделкам (до выборки)
 }
 
@@ -470,6 +471,24 @@ function mulberry(seed: number): () => number {
   };
 }
 
+// v4.4: для каких ячеек («идея|ячейка») писать подробный путь цены по каждой сделке (задаёт бот: ячейки, которые он торгует)
+let PATH_CELLS = new Set<string>();
+export function setPathCells(keys: string[]): void {
+  PATH_CELLS = new Set(keys);
+}
+const PATH_STEP = 2;
+function pathOf(m: MarketRec, tr: RawTrade, series: [Series | null, Series | null]): (number | null)[] | null {
+  const se = (series[tr.s] ??= seriesFor(m, tr.s));
+  const dur = (m.close - m.open) / 1000;
+  const entryT = (tr.ts - m.open) / 1000;
+  if (!(dur > entryT)) return null;
+  const out: (number | null)[] = [];
+  for (let t = entryT; t <= dur + 0.5; t += PATH_STEP) {
+    const v = valAt(se.t, se.bid, t, 6);
+    out.push(v === null ? null : Math.round(v * 100));
+  }
+  return out.some((x) => x !== null) ? out : null;
+}
 export async function buildPageData(dir: string, opt: PageOptions): Promise<PageData> {
   const coins: string[] = [];
   const ideas: string[] = [];
@@ -488,6 +507,7 @@ export async function buildPageData(dir: string, opt: PageOptions): Promise<Page
   };
 
   const byCell = new Map<string, (number | null)[][]>();
+  const pathsAll = new Map<string, (number | null)[]>();
   const cellAgg = new Map<string, { n: number; w: number; roi: number; px: number; mk: Set<number> }>();
   let mkId = 0;
   let markets = 0;
@@ -508,6 +528,10 @@ export async function buildPageData(dir: string, opt: PageOptions): Promise<Page
       const co = idx(comboMap, combos, tr.c);
       const row = computeRow(m, tr, id, ci, ii, co, series);
       const key = `${tr.i}|${tr.c}`;
+      if (PATH_CELLS.has(key)) {
+        const p = pathOf(m, tr, series);
+        if (p) pathsAll.set(`${id}.${tr.s}.${Math.round(tr.ts / 1000)}`, p);
+      }
       let list = byCell.get(key);
       if (!list) {
         list = [];
@@ -566,6 +590,12 @@ export async function buildPageData(dir: string, opt: PageOptions): Promise<Page
     }
   }
   void capPerCell;
+  const paths: Record<string, (number | null)[]> = {};
+  for (const r of rows) {
+    const k = `${r[7]}.${r[2]}.${r[0]}`;
+    const p = pathsAll.get(k);
+    if (p) paths[k] = p;
+  }
 
   const cells: Record<string, number[]> = {};
   for (const [k, a] of cellAgg) cells[k] = [a.n, a.w, a.roi, a.px, a.mk.size];
@@ -591,6 +621,7 @@ export async function buildPageData(dir: string, opt: PageOptions): Promise<Page
     idCols: ID_COLS,
     offsets: OFFSETS,
     rows,
+    paths,
     cells,
   };
 }
@@ -598,7 +629,7 @@ export async function buildPageData(dir: string, opt: PageOptions): Promise<Page
 /** Собирает HTML: данные кладутся в <script type="application/json">. */
 export function renderPageHtml(data: PageData): string {
   // v3.8: сжимаем строки сделок (gzip+base64) — в файл помещаются все сделки, страница распаковывает их при открытии
-  const { rows, ...rest } = data;
+  const { rows, paths, ...rest } = data;
   const json = JSON.stringify({ ...rest, rows: [] }).replace(/</g, "\\u003c");
   // v4.3: храним по столбцам (одинаковые значения рядом) и жмём сильнее: файл примерно в 1.6 раза меньше, чем строками
   const nr = rows.length;
@@ -613,7 +644,7 @@ export function renderPageHtml(data: PageData): string {
     }
     cols.push(c);
   }
-  const b64 = zlib.gzipSync(Buffer.from(JSON.stringify({ n: nr, c: cols })), { level: 9 }).toString("base64");
+  const b64 = zlib.gzipSync(Buffer.from(JSON.stringify({ n: nr, c: cols, p: paths ?? {} })), { level: 9 }).toString("base64");
   return PAGE_TEMPLATE.replace("/*__ROWS__*/", () => b64).replace("/*__DATA__*/null", () => json);
 }
 
