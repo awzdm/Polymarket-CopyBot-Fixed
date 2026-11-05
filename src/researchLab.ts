@@ -54,7 +54,7 @@ import { createTelegramNotifier } from "./telegram.js";
 import { createLogger } from "./logger.js";
 import { Side } from "@polymarket/clob-client-v2";
 import { ClobService } from "./clob.js";
-import { appendMarketRecord, compressOldDays, buildPage, buildExchangeSummary, MarketRec, RawTrade, TapeRow } from "./labAnalytics.js";
+import { appendMarketRecord, compressOldDays, buildPage, buildExchangeSummary, setPathCells, MarketRec, RawTrade, TapeRow } from "./labAnalytics.js";
 
 // ─────────────────────────── Общие настройки ───────────────────────────
 
@@ -168,6 +168,8 @@ const stakeTxt = (c: TradeCfg): string => (c.shares !== undefined && c.shares > 
 const limitsTxt = (c: TradeCfg): string => `цель ${c.goalP > 0 ? `+$${c.goalP}` : "выкл"}, стоп ${c.goalL > 0 ? `−$${c.goalL}` : "выкл"}`;
 const LIVE_CFG_FILE = path.resolve(process.env.LAB_DATA_PATH || process.env.RAILWAY_VOLUME_MOUNT_PATH || process.cwd(), "lab-live-config.json");
 let v3Pending = false;
+// v4.4: подробный путь цены по каждой сделке записываем для ячеек, которые торгует бот (для окна сделки на странице)
+setPathCells(TRADE_CFGS.filter((c) => c.combo).map((c) => `${c.idea}|${c.combo}`));
 function loadLiveCfg(): void {
   try {
     const o = JSON.parse(fs.readFileSync(LIVE_CFG_FILE, "utf8")) as Record<string, any>;
