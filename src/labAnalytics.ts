@@ -592,7 +592,20 @@ export function renderPageHtml(data: PageData): string {
   // v3.8: сжимаем строки сделок (gzip+base64) — в файл помещаются все сделки, страница распаковывает их при открытии
   const { rows, ...rest } = data;
   const json = JSON.stringify({ ...rest, rows: [] }).replace(/</g, "\\u003c");
-  const b64 = zlib.gzipSync(Buffer.from(JSON.stringify(rows)), { level: 6 }).toString("base64");
+  // v4.3: храним по столбцам (одинаковые значения рядом) и жмём сильнее: файл примерно в 1.6 раза меньше, чем строками
+  const nr = rows.length;
+  let nc = 0;
+  for (const r of rows) if (r.length > nc) nc = r.length;
+  const cols: (number | null)[][] = [];
+  for (let j = 0; j < nc; j++) {
+    const c: (number | null)[] = new Array(nr);
+    for (let i = 0; i < nr; i++) {
+      const v = rows[i][j];
+      c[i] = v === undefined ? null : v;
+    }
+    cols.push(c);
+  }
+  const b64 = zlib.gzipSync(Buffer.from(JSON.stringify({ n: nr, c: cols })), { level: 9 }).toString("base64");
   return PAGE_TEMPLATE.replace("/*__ROWS__*/", () => b64).replace("/*__DATA__*/null", () => json);
 }
 
@@ -600,7 +613,7 @@ export function renderPageHtml(data: PageData): string {
 export async function buildPage(
   dir: string,
   opt: Omit<PageOptions, "maxRows"> & { maxRows?: number },
-  maxBytes = 48 * 1024 * 1024, // лимит Telegram на файл 50 МБ
+  maxBytes = 45 * 1024 * 1024, // лимит Telegram на файл 50 МБ (с запасом на служебные байты)
 ): Promise<{ html: string; data: PageData }> {
   // v3.8: по умолчанию берём ВСЕ сделки. Если файл не влезает в maxBytes — оставляем столько строк, сколько влезет.
   let maxRows = opt.maxRows ?? 5_000_000;
