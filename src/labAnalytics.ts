@@ -148,7 +148,9 @@ export interface ColDef {
 /** Идентификаторы в начале строки: ts(сек), монета, сторона, исход(1=выиграл), идея, ячейка, окно(мин), рынок */
 export const ID_COLS = ["ts", "coin", "side", "won", "idea", "combo", "wm", "mk"];
 export const OFFSETS = [5, 10, 15, 20, 30, 45, 60, 90, 120];
-const TP_DELTAS_PAGE = [0.03, 0.05, 0.1];
+const TP_DELTAS_PAGE = [0.03, 0.05, 0.1, 0.15, 0.2, 0.3];
+// v4.4: когда bid впервые опустился на столько ниже цены входа (для симулятора стопа: точный порядок «стоп / цель / добор»)
+const DN_DELTAS_PAGE = [0.05, 0.1, 0.15, 0.2, 0.3, 0.4, 0.5];
 const TEMKA_IDX: Record<string, number> = { "0.03": 1, "0.05": 3, "0.1": 5 };
 
 /** Дополнительные биржи (ключи как в RawTrade.xs). */
@@ -207,6 +209,7 @@ export const COLS: ColDef[] = [
   { k: "fin", label: "Итоговый отрыв монеты, bps", g: "post", d: 1, hint: "на какой отметке закрылась монета в нашу сторону" },
   { k: "finr", label: "Итоговый отрыв ÷ отрыв на входе", g: "post", d: 2, hint: "1 — отрыв не изменился; меньше 0 — перешла на другую сторону" },
   ...TP_DELTAS_PAGE.map((d) => ({ k: `tp${Math.round(d * 100)}`, label: `Секунд до bid ≥ вход+${d.toFixed(2)}`, g: "tp" as const, d: 0, hint: "пусто — цель не достигнута" })),
+  ...DN_DELTAS_PAGE.map((d) => ({ k: `dn${Math.round(d * 100)}`, label: `Секунд до bid ≤ вход−${d.toFixed(2)}`, g: "tp" as const, d: 0, hint: "пусто — просадки такой глубины не было" })),
 ];
 
 const COL_IDX: Record<string, number> = {};
@@ -373,6 +376,7 @@ export function computeRow(
   let fell50 = false;
   let seen = 0;
   const tpT: (number | null)[] = TP_DELTAS_PAGE.map(() => null);
+  const dnT: (number | null)[] = DN_DELTAS_PAGE.map(() => null);
   for (let i = 0; i < se.t.length; i++) {
     if (se.t[i] <= entryT) continue;
     const b = se.bid[i];
@@ -388,6 +392,9 @@ export function computeRow(
     if (b < 0.5) fell50 = true;
     TP_DELTAS_PAGE.forEach((d, j) => {
       if (tpT[j] === null && dlt >= d - 1e-9) tpT[j] = se.t[i] - entryT;
+    });
+    DN_DELTAS_PAGE.forEach((d, j) => {
+      if (dnT[j] === null && dlt <= -d + 1e-9) dnT[j] = se.t[i] - entryT;
     });
   }
   if (seen > 0) {
@@ -425,6 +432,7 @@ export function computeRow(
     }
     set(`tp${Math.round(d * 100)}`, v, 0);
   });
+  DN_DELTAS_PAGE.forEach((d, j) => set(`dn${Math.round(d * 100)}`, dnT[j], 0));
   return out;
 }
 
