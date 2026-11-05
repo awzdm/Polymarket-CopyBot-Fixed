@@ -120,7 +120,7 @@ interface TradeCfg {
 }
 const TRADE_CFGS: TradeCfg[] = [
   { name: "bot7b0", idea: "bot7b0", label: "профиль 9: Модель, Binance против", size: 5, sizeRefPrice: 0.92, cap: 0.98, minBid: 0.92, on: false, goalP: 0, goalL: 0 },
-  { name: "fair2", idea: "fair2", combo: "edge 2-4% / 60-120с / 0.93-0.96", label: "Справедливая цена σ120с, edge 2-4%, 60-120с, ask 0.93-0.96", size: 5, sizeRefPrice: 0.93, cap: 0.96, on: true, goalP: 0, goalL: 0 },
+  { name: "fair2", idea: "fair2", combo: "edge 2-4% / 60-120с / 0.93-0.96", label: "Справедливая цена σ120с, edge 2-4%, 60-120с, ask 0.93-0.96", size: 5, sizeRefPrice: 0.93, cap: 0.96, on: false, goalP: 0, goalL: 0 },
   // №1: та же «справедливая цена», но edge 4-6%, вход 0.85-0.90; только если до закрытия ≤89с и ни одна другая монета не подтверждает (≥0.10%)
   {
     name: "fair85", idea: "fair2", combo: "edge 4-6% / 60-120с / 0.85-0.90", label: "Справедливая цена σ120с, edge 4-6%, 60-120с, ask 0.85-0.90, до закрытия ≤89с, другие монеты 0",
@@ -135,7 +135,7 @@ const TRADE_CFGS: TradeCfg[] = [
   // Всегда 5 акций (при цене 0.60-0.70 это $3.00-$3.50).
   {
     name: "cb4", idea: "fair1", combo: "edge <0 / 120-180с / 0.60-0.70", label: "№4 σ60с, edge<0, 120-180с, ask 0.60-0.70, Coinbase/поток 3.44-17.07",
-    size: 3, sizeRefPrice: 0.6, cap: 0.7, shares: 5, on: true, goalP: 0, goalL: 0,
+    size: 3, sizeRefPrice: 0.6, cap: 0.7, shares: 5, on: false, goalP: 0, goalL: 0,
     filter: (e) => {
       if (e.pm == null || !(e.pm > 0) || e.cb == null) return false;
       const r = Math.round((e.cb / e.pm) * 100) / 100;
@@ -144,8 +144,18 @@ const TRADE_CFGS: TradeCfg[] = [
   },
   // v4.2: «Справедливая цена (σ 120с) · edge 0-2% / 120-180с / 0.90-0.93». Ставка $5 (≈5.6 акции); в акциях: «лаб акций f120 5».
   {
-    name: "f120", idea: "fair2", combo: "edge 0-2% / 180-240с / 0.93-0.96", label: "Справедливая цена σ120с, edge 0-2%, 120-180с, ask 0.90-0.93",
-    size: 5, sizeRefPrice: 0.9, cap: 0.93, on: true, goalP: 0, goalL: 0,
+    name: "f120", idea: "fair2", combo: "edge 0-2% / 120-180с / 0.90-0.93", label: "Справедливая цена σ120с, edge 0-2%, 120-180с, ask 0.90-0.93",
+    size: 5, sizeRefPrice: 0.9, cap: 0.93, on: false, goalP: 0, goalL: 0,
+  },
+  // v4.3: «Модель цены · сила 3+ / 180-240с / 0.98-0.99». 5 акций, цель дня +$2.5.
+  {
+    name: "m98", idea: "model", combo: "сила 3+ / 180-240с / 0.98-0.99", label: "Модель цены, сила 3+, 180-240с, ask 0.98-0.99",
+    size: 5, sizeRefPrice: 0.98, cap: 0.99, shares: 5, on: true, goalP: 2.5, goalL: 0,
+  },
+  // v4.3: «Справедливая цена (σ 120с) · edge 2-4% / 30-60с / 0.90-0.93» + цена входа (ask) 0.80-0.90 (страница округляет до 0.01). 5 акций, цель дня +$2.5.
+  {
+    name: "f30", idea: "fair2", combo: "edge 2-4% / 30-60с / 0.90-0.93", label: "Справедливая цена σ120с, edge 2-4%, 30-60с, ask 0.90-0.93, вход ask 0.80-0.90",
+    size: 5, sizeRefPrice: 0.9, cap: 0.91, shares: 5, filter: (e) => { const p = Math.round(e.price * 100) / 100; return p >= 0.8 && p <= 0.9; }, on: true, goalP: 2.5, goalL: 0,
   },
 ];
 const cfgFor = (idea: string, combo: string): TradeCfg | undefined => TRADE_CFGS.find((c) => c.idea === idea && (c.combo === undefined || c.combo === combo));
@@ -157,6 +167,7 @@ const sharesOf = (c: TradeCfg): number => (c.shares !== undefined && c.shares > 
 const stakeTxt = (c: TradeCfg): string => (c.shares !== undefined && c.shares > 0 ? `${c.shares} акций` : `$${c.size}`);
 const limitsTxt = (c: TradeCfg): string => `цель ${c.goalP > 0 ? `+$${c.goalP}` : "выкл"}, стоп ${c.goalL > 0 ? `−$${c.goalL}` : "выкл"}`;
 const LIVE_CFG_FILE = path.resolve(process.env.LAB_DATA_PATH || process.env.RAILWAY_VOLUME_MOUNT_PATH || process.cwd(), "lab-live-config.json");
+let v3Pending = false;
 function loadLiveCfg(): void {
   try {
     const o = JSON.parse(fs.readFileSync(LIVE_CFG_FILE, "utf8")) as Record<string, any>;
@@ -173,14 +184,25 @@ function loadLiveCfg(): void {
         if (typeof x.goalL === "number" && x.goalL >= 0) c.goalL = x.goalL;
       }
     }
+    // v4.3 (разовая миграция): торгуют только m98 и f30, у каждой 5 акций и цель дня +$2.5; остальные выключены (включаются командой «лаб тс вкл <имя>»)
+    if (!o.__v3) {
+      for (const c of TRADE_CFGS) {
+        const mine = c.name === "m98" || c.name === "f30";
+        c.on = mine;
+        if (mine) { c.shares = 5; c.goalP = 2.5; }
+      }
+      v3Pending = true;
+    }
   } catch {
     /* файла ещё нет — настройки по умолчанию */
   }
+  if (v3Pending) saveLiveCfg();
 }
 function saveLiveCfg(): void {
   try {
     const o: Record<string, any> = Object.fromEntries(TRADE_CFGS.map((c) => [c.name, c.size]));
     o.__v2 = Object.fromEntries(TRADE_CFGS.map((c) => [c.name, { shares: c.shares ?? null, on: c.on, goalP: c.goalP, goalL: c.goalL }]));
+    o.__v3 = true;
     fs.writeFileSync(LIVE_CFG_FILE, JSON.stringify(o));
   } catch (err) {
     console.log("[live-cfg] не удалось сохранить настройки:", (err as Error).message);
