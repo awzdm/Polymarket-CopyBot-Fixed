@@ -55,7 +55,7 @@ import { createTelegramNotifier } from "./telegram.js";
 import { createLogger } from "./logger.js";
 import { Side } from "@polymarket/clob-client-v2";
 import { ClobService } from "./clob.js";
-import { appendMarketRecord, compressOldDays, buildPage, buildExchangeSummary, setPathCells, MarketRec, RawTrade, TapeRow } from "./labAnalytics.js";
+import { appendMarketRecord, compressOldDays, buildPage, shrinkPage, buildExchangeSummary, setPathCells, MarketRec, RawTrade, TapeRow } from "./labAnalytics.js";
 
 // ─────────────────────────── Общие настройки ───────────────────────────
 
@@ -5479,9 +5479,9 @@ async function handlePageCommand(
     for (const lim of [38, 28, 20]) {
       if (ok) break;
       await telegram?.send(`Файл не влез в 50 МБ, пробую сделать меньше (до ${lim} МБ, часть строк будет выборкой)…`);
-      const r2 = await buildPage(LAB_DATA_DIR, { sinceMs, periodLabel: label, coin, wm }, lim * 1024 * 1024);
-      const m2 = r2.data.meta as { markets: number; trades: number; rowsEmbedded: number; sampled: boolean };
-      ok = await sendDocumentToTelegram(botToken, chatId, name, r2.html, `LAB: страница-разбор (${label}), выборка: ${m2.rowsEmbedded} из ${m2.trades} сделок. Полная версия без лимита — по ссылке («лаб ссылка»).`);
+      const html2 = await shrinkPage(data, lim * 1024 * 1024);
+      const m2 = data.meta as { markets: number; trades: number; rowsEmbedded: number; sampled: boolean };
+      ok = await sendDocumentToTelegram(botToken, chatId, name, html2, `LAB: страница-разбор (${label}), выборка: ${m2.rowsEmbedded} из ${m2.trades} сделок. Полная версия без лимита — по ссылке («лаб ссылка»).`);
     }
     if (!ok) await telegram?.send("Не удалось отправить файл. Попробуй короче период: «лаб страница 24ч» или по монете." + (link ? `\nПолная страница по ссылке: ${link}?p=all` : ""));
     else {
