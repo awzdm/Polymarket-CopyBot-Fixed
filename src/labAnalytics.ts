@@ -778,6 +778,26 @@ export async function renderPageHtml(data: PageData): Promise<string> {
 /** Ужимает уже собранные данные до maxBytes (без повторного чтения диска): оставляет случайную долю строк. */
 export async function shrinkPage(data: PageData, maxBytes: number): Promise<string> {
   let html = await renderPageHtml(data);
+  // v4.9: сначала убираем целиком новые «монетные» идеи (cdx/cbk/cac/cpb/cbd/crv) — они появились недавно и раздували файл; старые данные остаются как были
+  if (Buffer.byteLength(html) > maxBytes && data.sel && data.store) {
+    const expIdx = new Set<number>();
+    data.ideas.forEach((n, i) => {
+      if (/^c(dx|bk|ac|pb|bd|rv)$/.test(n)) expIdx.add(i);
+    });
+    if (expIdx.size) {
+      const st = data.store;
+      const before = data.sel.length;
+      data.sel = data.sel.filter((i) => !expIdx.has(st.get(4, i) as number));
+      if (data.sel.length < before) {
+        data.meta = { ...data.meta, rowsEmbedded: data.sel.length, droppedExp: before - data.sel.length };
+        if (data.paths) {
+          const keep = new Set(data.sel.map((i) => `${st.get(7, i)}.${st.get(2, i)}.${st.get(0, i)}`));
+          for (const k of Object.keys(data.paths)) if (!keep.has(k)) delete data.paths[k];
+        }
+        html = await renderPageHtml(data);
+      }
+    }
+  }
   for (let attempt = 0; attempt < 5; attempt++) {
     const size = Buffer.byteLength(html);
     if (size <= maxBytes || !data.sel || data.sel.length <= 5000) break;
