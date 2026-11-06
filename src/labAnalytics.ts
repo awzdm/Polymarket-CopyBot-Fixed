@@ -497,7 +497,47 @@ export interface PageOptions {
   maxRows: number; // потолок числа строк в файле (выше — равномерная выборка внутри каждой ячейки)
 }
 
+/** v4.7: компактное хранилище строк по столбцам (Float32; время — Float64). Вместо миллионов JS-массивов — в разы меньше памяти. */
+export class ColStore {
+  n = 0;
+  cap = 0;
+  cols: (Float32Array | Float64Array)[] = [];
+  constructor(public nc: number) {
+    for (let j = 0; j < nc; j++) this.cols.push(j === 0 ? new Float64Array(0) : new Float32Array(0));
+  }
+  push(row: (number | null)[]): number {
+    if (this.n === this.cap) {
+      const nc2 = Math.max(1 << 14, this.cap * 2);
+      for (let j = 0; j < this.nc; j++) {
+        const old = this.cols[j];
+        const a = j === 0 ? new Float64Array(nc2) : new Float32Array(nc2);
+        a.set(old);
+        this.cols[j] = a;
+      }
+      this.cap = nc2;
+    }
+    const i = this.n++;
+    for (let j = 0; j < this.nc; j++) {
+      const v = row[j];
+      this.cols[j][i] = v === null || v === undefined ? NaN : v;
+    }
+    return i;
+  }
+  get(j: number, i: number): number | null {
+    const v = this.cols[j][i];
+    return v !== v ? null : v;
+  }
+  row(i: number): (number | null)[] {
+    const r: (number | null)[] = new Array(this.nc);
+    for (let j = 0; j < this.nc; j++) r[j] = this.get(j, i);
+    return r;
+  }
+}
+const COL_DEC: number[] = [...ID_COLS.map(() => 0), ...COLS.map((c) => c.d)];
+
 export interface PageData {
+  store?: ColStore; // v4.7: строки лежат тут (rows при этом пустой)
+  sel?: number[]; // индексы строк store, которые идут в файл
   meta: Record<string, unknown>;
   coins: string[];
   ideas: string[];
@@ -557,7 +597,8 @@ export async function buildPageData(dir: string, opt: PageOptions): Promise<Page
     return i;
   };
 
-  const byCell = new Map<string, (number | null)[][]>();
+  const store = new ColStore(ID_COLS.length + COLS.length);
+  const byCell = new Map<string, number[]>();
   const pathsAll = new Map<string, (number | null)[]>();
   const cellAgg = new Map<string, { n: number; w: number; roi: number; px: number; mk: Set<number> }>();
   let mkId = 0;
@@ -588,7 +629,7 @@ export async function buildPageData(dir: string, opt: PageOptions): Promise<Page
         list = [];
         byCell.set(key, list);
       }
-      list.push(row);
+      list.push(store.push(row));
       const won = tr.s === m.win ? 1 : 0;
       const roi = won ? (1 - tr.px) / tr.px : -1;
       let a = cellAgg.get(key);
@@ -608,14 +649,11 @@ export async function buildPageData(dir: string, opt: PageOptions): Promise<Page
   }
 
   // потолок строк: равномерная выборка внутри каждой ячейки (детерминированная)
-  const rows: (number | null)[][] = [];
-  const nCells = Math.max(1, byCell.size);
-  const capPerCell = Math.max(40, Math.floor(opt.maxRows / nCells));
+  const sel: number[] = [];
   let sampled = false;
   const rnd01 = mulberry(12345);
-  // сначала считаем, сколько всего строк, и если помещаемся — берём всё
   if (trades <= opt.maxRows) {
-    for (const list of byCell.values()) for (const r of list) rows.push(r);
+    for (const list of byCell.values()) for (const r of list) sel.push(r);
   } else {
     // ячейки с малым числом сделок берём целиком, остаток бюджета делим между большими
     const entries = [...byCell.entries()].sort((a, b) => a[1].length - b[1].length);
@@ -624,26 +662,24 @@ export async function buildPageData(dir: string, opt: PageOptions): Promise<Page
     for (const [, list] of entries) {
       const share = Math.max(40, Math.floor(budget / left));
       if (list.length <= share) {
-        for (const r of list) rows.push(r);
+        for (const r of list) sel.push(r);
         budget -= list.length;
       } else {
-        // выборка без повторов
         const picked = list.slice();
         for (let i = picked.length - 1; i > 0; i--) {
           const j = Math.floor(rnd01() * (i + 1));
           [picked[i], picked[j]] = [picked[j], picked[i]];
         }
-        for (let i = 0; i < share; i++) rows.push(picked[i]);
+        for (let i = 0; i < share; i++) sel.push(picked[i]);
         budget -= share;
         sampled = true;
       }
       left--;
     }
   }
-  void capPerCell;
   const paths: Record<string, (number | null)[]> = {};
-  for (const r of rows) {
-    const k = `${r[7]}.${r[2]}.${r[0]}`;
+  for (const i of sel) {
+    const k = `${store.get(7, i)}.${store.get(2, i)}.${store.get(0, i)}`;
     const p = pathsAll.get(k);
     if (p) paths[k] = p;
   }
@@ -659,7 +695,7 @@ export async function buildPageData(dir: string, opt: PageOptions): Promise<Page
       wm: opt.wm ?? null,
       markets,
       trades,
-      rowsEmbedded: rows.length,
+      rowsEmbedded: sel.length,
       sampled,
       firstTs: Number.isFinite(firstTs) ? firstTs : null,
       lastTs: lastTs || null,
@@ -671,52 +707,102 @@ export async function buildPageData(dir: string, opt: PageOptions): Promise<Page
     exchanges: [{ label: "Binance", b: "bk", r: "bin" }, { label: "Coinbase", b: "ck", r: "cbr" }, ...XEX.map((x) => ({ label: x.label, b: `xb_${x.key}`, r: `xr_${x.key}` }))],
     idCols: ID_COLS,
     offsets: OFFSETS,
-    rows,
+    rows: [],
+    store,
+    sel,
     paths,
     cells,
   };
 }
 
-/** Собирает HTML: данные кладутся в <script type="application/json">. */
-export function renderPageHtml(data: PageData): string {
+/** Выбранные строки как обычные массивы (нужно только для небольших сводок). */
+export function materializeRows(data: PageData): (number | null)[][] {
+  if (!data.store) return data.rows;
+  const st = data.store;
+  return (data.sel ?? []).map((i) => st.row(i).map((v, j) => (v === null ? null : COL_DEC[j] === 0 ? Math.round(v) : Math.round(v * Math.pow(10, COL_DEC[j])) / Math.pow(10, COL_DEC[j]))));
+}
+
+/** Собирает HTML: данные кладутся в <script type="application/json">. Сжатие потоковое — столбец за столбцом (мало памяти). */
+export async function renderPageHtml(data: PageData): Promise<string> {
   // v3.8: сжимаем строки сделок (gzip+base64) — в файл помещаются все сделки, страница распаковывает их при открытии
-  const { rows, paths, ...rest } = data;
+  const { rows, paths, store: _s, sel: _l, ...rest } = data;
+  void _s;
+  void _l;
   const json = JSON.stringify({ ...rest, rows: [] }).replace(/</g, "\\u003c");
-  // v4.3: храним по столбцам (одинаковые значения рядом) и жмём сильнее: файл примерно в 1.6 раза меньше, чем строками
-  const nr = rows.length;
+  const gz = zlib.createGzip({ level: 9 });
+  const chunks: Buffer[] = [];
+  gz.on("data", (c: Buffer) => chunks.push(c));
+  const done = new Promise<void>((res, rej) => {
+    gz.on("end", () => res());
+    gz.on("error", rej);
+  });
+  const w = (str: string): Promise<void> =>
+    new Promise<void>((res) => {
+      if (gz.write(str)) res();
+      else gz.once("drain", () => res());
+    });
+  const useStore = data.store !== undefined;
+  const sel = data.sel ?? [];
+  const nr = useStore ? sel.length : rows.length;
   let nc = 0;
-  for (const r of rows) if (r.length > nc) nc = r.length;
-  const cols: (number | null)[][] = [];
+  if (useStore) nc = data.store!.nc;
+  else for (const r of rows) if (r.length > nc) nc = r.length;
+  await w(`{"n":${nr},"c":[`);
   for (let j = 0; j < nc; j++) {
     const c: (number | null)[] = new Array(nr);
-    for (let i = 0; i < nr; i++) {
-      const v = rows[i][j];
-      c[i] = v === undefined ? null : v;
+    if (useStore) {
+      const st = data.store!;
+      const arr = st.cols[j];
+      const d = COL_DEC[j] ?? 3;
+      const f = Math.pow(10, d);
+      for (let i = 0; i < nr; i++) {
+        const v = arr[sel[i]];
+        c[i] = v !== v ? null : d === 0 ? Math.round(v) : Math.round(v * f) / f;
+      }
+    } else {
+      for (let i = 0; i < nr; i++) {
+        const v = rows[i][j];
+        c[i] = v === undefined ? null : v;
+      }
     }
-    cols.push(c);
+    await w((j ? "," : "") + JSON.stringify(c));
   }
-  const b64 = zlib.gzipSync(Buffer.from(JSON.stringify({ n: nr, c: cols, p: paths ?? {} })), { level: 9 }).toString("base64");
+  await w(`],"p":${JSON.stringify(paths ?? {})}}`);
+  gz.end();
+  await done;
+  const b64 = Buffer.concat(chunks).toString("base64");
+  chunks.length = 0;
   return PAGE_TEMPLATE.replace("/*__ROWS__*/", () => b64).replace("/*__DATA__*/null", () => json);
 }
 
-/** Строит страницу и возвращает HTML. Если получилось больше maxBytes, пересобирает с меньшим числом строк. */
+/** Ужимает уже собранные данные до maxBytes (без повторного чтения диска): оставляет случайную долю строк. */
+export async function shrinkPage(data: PageData, maxBytes: number): Promise<string> {
+  let html = await renderPageHtml(data);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const size = Buffer.byteLength(html);
+    if (size <= maxBytes || !data.sel || data.sel.length <= 5000) break;
+    const ratio = Math.max(0.05, Math.min(0.9, (maxBytes / size) * 0.9));
+    const rnd01 = mulberry(777 + attempt);
+    data.sel = data.sel.filter(() => rnd01() < ratio);
+    data.meta = { ...data.meta, rowsEmbedded: data.sel.length, sampled: true };
+    if (data.paths) {
+      const keep = new Set(data.sel.map((i) => `${data.store!.get(7, i)}.${data.store!.get(2, i)}.${data.store!.get(0, i)}`));
+      for (const k of Object.keys(data.paths)) if (!keep.has(k)) delete data.paths[k];
+    }
+    html = await renderPageHtml(data);
+  }
+  return html;
+}
+
+/** Строит страницу и возвращает HTML. Если получилось больше maxBytes, оставляет только часть строк. */
 export async function buildPage(
   dir: string,
   opt: Omit<PageOptions, "maxRows"> & { maxRows?: number },
   maxBytes = 45 * 1024 * 1024, // лимит Telegram на файл 50 МБ (с запасом на служебные байты)
 ): Promise<{ html: string; data: PageData }> {
-  // v3.8: по умолчанию берём ВСЕ сделки. Если файл не влезает в maxBytes — оставляем столько строк, сколько влезет.
-  let maxRows = opt.maxRows ?? 5_000_000;
-  let last: { html: string; data: PageData } | null = null;
-  for (let attempt = 0; attempt < 4; attempt++) {
-    const data = await buildPageData(dir, { ...opt, maxRows });
-    const html = renderPageHtml(data);
-    last = { html, data };
-    const size = Buffer.byteLength(html);
-    if (size <= maxBytes || maxRows <= 5000) return last;
-    maxRows = Math.max(5000, Math.floor(((data.rows.length * maxBytes) / size) * 0.9));
-  }
-  return last!;
+  const data = await buildPageData(dir, { ...opt, maxRows: opt.maxRows ?? 5_000_000 });
+  const html = await shrinkPage(data, maxBytes);
+  return { html, data };
 }
 
 // ───────────────────────── Сводка по биржам (для Telegram) ─────────────────────────
@@ -724,6 +810,7 @@ export async function buildPage(
 /** Текст для «лаб биржи все»: по каждой бирже корзины 0-4 и совместные сигналы бирж, для профилей бота и «Модели цены». */
 export async function buildExchangeSummary(dir: string, sinceMs: number, periodLabel: string): Promise<string> {
   const data = await buildPageData(dir, { sinceMs, periodLabel, maxRows: 2_000_000 });
+  const allRows = materializeRows(data);
   const ideaIdx = (id: string): number => data.ideas.indexOf(id);
   const NI = ID_COLS.length;
   const col = (k: string): number => NI + COLS.findIndex((c) => c.k === k);
@@ -756,7 +843,7 @@ export async function buildExchangeSummary(dir: string, sinceMs: number, periodL
   lines.push("Корзина = во сколько раз биржа прошла от открытия окна относительно потока бота: «против» — биржа уже по другую сторону.");
   lines.push("Сделки одного рынка в разных ячейках пересекаются, поэтому смотри на порядок, а не на сотые доли.");
   for (const g of groups) {
-    const rows = data.rows.filter(g.test);
+    const rows = allRows.filter(g.test);
     lines.push("");
     lines.push(`<b>━━ ${g.title}: ${rows.length} сд. ━━</b>`);
     for (const ex of data.exchanges) {
