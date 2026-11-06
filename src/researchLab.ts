@@ -118,7 +118,9 @@ interface TradeCfg {
   on: boolean; // v4.0: стратегия торгует (команда «лаб тс вкл/выкл»); выключенная только пишется в статистику
   goalP: number; // v4.0: дневная цель по прибыли, $ (0 = выкл): набрала за день (UTC) — до конца дня не покупает
   goalL: number; // v4.0: дневной стоп по убытку, $ (0 = выкл)
+  fromDay?: string; // v4.8: начать торговать с этого дня (UTC, «2026-11-07»); до этого только пишет статистику
 }
+const notStarted = (c: TradeCfg): boolean => c.fromDay !== undefined && Date.now() < Date.parse(`${c.fromDay}T00:00:00Z`);
 const TRADE_CFGS: TradeCfg[] = [
   { name: "bot7b0", idea: "bot7b0", label: "профиль 9: Модель, Binance против", size: 5, sizeRefPrice: 0.92, cap: 0.98, minBid: 0.92, on: false, goalP: 0, goalL: 0 },
   { name: "fair2", idea: "fair2", combo: "edge 2-4% / 60-120с / 0.93-0.96", label: "Справедливая цена σ120с, edge 2-4%, 60-120с, ask 0.93-0.96", size: 5, sizeRefPrice: 0.93, cap: 0.96, on: false, goalP: 0, goalL: 0 },
@@ -136,7 +138,7 @@ const TRADE_CFGS: TradeCfg[] = [
   // Всегда 5 акций (при цене 0.60-0.70 это $3.00-$3.50).
   {
     name: "cb4", idea: "fair1", combo: "edge <0 / 120-180с / 0.60-0.70", label: "№4 σ60с, edge<0, 120-180с, ask 0.60-0.70, Coinbase/поток 3.44-17.07",
-    size: 3, sizeRefPrice: 0.6, cap: 0.7, shares: 5, on: false, goalP: 0, goalL: 0,
+    size: 3, sizeRefPrice: 0.6, cap: 0.7, shares: 5, on: true, goalP: 3, goalL: 0, fromDay: "2026-11-07",
     filter: (e) => {
       if (e.pm == null || !(e.pm > 0) || e.cb == null) return false;
       const r = Math.round((e.cb / e.pm) * 100) / 100;
@@ -153,10 +155,21 @@ const TRADE_CFGS: TradeCfg[] = [
     name: "m98", idea: "model", combo: "сила 3+ / 180-240с / 0.98-0.99", label: "Модель цены, сила 3+, 180-240с, ask 0.98-0.99",
     size: 5, sizeRefPrice: 0.98, cap: 0.99, shares: 5, on: true, goalP: 2.5, goalL: 0,
   },
+  // v4.8: «Справедливая цена (σ 120с) · edge 0-2% / 120-180с / 0.85-0.90» + Bitget/поток 1.23…1.66. 5 акций, цель дня +$2.5, торгует с 7 ноября (UTC).
+  {
+    name: "fbg", idea: "fair2", combo: "edge 0-2% / 120-180с / 0.85-0.90", label: "Справедливая цена σ120с, edge 0-2%, 120-180с, ask 0.85-0.90, Bitget/поток 1.23-1.66",
+    size: 5, sizeRefPrice: 0.85, cap: 0.9, shares: 5, on: true, goalP: 2.5, goalL: 0, fromDay: "2026-11-07",
+    filter: (e) => {
+      const bg = e.xs ? e.xs["bg"] : null;
+      if (e.pm == null || !(e.pm > 0) || bg == null) return false;
+      const r = Math.round((bg / e.pm) * 100) / 100;
+      return r >= 1.23 && r <= 1.66;
+    },
+  },
   // v4.3: «Справедливая цена (σ 120с) · edge 2-4% / 30-60с / 0.90-0.93» + цена входа (ask) 0.80-0.90 (страница округляет до 0.01). 5 акций, цель дня +$2.5.
   {
     name: "f30", idea: "fair2", combo: "edge 2-4% / 30-60с / 0.90-0.93", label: "Справедливая цена σ120с, edge 2-4%, 30-60с, ask 0.90-0.93, вход ask 0.80-0.90",
-    size: 5, sizeRefPrice: 0.9, cap: 0.91, shares: 5, filter: (e) => { const p = Math.round(e.price * 100) / 100; return p >= 0.8 && p <= 0.9; }, on: true, goalP: 2.5, goalL: 0,
+    size: 5, sizeRefPrice: 0.9, cap: 0.91, shares: 5, filter: (e) => { const p = Math.round(e.price * 100) / 100; return p >= 0.8 && p <= 0.9; }, on: false, goalP: 2.5, goalL: 0,
   },
 ];
 const cfgFor = (idea: string, combo: string): TradeCfg | undefined => TRADE_CFGS.find((c) => c.idea === idea && (c.combo === undefined || c.combo === combo));
@@ -196,6 +209,16 @@ function loadLiveCfg(): void {
       }
       v3Pending = true;
     }
+    // v4.8 (разовая миграция): торгуют m98 (цель +$2.5), cb4 (цель +$3) и fbg (цель +$2.5), у каждой 5 акций; cb4 и fbg стартуют с 7 ноября (UTC)
+    if (!o.__v4) {
+      const goals: Record<string, number> = { m98: 2.5, cb4: 3, fbg: 2.5 };
+      for (const c of TRADE_CFGS) {
+        const g = goals[c.name];
+        c.on = g !== undefined;
+        if (g !== undefined) { c.shares = 5; c.goalP = g; }
+      }
+      v3Pending = true;
+    }
   } catch {
     /* файла ещё нет — настройки по умолчанию */
   }
@@ -206,6 +229,7 @@ function saveLiveCfg(): void {
     const o: Record<string, any> = Object.fromEntries(TRADE_CFGS.map((c) => [c.name, c.size]));
     o.__v2 = Object.fromEntries(TRADE_CFGS.map((c) => [c.name, { shares: c.shares ?? null, on: c.on, goalP: c.goalP, goalL: c.goalL }]));
     o.__v3 = true;
+    o.__v4 = true;
     fs.writeFileSync(LIVE_CFG_FILE, JSON.stringify(o));
   } catch (err) {
     console.log("[live-cfg] не удалось сохранить настройки:", (err as Error).message);
@@ -2806,8 +2830,8 @@ class ResearchLab {
         const tkey = `${tcfg.name}|${market.eventSlug}|${side}`;
         const dayBlk = pass && tcfg.on ? this.dayBlock(tcfg) : null;
         if (!pass) this.tradeSkipped.add(tkey);
-        else if (!tcfg.on) {
-          /* стратегия выключена командой «лаб тс выкл»: в статистику пишем, не торгуем */
+        else if (!tcfg.on || notStarted(tcfg)) {
+          /* стратегия выключена командой «лаб тс выкл» (или ещё не наступил день старта): в статистику пишем, не торгуем */
         } else if (dayBlk !== null) {
           this.tradeSkipped.add(tkey);
           const ds = this.dayState(tcfg.name);
@@ -3432,7 +3456,7 @@ class ResearchLab {
   dayLimitsText(): string {
     return TRADE_CFGS.map((c) => {
       const st = this.dayState(c.name);
-      return `• ${c.name} ${c.on ? "🟢" : "⏸"} ${stakeTxt(c)}, ${limitsTxt(c)}; сегодня закрыто ${st.real >= 0 ? "+" : "−"}$${Math.abs(st.real).toFixed(2)}${this.dayBlock(c) ? " — остановлена на день" : ""}`;
+      return `• ${c.name} ${c.on ? (notStarted(c) ? "🕒" : "🟢") : "⏸"} ${stakeTxt(c)}${notStarted(c) ? `, старт ${c.fromDay} 00:00 UTC` : ""}, ${limitsTxt(c)}; сегодня закрыто ${st.real >= 0 ? "+" : "−"}$${Math.abs(st.real).toFixed(2)}${this.dayBlock(c) ? " — остановлена на день" : ""}`;
     }).join("\n");
   }
 
@@ -5461,6 +5485,13 @@ async function handlePageCommand(
 ): Promise<void> {
   const args = text.replace(/^(лаб страница|\/lab_page)/, "").trim().split(" ").filter(Boolean);
   const { days, label, wm, coin } = parsePageArgs(args);
+  // v4.9: если настроена ссылка — шлём её вместо файла (без лимита 50 МБ и без выборки). Файл по-прежнему можно: «лаб страница файл»
+  const linkBase = pageLinkBase();
+  if (linkBase && !args.includes("файл")) {
+    const per = args.filter((x) => x !== "файл").join(",") || "all";
+    await telegram?.send(`🔗 Страница-разбор, ВСЕ данные без лимита:\n${linkBase}?p=${encodeURIComponent(per)}&fresh=1\n(открывается через ~минуту, пока собирается; ссылка секретная). Файлом: «лаб страница файл».`);
+    return;
+  }
   await telegram?.send("⏳ Собираю страницу-разбор… (на большом периоде это может занять до минуты)");
   const t0 = Date.now();
   try {
@@ -5832,7 +5863,7 @@ async function main() {
         );
         lab.setClob(clob);
         lab.liveEnabled = true;
-        const t = `🟢 LAB: РЕАЛЬНАЯ торговля включена. ${TRADE_CFGS.filter((c) => c.on).map((c) => `${c.name} ${stakeTxt(c)} (потолок ${c.cap}${c.minBid !== undefined ? `, мин. bid ${c.minBid}` : ""})`).join("; ")}. Лимиты: ${LIVE_MAX_PER_WINDOW} в окне, ${LIVE_MAX_OPEN} открытых, ${LIVE_QUOTA_PER_HOUR}/час. Выключить: «лаб торговля выкл».`;
+        const t = `🟢 LAB: РЕАЛЬНАЯ торговля включена. ${TRADE_CFGS.filter((c) => c.on).map((c) => `${c.name} ${stakeTxt(c)} (потолок ${c.cap}${c.minBid !== undefined ? `, мин. bid ${c.minBid}` : ""}${notStarted(c) ? `, старт ${c.fromDay} 00:00 UTC` : ""})`).join("; ")}. Лимиты: ${LIVE_MAX_PER_WINDOW} в окне, ${LIVE_MAX_OPEN} открытых, ${LIVE_QUOTA_PER_HOUR}/час. Выключить: «лаб торговля выкл».`;
         console.log(t);
         lab.onPaperText?.(t);
       } catch (err) {
