@@ -218,6 +218,8 @@ export const COLS: ColDef[] = [
   { k: "wrg", label: "Вся свеча окна: размах, bps", g: "post", d: 1, hint: "задним числом: максимум − минимум за окно" },
   { k: "wbd", label: "Вся свеча окна: тело ÷ размах", g: "post", d: 2, hint: "задним числом: итоговый отрыв ÷ размах всей свечи" },
   { k: "wup", label: "Вся свеча окна: тень в нашу сторону, bps", g: "post", d: 1, hint: "задним числом: насколько монета уходила дальше итога в нашу сторону и вернулась" },
+  { k: "tmfe", label: "Секунд до лучшей точки", g: "post", d: 0, hint: "когда bid был на максимуме после входа" },
+  { k: "mnp", label: "Худший bid после лучшей точки (от входа)", g: "post", d: 3, hint: "насколько bid упал от входа ПОСЛЕ своего максимума" },
   { k: "wdn", label: "Вся свеча окна: тень против нас, bps", g: "post", d: 1, hint: "задним числом: насколько монета уходила дальше итога против нас и вернулась" },
   ...TP_DELTAS_PAGE.map((d) => ({ k: `tp${Math.round(d * 100)}`, label: `Секунд до bid ≥ вход+${d.toFixed(2)}`, g: "tp" as const, d: 0, hint: "пусто — цель не достигнута" })),
   ...DN_DELTAS_PAGE.map((d) => ({ k: `dn${Math.round(d * 100)}`, label: `Секунд до bid ≤ вход−${d.toFixed(2)}`, g: "tp" as const, d: 0, hint: "пусто — просадки такой глубины не было" })),
@@ -404,6 +406,8 @@ export function computeRow(
   let mx = -Infinity;
   let mn = Infinity;
   let tmn = 0;
+  let tmx = 0;
+  let mnAfter = Infinity;
   let first10: number | null = null;
   let fell50 = false;
   let seen = 0;
@@ -415,7 +419,11 @@ export function computeRow(
     if (b === null || b === undefined) continue;
     seen++;
     const dlt = b - px;
-    if (dlt > mx) mx = dlt;
+    if (dlt > mx) {
+      mx = dlt;
+      tmx = se.t[i] - entryT;
+      mnAfter = dlt;
+    } else if (dlt < mnAfter) mnAfter = dlt;
     if (dlt < mn) {
       mn = dlt;
       tmn = se.t[i] - entryT;
@@ -431,6 +439,8 @@ export function computeRow(
   }
   if (seen > 0) {
     set("mfe", mx, 3);
+    set("tmfe", tmx, 0);
+    set("mnp", mnAfter, 3);
     set("mae", mn, 3);
     set("tmae", tmn, 0);
     set("lost10", first10 !== null ? 1 : 0, 0);
