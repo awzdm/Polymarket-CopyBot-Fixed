@@ -208,6 +208,17 @@ export const COLS: ColDef[] = [
   { k: "cm30", label: "Монета за 30с после входа, bps", g: "post", d: 1, hint: "" },
   { k: "fin", label: "Итоговый отрыв монеты, bps", g: "post", d: 1, hint: "на какой отметке закрылась монета в нашу сторону" },
   { k: "finr", label: "Итоговый отрыв ÷ отрыв на входе", g: "post", d: 2, hint: "1 — отрыв не изменился; меньше 0 — перешла на другую сторону" },
+  // v4.5: «свеча» окна по монете (в нашу сторону, bps): что было от открытия окна до входа и весь рынок целиком
+  { k: "chi", label: "Свеча до входа: максимум монеты, bps", g: "entry", d: 1, hint: "на сколько монета максимум уходила в нашу сторону от открытия окна до входа" },
+  { k: "clo", label: "Свеча до входа: минимум монеты, bps", g: "entry", d: 1, hint: "на сколько максимум уходила против нас до входа (≤ 0)" },
+  { k: "crg", label: "Свеча до входа: размах, bps", g: "entry", d: 1, hint: "максимум − минимум; маленький размах = «доджи», монета топталась у открытия" },
+  { k: "cbd", label: "Свеча до входа: тело ÷ размах", g: "entry", d: 2, hint: "1 — шла одним движением; около 0 — доджи (вернулась к открытию); отрицательное — сейчас против" },
+  { k: "whi", label: "Вся свеча окна: максимум монеты, bps", g: "post", d: 1, hint: "задним числом: высшая точка монеты за окно в нашу сторону" },
+  { k: "wlo", label: "Вся свеча окна: минимум монеты, bps", g: "post", d: 1, hint: "задним числом: низшая точка монеты за окно (≤ 0)" },
+  { k: "wrg", label: "Вся свеча окна: размах, bps", g: "post", d: 1, hint: "задним числом: максимум − минимум за окно" },
+  { k: "wbd", label: "Вся свеча окна: тело ÷ размах", g: "post", d: 2, hint: "задним числом: итоговый отрыв ÷ размах всей свечи" },
+  { k: "wup", label: "Вся свеча окна: тень в нашу сторону, bps", g: "post", d: 1, hint: "задним числом: насколько монета уходила дальше итога в нашу сторону и вернулась" },
+  { k: "wdn", label: "Вся свеча окна: тень против нас, bps", g: "post", d: 1, hint: "задним числом: насколько монета уходила дальше итога против нас и вернулась" },
   ...TP_DELTAS_PAGE.map((d) => ({ k: `tp${Math.round(d * 100)}`, label: `Секунд до bid ≥ вход+${d.toFixed(2)}`, g: "tp" as const, d: 0, hint: "пусто — цель не достигнута" })),
   ...DN_DELTAS_PAGE.map((d) => ({ k: `dn${Math.round(d * 100)}`, label: `Секунд до bid ≤ вход−${d.toFixed(2)}`, g: "tp" as const, d: 0, hint: "пусто — просадки такой глубины не было" })),
 ];
@@ -285,6 +296,7 @@ export function computeRow(
   const px = tr.px;
   const se = (series[tr.s] ??= seriesFor(m, tr.s));
   const out: (number | null)[] = new Array(ID_COLS.length + COLS.length).fill(null);
+  let candleW: { hiW: number; loW: number } | null = null;
   out[0] = Math.round(tr.ts / 1000);
   out[1] = coinIdx;
   out[2] = tr.s;
@@ -362,6 +374,26 @@ export function computeRow(
     if (cPrev !== null) set("cmp30", c0 - cPrev, 1);
   }
 
+  // v4.5: свеча по монете до входа и за всё окно
+  {
+    let hi = 0, lo = 0, hiW = 0, loW = 0;
+    for (let i = 0; i < se.t.length; i++) {
+      const v = se.coin[i];
+      if (v === null || v === undefined) continue;
+      if (se.t[i] <= entryT) { if (v > hi) hi = v; if (v < lo) lo = v; }
+      if (v > hiW) hiW = v;
+      if (v < loW) loW = v;
+    }
+    if (c0 !== null && c0 !== undefined) { hi = Math.max(hi, c0); lo = Math.min(lo, c0); }
+    if (se.t.length > 3) {
+      set("chi", hi, 1);
+      set("clo", lo, 1);
+      set("crg", hi - lo, 1);
+      if (c0 !== null && c0 !== undefined && hi - lo > 0.05) set("cbd", c0 / (hi - lo), 2);
+      candleW = { hiW, loW };
+    }
+  }
+
   // после входа
   for (const o of OFFSETS) {
     const target = entryT + o;
@@ -422,6 +454,15 @@ export function computeRow(
   if (fin !== null) {
     set("fin", fin, 1);
     if (pmBps !== null && pmBps > 0.05) set("finr", fin / pmBps, 2);
+    if (candleW) {
+      const hiW = Math.max(candleW.hiW, fin, 0), loW = Math.min(candleW.loW, fin, 0), rg = hiW - loW;
+      set("whi", hiW, 1);
+      set("wlo", loW, 1);
+      set("wrg", rg, 1);
+      if (rg > 0.05) set("wbd", fin / rg, 2);
+      set("wup", hiW - Math.max(0, fin), 1);
+      set("wdn", Math.min(0, fin) - loW, 1);
+    }
   }
   TP_DELTAS_PAGE.forEach((d, j) => {
     let v = tpT[j];
