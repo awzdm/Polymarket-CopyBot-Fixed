@@ -42,6 +42,7 @@
 import "dotenv/config";
 import * as fs from "fs";
 import * as path from "path";
+import * as http from "http";
 import { discoverCryptoUpDownMarkets, CryptoUpDownMarket } from "./cryptoMarketDiscovery.js";
 import { PriceWatcher, PriceUpdate } from "./priceWatcher.js";
 import { btcPriceFeed } from "./btcPriceFeed.js";
@@ -2923,6 +2924,71 @@ class ResearchLab {
       }
     }
 
+    // ── 16. v4.6 «Движение монеты»: идеи, которые смотрят только на то, как шла монета (в нашу сторону), без привязки к цене токена ──
+    // Цена токена здесь не условие (берём широко 0.55-0.985) — на странице по ней можно фильтровать. Ячейка = «паттерн / секунды до закрытия».
+    if (secToClose >= 20 && secToClose <= MODEL_MAX_SEC && dirMove > 0 && ask >= 0.55 && ask <= 0.985) {
+      const sb = findBand(MODEL_SEC_BANDS, secToClose);
+      const vol = getVol();
+      const z0 = getZ();
+      if (sb && vol !== null && vol > 1e-6 && z0 !== null && z0 >= 1) {
+        const startMs = Math.max(openTimeMs, now - 300_000);
+        const pts: number[] = [];
+        for (let t = startMs; t < now - 1000; t += 5000) {
+          const px = feed.getPriceAt(t);
+          if (px === null) continue;
+          pts.push(((side === "Up" ? px / openP - 1 : 1 - px / openP)) * 1e4);
+        }
+        const dNow = dirMove * 1e4;
+        pts.push(dNow);
+        const n = pts.length;
+        if (n >= 8) {
+          let hi = -1e9, lo = 1e9, hiIdx = 0, cross = 0, lastS = 0, maxAg = 0;
+          for (let i = 0; i < n; i++) {
+            if (pts[i] > hi) { hi = pts[i]; hiIdx = i; }
+            if (pts[i] < lo) lo = pts[i];
+            const sg = Math.sign(pts[i]);
+            if (sg !== 0) { if (lastS !== 0 && sg !== lastS) cross++; lastS = sg; }
+            if (i >= 2) maxAg = Math.max(maxAg, pts[i - 2] - pts[i]);
+          }
+          hi = Math.max(hi, 0); lo = Math.min(lo, 0);
+          const rg = hi - lo;
+          const s10 = vol * Math.sqrt(10 / 300) * 1e4; // σ за 10 секунд, bps
+          const d10 = dNow - pts[Math.max(0, n - 3)];
+          const d30 = dNow - pts[Math.max(0, n - 7)];
+          const secL = secLabel(sb);
+          const zl = z0 < 2 ? "сила 1-2" : "сила 2+";
+          // а) прямой отрыв: монета ни разу не вернулась к открытию
+          if (cross === 0) emit("cdx", `без возврата к открытию · ${zl} / ${secL}`);
+          // б) пробой старого максимума: сейчас на максимуме, а прошлый максимум держался больше 30с
+          if (dNow >= hi - 1e-9) {
+            let prev = -1e9;
+            for (let i = 0; i < n - 6; i++) if (pts[i] > prev) prev = pts[i];
+            if (n - 6 > 0 && dNow > prev && prev > 0) emit("cbk", `пробой максимума · ${zl} / ${secL}`);
+          }
+          // в) разгон: последние 10с — сильный рывок в нашу сторону, 30с тоже вверх
+          if (s10 > 1e-6 && d30 > 0) {
+            const z10 = d10 / s10;
+            if (z10 >= 1) emit("cac", `рывок 10с ${z10 < 2 ? "1-2" : z10 < 3 ? "2-3" : "3+"}σ / ${secL}`);
+          }
+          // г) откат и возврат: от максимума откатывались, теперь снова растём
+          if (hi > 0 && s10 > 1e-6) {
+            const pb = (hi - dNow) / hi;
+            if (hiIdx < n - 1 && d10 > 0 && pb >= 0.1 && pb < 0.7 && hi >= 2 * s10) emit("cpb", `откат ${pb < 0.3 ? "10-30" : "30-70"}% и возврат / ${secL}`);
+          }
+          // д) тело свечи: монета шла почти одним движением
+          if (rg > 2 * s10 && s10 > 1e-6) {
+            const body = dNow / rg;
+            if (body >= 0.5) emit("cbd", `тело свечи ${body < 0.8 ? "50-80" : "80+"}% · ${zl} / ${secL}`);
+          }
+          // е) запас против самого большого отката: текущий отрыв ÷ самый сильный откат за 10с за последние 5 минут
+          if (maxAg > 0.1) {
+            const r = dNow / maxAg;
+            if (r >= 2) emit("crv", `отрыв в ${r < 3 ? "2-3" : r < 5 ? "3-5" : "5+"} раза больше любого отката / ${secL}`);
+          }
+        }
+      }
+    }
+
     // ── 10. «Соло» для пары: та же монета, тот же триггер, но без условия на вторую монету ──
     if (PAIR_COINS.includes(market.coin) && dirMove > 0) {
       for (let bi = 0; bi < PAIR_BANDS.length; bi++) {
@@ -5306,21 +5372,15 @@ const PAGE_COIN_WORDS: Record<string, string> = {
   xrp: "XRP", doge: "Dogecoin", дож: "Dogecoin",
 };
 
-/** «лаб страница [24ч|3д|7д|30д|все] [5|15] [btc|eth|sol|xrp|doge]» */
-async function handlePageCommand(
-  botToken: string,
-  chatId: string,
-  telegram: ReturnType<typeof createTelegramNotifier>,
-  text: string,
-): Promise<void> {
-  const args = text.replace(/^(лаб страница|\/lab_page)/, "").trim().split(" ").filter(Boolean);
-  let days: number | null = null; // v4.1: по умолчанию ВСЁ время (раньше было 7 дней — старые дни обрезались)
+/** v4.6: разбор аргументов страницы (общий для Telegram-команды и ссылки). */
+function parsePageArgs(args: string[]): { days: number | null; label: string; wm?: number; coin?: string } {
+  let days: number | null = null;
   let label = "всё время";
   let wm: number | undefined;
   let coin: string | undefined;
   for (const a of args) {
     let m: RegExpMatchArray | null;
-    if (a === "все" || a === "всё") {
+    if (a === "все" || a === "всё" || a === "all") {
       days = null;
       label = "всё время";
     } else if ((m = a.match(/^(\d+)(д|дн|d)$/))) {
@@ -5335,6 +5395,72 @@ async function handlePageCommand(
       coin = PAGE_COIN_WORDS[a];
     }
   }
+  return { days, label, wm, coin };
+}
+
+// v4.6: ссылка на страницу без лимита 50 МБ. Включается переменной LAB_PAGE_TOKEN (любой длинный секретный текст)
+// + публичный домен сервиса в Railway (Settings → Networking → Generate Domain). Адрес: https://<домен>/page/<токен>?p=all
+const PAGE_TOKEN = process.env.LAB_PAGE_TOKEN ?? "";
+const pageCache = new Map<string, { at: number; html: string }>();
+function pageLinkBase(): string | null {
+  const dom = process.env.RAILWAY_PUBLIC_DOMAIN ?? process.env.LAB_PAGE_DOMAIN;
+  if (!PAGE_TOKEN || !dom) return null;
+  return `https://${dom}/page/${PAGE_TOKEN}`;
+}
+function startPageServer(): void {
+  if (!PAGE_TOKEN) return;
+  const port = Number(process.env.PORT ?? "0");
+  if (!port) return;
+  const srv = http.createServer((req, res) => {
+    void (async () => {
+      try {
+        const url = new URL(req.url ?? "/", "http://x");
+        const parts = url.pathname.split("/").filter(Boolean);
+        if (parts[0] !== "page" || parts[1] !== PAGE_TOKEN) {
+          res.statusCode = 404;
+          res.end("not found");
+          return;
+        }
+        const p = (url.searchParams.get("p") ?? "all").toLowerCase();
+        const args = p.split(",").filter(Boolean);
+        const co = url.searchParams.get("coin");
+        if (co) args.push(co.toLowerCase());
+        const wmq = url.searchParams.get("wm");
+        if (wmq) args.push(wmq);
+        const key = args.join(" ");
+        const hit = pageCache.get(key);
+        let html: string;
+        if (hit && Date.now() - hit.at < 5 * 60_000 && url.searchParams.get("fresh") !== "1") html = hit.html;
+        else {
+          const a = parsePageArgs(args);
+          const sinceMs = a.days === null ? 0 : Date.now() - a.days * DAY_MS;
+          const r = await buildPage(LAB_DATA_DIR, { sinceMs, periodLabel: a.label, coin: a.coin, wm: a.wm }, 1_500_000_000);
+          html = r.html;
+          pageCache.clear();
+          pageCache.set(key, { at: Date.now(), html });
+        }
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        res.setHeader("Cache-Control", "no-store");
+        res.setHeader("X-Robots-Tag", "noindex");
+        res.end(html);
+      } catch (err) {
+        res.statusCode = 500;
+        res.end("error: " + (err as Error).message);
+      }
+    })();
+  });
+  srv.listen(port, () => console.log(`[page] ссылка на страницу включена (порт ${port})`));
+}
+
+/** «лаб страница [24ч|3д|7д|30д|все] [5|15] [btc|eth|sol|xrp|doge]» */
+async function handlePageCommand(
+  botToken: string,
+  chatId: string,
+  telegram: ReturnType<typeof createTelegramNotifier>,
+  text: string,
+): Promise<void> {
+  const args = text.replace(/^(лаб страница|\/lab_page)/, "").trim().split(" ").filter(Boolean);
+  const { days, label, wm, coin } = parsePageArgs(args);
   await telegram?.send("⏳ Собираю страницу-разбор… (на большом периоде это может занять до минуты)");
   const t0 = Date.now();
   try {
@@ -5347,9 +5473,21 @@ async function handlePageCommand(
     }
     const name = `lab-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}.html`;
     const cap = `LAB: страница-разбор (${label}${wm ? `, ${wm}м` : ""}${coin ? `, ${COIN_SHORT[coin]}` : ""}). Рынков ${meta.markets}, сделок ${meta.trades}${meta.sampled ? `, в странице выборка ${meta.rowsEmbedded}` : ""}. Открой файл в браузере.`;
-    const ok = await sendDocumentToTelegram(botToken, chatId, name, html, cap);
-    if (!ok) await telegram?.send("Не удалось отправить файл (возможно, больше 50 МБ). Попробуй короче период: «лаб страница 24ч» или по монете.");
-    else console.log(`[page] готово за ${((Date.now() - t0) / 1000).toFixed(1)}с, ${(html.length / 1048576).toFixed(1)} МБ`);
+    const link = pageLinkBase();
+    let ok = Buffer.byteLength(html) <= 49_000_000 && (await sendDocumentToTelegram(botToken, chatId, name, html, cap));
+    // v4.6: не влезло — пересобираем с меньшим числом строк (меньший лимит), пока Telegram не примет
+    for (const lim of [38, 28, 20]) {
+      if (ok) break;
+      await telegram?.send(`Файл не влез в 50 МБ, пробую сделать меньше (до ${lim} МБ, часть строк будет выборкой)…`);
+      const r2 = await buildPage(LAB_DATA_DIR, { sinceMs, periodLabel: label, coin, wm }, lim * 1024 * 1024);
+      const m2 = r2.data.meta as { markets: number; trades: number; rowsEmbedded: number; sampled: boolean };
+      ok = await sendDocumentToTelegram(botToken, chatId, name, r2.html, `LAB: страница-разбор (${label}), выборка: ${m2.rowsEmbedded} из ${m2.trades} сделок. Полная версия без лимита — по ссылке («лаб ссылка»).`);
+    }
+    if (!ok) await telegram?.send("Не удалось отправить файл. Попробуй короче период: «лаб страница 24ч» или по монете." + (link ? `\nПолная страница по ссылке: ${link}?p=all` : ""));
+    else {
+      console.log(`[page] готово за ${((Date.now() - t0) / 1000).toFixed(1)}с, ${(html.length / 1048576).toFixed(1)} МБ`);
+      if (link && Buffer.byteLength(html) > 30_000_000) await telegram?.send(`Страница уже большая. Без лимита и без скачивания: ${link}?p=all`);
+    }
   } catch (err) {
     console.error("[page] ошибка сборки:", (err as Error).message);
     await telegram?.send(`Ошибка сборки страницы: ${(err as Error).message}`);
@@ -5406,6 +5544,14 @@ async function pollTelegramCommands(
         const msg = update.message;
         if (!msg?.text || String(msg.chat?.id) !== String(chatId)) continue;
         const text = normalizeCmd(msg.text);
+
+        if (text === "лаб ссылка" || text.startsWith("лаб ссылка ")) {
+          const base = pageLinkBase();
+          const per = text.replace(/^лаб ссылка/, "").trim().split(" ").filter(Boolean).join(",") || "all";
+          if (base) await telegram?.send(`🔗 Страница-разбор без лимита размера (собирается минуту, потом открывается сразу):\n${base}?p=${encodeURIComponent(per)}\nПериод: p=24ч, 3д, 7д, 30д, all; монета: &coin=btc; окно: &wm=5. Ссылка секретная — никому не давай.`);
+          else await telegram?.send("Ссылка не настроена. В Railway: 1) Variables → LAB_PAGE_TOKEN = любой длинный набор букв и цифр (пароль); 2) Settings → Networking → Generate Domain; 3) перезапусти сервис и напиши «лаб ссылка».");
+          continue;
+        }
 
         if (text === "лаб страница" || text.startsWith("лаб страница ") || text === "/lab_page" || text.startsWith("/lab_page ")) {
           console.log(`[telegram] команда: "${msg.text}" → страница`);
@@ -5656,6 +5802,7 @@ async function main() {
   const chatId = process.env.LAB_TELEGRAM_CHAT_ID ?? process.env.TELEGRAM_CHAT_ID;
   const telegram = createTelegramNotifier(botToken, chatId, logger);
 
+  startPageServer();
   const lab = new ResearchLab();
   if (telegram) lab.onPaperText = (text) => void telegram.send(escapeTelegramHtml(text));
 
