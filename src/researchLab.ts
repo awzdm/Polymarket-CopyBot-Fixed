@@ -118,6 +118,7 @@ interface TradeCfg {
   on: boolean; // v4.0: стратегия торгует (команда «лаб тс вкл/выкл»); выключенная только пишется в статистику
   goalP: number; // v4.0: дневная цель по прибыли, $ (0 = выкл): набрала за день (UTC) — до конца дня не покупает
   goalL: number; // v4.0: дневной стоп по убытку, $ (0 = выкл)
+  stopPct?: number; // v5.3: реальный стоп — продаём по рынку, когда bid ≤ цена входа × (1 − stopPct)
   fromDay?: string; // v4.8: начать торговать с этого дня (UTC, «2026-11-07»); до этого только пишет статистику
 }
 const notStarted = (c: TradeCfg): boolean => c.fromDay !== undefined && Date.now() < Date.parse(`${c.fromDay}T00:00:00Z`);
@@ -167,6 +168,11 @@ const TRADE_CFGS: TradeCfg[] = [
     },
   },
   // v4.3: «Справедливая цена (σ 120с) · edge 2-4% / 30-60с / 0.90-0.93» + цена входа (ask) 0.80-0.90 (страница округляет до 0.01). 5 акций, цель дня +$2.5.
+  // v5.3: «Справедливая цена σ120с, edge <0, 60-120с, ask 0.80-0.85» с реальным стопом 28% от цены входа, 5 акций, с 2026-11-08 (UTC)
+  {
+    name: "fair2s", idea: "fair2", combo: "edge <0 / 60-120с / 0.80-0.85", label: "Справедливая цена σ120с, edge <0, 60-120с, ask 0.80-0.85, стоп 28%",
+    size: 5, sizeRefPrice: 0.8, cap: 0.85, shares: 5, stopPct: 0.28, on: true, goalP: 0, goalL: 0, fromDay: "2026-11-08",
+  },
   {
     name: "f30", idea: "fair2", combo: "edge 2-4% / 30-60с / 0.90-0.93", label: "Справедливая цена σ120с, edge 2-4%, 30-60с, ask 0.90-0.93, вход ask 0.80-0.90",
     size: 5, sizeRefPrice: 0.9, cap: 0.91, shares: 5, filter: (e) => { const p = Math.round(e.price * 100) / 100; return p >= 0.8 && p <= 0.9; }, on: false, goalP: 2.5, goalL: 0,
@@ -178,12 +184,55 @@ const MAX_SHARES = Number(process.env.LAB_MAX_SHARES ?? "100");
 const MIN_SHARES = 5; // у биржи минимум 5 акций
 const minStakeOf = (c: TradeCfg): number => Math.ceil(MIN_SHARES * c.sizeRefPrice * 100) / 100;
 const sharesOf = (c: TradeCfg): number => (c.shares !== undefined && c.shares > 0 ? c.shares : c.size / c.sizeRefPrice);
-const stakeTxt = (c: TradeCfg): string => (c.shares !== undefined && c.shares > 0 ? `${c.shares} акций` : `$${c.size}`);
+const stakeTxt = (c: TradeCfg): string => (c.shares !== undefined && c.shares > 0 ? `${c.shares} акций` : `$${c.size}`) + (c.stopPct ? `, стоп ${Math.round(c.stopPct * 100)}%` : "");
 const limitsTxt = (c: TradeCfg): string => `цель ${c.goalP > 0 ? `+$${c.goalP}` : "выкл"}, стоп ${c.goalL > 0 ? `−$${c.goalL}` : "выкл"}`;
 const LIVE_CFG_FILE = path.resolve(process.env.LAB_DATA_PATH || process.env.RAILWAY_VOLUME_MOUNT_PATH || process.cwd(), "lab-live-config.json");
 let v3Pending = false;
 // v4.4: подробный путь цены по каждой сделке записываем для ячеек, которые торгует бот (для окна сделки на странице)
-setPathCells(TRADE_CFGS.filter((c) => c.combo).map((c) => `${c.idea}|${c.combo}`));
+// v5.0: ячейки, для которых пишем путь bid по секундам, хотя бот их не торгует (проверка стопов на реальных ценах продажи)
+const EXTRA_PATH_CELLS: string[] = ["fair2|edge <0 / 60-120с / 0.80-0.85"];
+setPathCells([...TRADE_CFGS.filter((c) => c.combo).map((c) => `${c.idea}|${c.combo}`), ...EXTRA_PATH_CELLS]);
+// v5.2 «бумажный стоп»: для этой ячейки бот ничего не покупает, но записывает, когда стоп сработал бы и по какой цене реально продалось бы
+const PAPER_STOP = { idea: "fair2", combo: "edge <0 / 60-120с / 0.80-0.85", pct: 0.28, shares: 5 };
+interface PaperStopRec {
+  slug: string;
+  coin: string;
+  side: "Up" | "Down";
+  tokenId: string;
+  entryTs: number;
+  entry: number; // цена входа (ask)
+  level: number; // уровень стопа: bid ≤ level
+  hitTs?: number;
+  bidHit?: number; // bid в момент срабатывания
+  vwap?: number; // средняя цена продажи 5 акций по глубине стакана (REST) в момент срабатывания
+  depthOk?: boolean; // хватило ли глубины на все акции
+  bid2?: number | null; // bid через ~2 с
+  bid5?: number | null; // bid через ~5 с
+  winner?: "Up" | "Down";
+}
+const PAPER_STOP_LOG_MAX = 500;
+/** Все заявки на покупку (bids) токена: [цена, размер] по убыванию цены. */
+async function fetchBids(tokenId: string): Promise<Array<[number, number]> | null> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const resp = await fetch(`${CLOB_HOST}/book?token_id=${tokenId}`, { signal: ctrl.signal });
+    if (!resp.ok) return null;
+    const ob: any = await resp.json();
+    const out: Array<[number, number]> = [];
+    for (const o of ob.bids ?? []) {
+      const px = Number(o.price);
+      const sz = Number(o.size);
+      if (Number.isFinite(px) && Number.isFinite(sz) && sz > 0) out.push([px, sz]);
+    }
+    out.sort((a, b) => b[0] - a[0]);
+    return out;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 function loadLiveCfg(): void {
   try {
     const o = JSON.parse(fs.readFileSync(LIVE_CFG_FILE, "utf8")) as Record<string, any>;
@@ -1587,6 +1636,8 @@ class ResearchLab {
   private varWin = new Map<string, Map<number, number>>(); // `${idea}|${combo}` -> closeTimeMs -> сколько позиций в окне
   private varOpen = new Map<string, number>(); // `${idea}|${combo}` -> сколько позиций ждут резолва
   private liveLog: LiveRec[] = [];
+  private paperStops = new Map<string, PaperStopRec>(); // ключ slug|side, пока рынок не закрылся
+  private paperStopLog: PaperStopRec[] = [];
   private liveSkips: Record<string, number> = {};
   private liveSkipSeen = new Set<string>();
 
@@ -1758,6 +1809,7 @@ class ResearchLab {
         dipAgg: this.dipAgg,
         stopAgg: this.stopAgg,
         liveLog: this.liveLog,
+        paperStopLog: this.paperStopLog,
         liveSkips: this.liveSkips,
         pairs: this.pairs,
         winners: [...this.winners.entries()],
@@ -1813,6 +1865,7 @@ class ResearchLab {
       this.dipAgg = data.dipAgg ?? {};
       this.stopAgg = data.stopAgg ?? {};
       this.liveLog = data.liveLog ?? [];
+      this.paperStopLog = data.paperStopLog ?? [];
       this.liveSkips = data.liveSkips ?? {};
       this.pairs = data.pairs ?? [];
       this.winners = new Map(data.winners ?? []);
@@ -2002,6 +2055,8 @@ class ResearchLab {
 
     // после входа отслеживаем, насколько низко опускается bid токена (для идеи «Стоп»)
     this.trackAfterEntry(side, hasBid ? (update.bestBid as number) : null, p, now);
+    this.paperStopCheck(market.eventSlug, side, hasBid ? (update.bestBid as number) : null, now);
+    this.liveStopCheck(market.eventSlug, side, hasBid ? (update.bestBid as number) : null, now);
 
     // v3.2 «Темка»: постановка ордеров в начале окна, проверка исполнения лимиток и тейк-профитов
     this.temkaTick(market, side, p, q, now);
@@ -2025,6 +2080,142 @@ class ResearchLab {
   // ───── стоп, признаки, согласие ─────
 
   /** После входа запоминаем минимальный bid токена и первое касание каждого стоп-уровня (только базовые bot-входы). */
+  /** «Бумажный стоп»: если bid упал до уровня стопа — фиксируем, что реально можно было бы получить при продаже. */
+  private paperStopCheck(slug: string, side: "Up" | "Down", bid: number | null, now: number): void {
+    const r = this.paperStops.get(`${slug}|${side}`);
+    if (!r || r.hitTs !== undefined || bid === null || bid > r.level) return;
+    r.hitTs = now;
+    r.bidHit = bid;
+    void (async () => {
+      const bids = await fetchBids(r.tokenId);
+      if (bids !== null) {
+        let left = PAPER_STOP.shares;
+        let sum = 0;
+        for (const [px, sz] of bids) {
+          const t = Math.min(left, sz);
+          sum += t * px;
+          left -= t;
+          if (left <= 1e-9) break;
+        }
+        r.depthOk = left <= 1e-9;
+        const got = PAPER_STOP.shares - left;
+        r.vwap = got > 0 ? Math.round((sum / got) * 10000) / 10000 : 0.01;
+        if (!r.depthOk) r.vwap = Math.round(((sum + left * 0.01) / PAPER_STOP.shares) * 10000) / 10000;
+      }
+    })();
+    const later = (ms: number, key: "bid2" | "bid5"): void => {
+      setTimeout(() => {
+        const q = this.quotes.get(r.tokenId);
+        r[key] = q ? q.bid : null;
+      }, ms);
+    };
+    later(2000, "bid2");
+    later(5000, "bid5");
+    console.log(`[paper-stop] ${r.coin} ${r.side} вход ${(r.entry * 100).toFixed(0)}¢ стоп ${(r.level * 100).toFixed(0)}¢ bid ${(bid * 100).toFixed(0)}¢`);
+  }
+
+  /** v5.3: реальный стоп. Если bid токена ≤ цена входа × (1 − stopPct) — проверяем стакан по REST и продаём все акции по рынку. */
+  private liveStopCheck(slug: string, side: "Up" | "Down", bid: number | null, now: number): void {
+    if (bid === null || !this.clob) return;
+    for (const [k, f] of this.liveFills) {
+      if (f.slug !== slug || f.side !== side || !f.stopPct || !f.tokenId || f.stopBusy) continue;
+      const level = f.avg * (1 - f.stopPct);
+      if (bid > level + 1e-9) continue;
+      if (f.stopLast !== undefined && now - f.stopLast < 1500) continue;
+      f.stopLast = now;
+      void this.liveStopSell(k, level, bid);
+    }
+  }
+
+  private async liveStopSell(key: string, level: number, bidWs: number): Promise<void> {
+    const f = this.liveFills.get(key);
+    if (!f || !f.tokenId || !this.clob || f.stopBusy) return;
+    f.stopBusy = true;
+    const name = `${COIN_SHORT[f.coin] ?? f.coin} ${f.side}`;
+    try {
+      // контрольный запрос стакана: не продаём по случайному «мигающему» bid из потока
+      const bids = await fetchBids(f.tokenId);
+      if (bids !== null && bids.length > 0 && bids[0][0] > level + 1e-9) return;
+      const t0 = Date.now();
+      const errors: string[] = [];
+      for (let attempt = 1; attempt <= 4; attempt++) {
+        const have = f.shares - (f.soldShares ?? 0);
+        if (have < MIN_SHARES - 1e-9) break; // остаток меньше минимального ордера — дождёмся итога рынка
+        try {
+          const resp: any = await this.clob.placeLimitOrder({ tokenId: f.tokenId, side: Side.SELL, price: bidWs, size: have, maxSlippagePct: 45 });
+          const { filledSize, avgPrice } = resolveFillLive(Number(resp.filledSize ?? 0), Number(resp.filledUsdc ?? 0), bidWs);
+          if (filledSize > 0) {
+            f.soldShares = (f.soldShares ?? 0) + filledSize;
+            f.soldUsd = (f.soldUsd ?? 0) + filledSize * avgPrice;
+            this.note(`🛑 LAB СТОП [${f.idea}] ${name}: продал ${filledSize.toFixed(2)} акций по ${avgPrice.toFixed(3)} (вход ${f.avg.toFixed(3)}, стоп-уровень ${level.toFixed(3)}, bid был ${bidWs.toFixed(2)}), ${Date.now() - t0} мс, попытка ${attempt}`);
+            if (f.shares - f.soldShares < MIN_SHARES - 1e-9) return;
+          } else errors.push(`попытка ${attempt}: без заполнения`);
+        } catch (err) {
+          errors.push(`попытка ${attempt}: ${(err as Error).message}`);
+        }
+        await new Promise((r) => setTimeout(r, 700));
+      }
+      if ((f.soldShares ?? 0) < f.shares - 1e-9) this.note(`⚠️ LAB СТОП [${f.idea}] ${name}: продано ${(f.soldShares ?? 0).toFixed(2)} из ${f.shares.toFixed(2)}; остальное дождётся итога рынка.${errors.length ? `\n${errors.map((x) => `• ${x}`).join("\n")}` : ""}`);
+    } catch (err) {
+      this.note(`⚠️ LAB СТОП [${f.idea}] ${name}: ошибка ${(err as Error).message}`);
+    } finally {
+      f.stopBusy = false;
+    }
+  }
+
+  private paperStopSettle(slug: string, winner: "Up" | "Down"): void {
+    for (const side of ["Up", "Down"] as const) {
+      const r = this.paperStops.get(`${slug}|${side}`);
+      if (!r) continue;
+      this.paperStops.delete(`${slug}|${side}`);
+      r.winner = winner;
+      this.paperStopLog.push(r);
+      if (this.paperStopLog.length > PAPER_STOP_LOG_MAX) this.paperStopLog.shift();
+    }
+  }
+
+  paperStopText(): string {
+    const L = this.paperStopLog;
+    if (L.length === 0) return "🛑 Бумажный стоп: данных пока нет (ждём срабатывания ячейки fair2 edge<0 / 60-120с / 0.80-0.85).";
+    const n = PAPER_STOP.shares;
+    let hold = 0;
+    let stopSim = 0; // как считает страница: уровень − 5¢
+    let stopReal = 0; // по реальному стакану
+    let hits = 0;
+    let withReal = 0;
+    let shallow = 0;
+    let gap = 0; // насколько реальная цена хуже уровня стопа, ¢ (сумма)
+    let gapN = 0;
+    let hitWins = 0; // стоп сработал, а рынок потом выиграл (стоп «зря»)
+    for (const r of L) {
+      const win = r.winner === r.side;
+      const h = (win ? 1 - r.entry : -r.entry) * n;
+      hold += h;
+      if (r.hitTs === undefined) { stopSim += h; stopReal += h; continue; }
+      hits++;
+      if (win) hitWins++;
+      const sim = (Math.max(0.01, r.level - 0.05) - r.entry) * n;
+      stopSim += sim;
+      if (r.vwap !== undefined) {
+        withReal++;
+        if (r.depthOk === false) shallow++;
+        stopReal += (r.vwap - r.entry) * n;
+        gap += (r.level - r.vwap) * 100;
+        gapN++;
+      } else stopReal += sim;
+    }
+    const f = (x: number): string => `${x >= 0 ? "+" : "−"}$${Math.abs(x).toFixed(2)}`;
+    return (
+      `🛑 Бумажный стоп ${Math.round(PAPER_STOP.pct * 100)}% (fair2 edge<0 / 60-120с / 0.80-0.85, ${n} акций), сделок ${L.length}, стоп сработал в ${hits} (${((hits / L.length) * 100).toFixed(0)}%)\n` +
+      `• держим до конца: ${f(hold)}\n` +
+      `• со стопом по модели страницы (−5¢): ${f(stopSim)}\n` +
+      `• со стопом по РЕАЛЬНОМУ стакану: ${f(stopReal)}` + (withReal < hits ? ` (реальная цена записана в ${withReal} из ${hits})` : "") + `\n` +
+      (gapN > 0 ? `• реальная цена продажи в среднем хуже уровня стопа на ${(gap / gapN).toFixed(1)}¢; не хватило глубины стакана: ${shallow}\n` : "") +
+      `• стоп сработал, а рынок потом выиграл: ${hitWins} из ${hits}\n` +
+      (L.length < 100 ? "Данных ещё мало (надо хотя бы 100 сделок, лучше 300)." : "")
+    );
+  }
+
   private trackAfterEntry(side: "Up" | "Down", bid: number | null, p: PendingMarket, now: number): void {
     if (bid === null) return;
     for (const e of p.entries) {
@@ -2819,6 +3010,13 @@ class ResearchLab {
         ...(extra ?? {}),
       };
       p.entries.push(entryRec);
+      if (idea === PAPER_STOP.idea && combo === PAPER_STOP.combo) {
+        const tokenId = side === "Up" ? market.upTokenId : market.downTokenId;
+        this.paperStops.set(`${market.eventSlug}|${side}`, {
+          slug: market.eventSlug, coin: market.coin, side, tokenId, entryTs: now, entry: ask,
+          level: Math.max(0.01, Math.round(ask * (1 - PAPER_STOP.pct) * 100) / 100),
+        });
+      }
       const tcfg = cfgFor(idea, combo);
       if (tcfg !== undefined) {
         // дополнительное условие входа стратегии (считается один раз, в момент первого срабатывания ячейки — так же, как в статистике страницы)
@@ -3478,7 +3676,7 @@ class ResearchLab {
   private clob: ClobService | null = null;
   liveEnabled = false; // рантайм-переключатель («лаб торговля вкл/выкл»)
   private liveSlugs = new Set<string>(); // рынки, где уже была попытка живой покупки
-  private liveFills = new Map<string, { slug: string; idea: string; coin: string; side: "Up" | "Down"; shares: number; avg: number; usd: number }>(); // ключ: «стратегия|рынок»
+  private liveFills = new Map<string, { slug: string; idea: string; coin: string; side: "Up" | "Down"; shares: number; avg: number; usd: number; tokenId?: string; stopPct?: number; stopBusy?: boolean; stopLast?: number; soldShares?: number; soldUsd?: number }>(); // ключ: «стратегия|рынок»
   private liveWindowCount = new Map<number, number>();
   private liveTimes: number[] = [];
   private liveStats = { bought: 0, failed: 0, skipped: 0, wins: 0, losses: 0, pnl: 0 };
@@ -3567,7 +3765,7 @@ class ResearchLab {
             errors.push(`попытка ${attempt}: биржа ответила без заполнения (сырые ${rawA}/${rawB})`);
           } else {
             const usd = filledSize * avgPrice;
-            this.liveFills.set(lk, { slug, idea: cfg.name, coin: e.coin, side, shares: filledSize, avg: avgPrice, usd });
+            this.liveFills.set(lk, { slug, idea: cfg.name, coin: e.coin, side, shares: filledSize, avg: avgPrice, usd, tokenId, stopPct: cfg.stopPct });
             this.liveTimes.push(Date.now());
             this.liveStats.bought++;
             this.note(
@@ -3624,13 +3822,15 @@ class ResearchLab {
       if (f.slug !== slug) continue;
       this.liveFills.delete(k);
       bought.add(f.idea);
-      const won = f.side === winner;
-      const pnl = won ? f.shares * (1 - f.avg) : -f.usd;
+      const sold = f.soldShares ?? 0;
+      const rest = Math.max(0, f.shares - sold);
+      const won = sold > 0 ? false : f.side === winner;
+      const pnl = (f.soldUsd ?? 0) - sold * f.avg + (f.side === winner ? rest * (1 - f.avg) : -rest * f.avg);
       this.liveStats.pnl += pnl;
       this.addDayPnl(f.idea, pnl);
-      if (won) this.liveStats.wins++;
+      if (pnl >= 0) this.liveStats.wins++;
       else this.liveStats.losses++;
-      this.note(`${won ? "✅" : "❌"} LAB итог [${f.idea}] ${COIN_SHORT[f.coin] ?? f.coin} ${f.side} по ${f.avg.toFixed(3)}: ${won ? "победа" : "проигрыш"} ${pnl >= 0 ? "+" : "−"}$${Math.abs(pnl).toFixed(2)} (всего ${this.liveStats.pnl >= 0 ? "+" : "−"}$${Math.abs(this.liveStats.pnl).toFixed(2)}) ${slug}`);
+      this.note(`${pnl >= 0 ? "✅" : "❌"} LAB итог [${f.idea}] ${COIN_SHORT[f.coin] ?? f.coin} ${f.side} по ${f.avg.toFixed(3)}: ${sold > 0 ? `закрыто стопом (${sold.toFixed(1)} акций)` : won ? "победа" : "проигрыш"} ${pnl >= 0 ? "+" : "−"}$${Math.abs(pnl).toFixed(2)} (всего ${this.liveStats.pnl >= 0 ? "+" : "−"}$${Math.abs(this.liveStats.pnl).toFixed(2)}) ${slug}`);
     }
     return bought;
   }
@@ -3898,6 +4098,7 @@ class ResearchLab {
     this.temkaSettle(p, winner);
     this.recordMarket(slug, p, winner);
     this.paperSettle(p, slug, winner);
+    this.paperStopSettle(slug, winner);
 
     this.dropPending(slug);
     if ((p.wm ?? 5) === TARGET_WINDOW_MINUTES) this.resolvedCount++;
@@ -5426,20 +5627,33 @@ function parsePageArgs(args: string[]): { days: number | null; label: string; wm
 // + публичный домен сервиса в Railway (Settings → Networking → Generate Domain). Адрес: https://<домен>/page/<токен>?p=all
 const PAGE_TOKEN = process.env.LAB_PAGE_TOKEN ?? "";
 const pageCache = new Map<string, { at: number; html: string }>();
+const pageJobs = new Map<string, { at: number; done: boolean; err: string | null }>();
 function pageLinkBase(): string | null {
   const dom = process.env.RAILWAY_PUBLIC_DOMAIN ?? process.env.LAB_PAGE_DOMAIN;
   if (!PAGE_TOKEN || !dom) return null;
   return `https://${dom}/page/${PAGE_TOKEN}`;
 }
+function pageLinkWhy(): string {
+  const miss: string[] = [];
+  if (!PAGE_TOKEN) miss.push("нет переменной LAB_PAGE_TOKEN (Variables)");
+  if (!(process.env.RAILWAY_PUBLIC_DOMAIN ?? process.env.LAB_PAGE_DOMAIN)) miss.push("нет домена (Settings → Networking → Generate Domain; либо вручную переменная LAB_PAGE_DOMAIN = адрес без https://)");
+  return miss.join("; ");
+}
 function startPageServer(): void {
-  if (!PAGE_TOKEN) return;
-  const port = Number(process.env.PORT ?? "0");
-  if (!port) return;
+  if (!PAGE_TOKEN) {
+    console.log("[page] ссылка выключена: нет LAB_PAGE_TOKEN");
+    return;
+  }
+  const port = Number(process.env.PORT ?? "8080") || 8080; // если Railway не задал PORT — слушаем 8080 (в Networking укажи этот порт)
   const srv = http.createServer((req, res) => {
     void (async () => {
       try {
         const url = new URL(req.url ?? "/", "http://x");
         const parts = url.pathname.split("/").filter(Boolean);
+        if (parts[0] === "ping") {
+          res.end("ok");
+          return;
+        }
         if (parts[0] !== "page" || parts[1] !== PAGE_TOKEN) {
           res.statusCode = 404;
           res.end("not found");
@@ -5453,27 +5667,53 @@ function startPageServer(): void {
         if (wmq) args.push(wmq);
         const key = args.join(" ");
         const hit = pageCache.get(key);
-        let html: string;
+        let html: string | null = null;
         if (hit && Date.now() - hit.at < 5 * 60_000 && url.searchParams.get("fresh") !== "1") html = hit.html;
         else {
-          const a = parsePageArgs(args);
-          const sinceMs = a.days === null ? 0 : Date.now() - a.days * DAY_MS;
-          const r = await buildPage(LAB_DATA_DIR, { sinceMs, periodLabel: a.label, coin: a.coin, wm: a.wm }, 1_500_000_000);
-          html = r.html;
-          pageCache.clear();
-          pageCache.set(key, { at: Date.now(), html });
+          // сборка идёт в фоне: сразу отвечаем «собираю», страница сама обновляется, пока не будет готово
+          let job = pageJobs.get(key);
+          if (!job || (job.done && url.searchParams.get("fresh") === "1" && Date.now() - job.at > 20_000)) {
+            const a = parsePageArgs(args);
+            const sinceMs = a.days === null ? 0 : Date.now() - a.days * DAY_MS;
+            const j: { at: number; done: boolean; err: string | null } = { at: Date.now(), done: false, err: null };
+            pageJobs.set(key, j);
+            job = j;
+            void (async () => {
+              try {
+                const r = await buildPage(LAB_DATA_DIR, { sinceMs, periodLabel: a.label, coin: a.coin, wm: a.wm }, 1_500_000_000);
+                pageCache.clear();
+                pageCache.set(key, { at: Date.now(), html: r.html });
+              } catch (e) {
+                j.err = (e as Error).message;
+              } finally {
+                j.done = true;
+              }
+            })();
+          }
+          const cur = pageCache.get(key);
+          if (cur) html = cur.html;
+          else {
+            const q = new URL(req.url ?? "/", "http://x");
+            q.searchParams.delete("fresh");
+            res.statusCode = 200;
+            res.setHeader("Content-Type", "text/html; charset=utf-8");
+            res.setHeader("Cache-Control", "no-store");
+            res.end(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${job.err ? "" : `<meta http-equiv="refresh" content="6;url=${q.pathname}${q.search}">`}<body style="font-family:sans-serif;background:#111;color:#eee;padding:30px">${job.err ? `<h3>Ошибка сборки</h3><p>${job.err.replace(/</g, "&lt;")}</p>` : `<h3>⏳ Собираю страницу…</h3><p>Прошло ${Math.round((Date.now() - job.at) / 1000)} с. Страница обновится сама, обычно до 1–2 минут.</p>`}</body>`);
+            return;
+          }
         }
         res.setHeader("Content-Type", "text/html; charset=utf-8");
         res.setHeader("Cache-Control", "no-store");
         res.setHeader("X-Robots-Tag", "noindex");
-        res.end(html);
+        res.end(html ?? "");
       } catch (err) {
         res.statusCode = 500;
         res.end("error: " + (err as Error).message);
       }
     })();
   });
-  srv.listen(port, () => console.log(`[page] ссылка на страницу включена (порт ${port})`));
+  srv.listen(port, () => console.log(`[page] ссылка на страницу включена (порт ${port}, домен ${process.env.RAILWAY_PUBLIC_DOMAIN ?? process.env.LAB_PAGE_DOMAIN ?? "не задан"})`));
+  srv.on("error", (e) => console.log("[page] сервер ссылки не запустился:", (e as Error).message));
 }
 
 /** «лаб страница [24ч|3д|7д|30д|все] [5|15] [btc|eth|sol|xrp|doge]» */
@@ -5487,6 +5727,7 @@ async function handlePageCommand(
   const { days, label, wm, coin } = parsePageArgs(args);
   // v4.9: если настроена ссылка — шлём её вместо файла (без лимита 50 МБ и без выборки). Файл по-прежнему можно: «лаб страница файл»
   const linkBase = pageLinkBase();
+  if (!linkBase && !args.includes("файл")) await telegram?.send(`ℹ️ Ссылка не настроена: ${pageLinkWhy()}. Пока шлю файлом.`);
   if (linkBase && !args.includes("файл")) {
     const per = args.filter((x) => x !== "файл").join(",") || "all";
     await telegram?.send(`🔗 Страница-разбор, ВСЕ данные без лимита:\n${linkBase}?p=${encodeURIComponent(per)}&fresh=1\n(открывается через ~минуту, пока собирается; ссылка секретная). Файлом: «лаб страница файл».`);
@@ -5576,11 +5817,16 @@ async function pollTelegramCommands(
         if (!msg?.text || String(msg.chat?.id) !== String(chatId)) continue;
         const text = normalizeCmd(msg.text);
 
+        if (text === "лаб стоп") {
+          await telegram?.send(escapeTelegramHtml(lab.paperStopText()));
+          continue;
+        }
+
         if (text === "лаб ссылка" || text.startsWith("лаб ссылка ")) {
           const base = pageLinkBase();
           const per = text.replace(/^лаб ссылка/, "").trim().split(" ").filter(Boolean).join(",") || "all";
           if (base) await telegram?.send(`🔗 Страница-разбор без лимита размера (собирается минуту, потом открывается сразу):\n${base}?p=${encodeURIComponent(per)}\nПериод: p=24ч, 3д, 7д, 30д, all; монета: &coin=btc; окно: &wm=5. Ссылка секретная — никому не давай.`);
-          else await telegram?.send("Ссылка не настроена. В Railway: 1) Variables → LAB_PAGE_TOKEN = любой длинный набор букв и цифр (пароль); 2) Settings → Networking → Generate Domain; 3) перезапусти сервис и напиши «лаб ссылка».");
+          else await telegram?.send(`Ссылка не настроена: ${pageLinkWhy()}. После настройки сервис перезапустится сам; потом напиши «лаб ссылка».`);
           continue;
         }
 
