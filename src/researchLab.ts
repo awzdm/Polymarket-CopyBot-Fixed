@@ -2118,7 +2118,7 @@ class ResearchLab {
   private liveStopCheck(slug: string, side: "Up" | "Down", bid: number | null, now: number): void {
     if (bid === null || !this.clob) return;
     for (const [k, f] of this.liveFills) {
-      if (f.slug !== slug || f.side !== side || !f.stopPct || !f.tokenId || f.stopBusy) continue;
+      if (f.slug !== slug || f.side !== side || !f.stopPct || !f.tokenId || f.stopBusy || f.stopFail) continue;
       const level = f.avg * (1 - f.stopPct);
       if (bid > level + 1e-9) continue;
       if (f.stopLast !== undefined && now - f.stopLast < 1500) continue;
@@ -2138,6 +2138,12 @@ class ResearchLab {
       if (bids !== null && bids.length > 0 && bids[0][0] > level + 1e-9) return;
       const t0 = Date.now();
       const errors: string[] = [];
+      f.stopRounds = (f.stopRounds ?? 0) + 1;
+      if (f.shares - (f.soldShares ?? 0) < MIN_SHARES - 1e-9) {
+        f.stopFail = true;
+        this.note(`⚠️ LAB СТОП [${f.idea}] ${name}: стоп сработал, но у нас ${(f.shares - (f.soldShares ?? 0)).toFixed(2)} акций — меньше минимума биржи (${MIN_SHARES}), продать нельзя. Ждём итога рынка.`);
+        return;
+      }
       for (let attempt = 1; attempt <= 4; attempt++) {
         const have = f.shares - (f.soldShares ?? 0);
         if (have < MIN_SHARES - 1e-9) break; // остаток меньше минимального ордера — дождёмся итога рынка
@@ -2155,6 +2161,7 @@ class ResearchLab {
         }
         await new Promise((r) => setTimeout(r, 700));
       }
+      if ((f.soldShares ?? 0) < f.shares - 0.1 && (f.stopRounds ?? 0) >= 3) f.stopFail = true;
       if ((f.soldShares ?? 0) < f.shares - 0.1) this.note(`⚠️ LAB СТОП [${f.idea}] ${name}: продано ${(f.soldShares ?? 0).toFixed(2)} из ${f.shares.toFixed(2)}; остальное дождётся итога рынка.${errors.length ? `\n${errors.map((x) => `• ${x}`).join("\n")}` : ""}`);
     } catch (err) {
       this.note(`⚠️ LAB СТОП [${f.idea}] ${name}: ошибка ${(err as Error).message}`);
@@ -3676,7 +3683,7 @@ class ResearchLab {
   private clob: ClobService | null = null;
   liveEnabled = false; // рантайм-переключатель («лаб торговля вкл/выкл»)
   private liveSlugs = new Set<string>(); // рынки, где уже была попытка живой покупки
-  private liveFills = new Map<string, { slug: string; idea: string; coin: string; side: "Up" | "Down"; shares: number; avg: number; usd: number; tokenId?: string; stopPct?: number; stopBusy?: boolean; stopLast?: number; soldShares?: number; soldUsd?: number }>(); // ключ: «стратегия|рынок»
+  private liveFills = new Map<string, { slug: string; idea: string; coin: string; side: "Up" | "Down"; shares: number; avg: number; usd: number; tokenId?: string; stopPct?: number; stopBusy?: boolean; stopLast?: number; soldShares?: number; soldUsd?: number; stopFail?: boolean; stopRounds?: number }>(); // ключ: «стратегия|рынок»
   private liveWindowCount = new Map<number, number>();
   private liveTimes: number[] = [];
   private liveStats = { bought: 0, failed: 0, skipped: 0, wins: 0, losses: 0, pnl: 0 };
@@ -3732,7 +3739,8 @@ class ResearchLab {
     this.liveWindowCount.set(market.closeTimeMs, (this.liveWindowCount.get(market.closeTimeMs) ?? 0) + 1);
 
     const tokenId = side === "Up" ? market.upTokenId : market.downTokenId;
-    const size = sharesOf(cfg);
+    // для ТС со стопом берём на ~6% больше: после округления/комиссии заполнение бывает 4.9 акции, а биржа не даёт продать меньше 5 — стоп бы не сработал
+    const size = cfg.stopPct ? Math.ceil(sharesOf(cfg) * 106) / 100 : sharesOf(cfg);
     const errors: string[] = [];
     const t0 = Date.now();
     try {
