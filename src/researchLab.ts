@@ -171,7 +171,7 @@ const TRADE_CFGS: TradeCfg[] = [
   // v5.3: «Справедливая цена σ120с, edge <0, 60-120с, ask 0.80-0.85» с реальным стопом 28% от цены входа, 5 акций, с 2026-11-08 (UTC)
   {
     name: "fair2s", idea: "fair2", combo: "edge <0 / 60-120с / 0.80-0.85", label: "Справедливая цена σ120с, edge <0, 60-120с, ask 0.80-0.85, стоп 28%",
-    size: 5, sizeRefPrice: 0.8, cap: 0.85, shares: 5, stopPct: 0.28, on: true, goalP: 0, goalL: 0, fromDay: "2026-11-08",
+    size: 5, sizeRefPrice: 0.8, cap: 0.85, shares: 5, stopPct: 0.28, filter: (e) => e.bid0 != null && e.price - e.bid0 <= 0.02 + 1e-9, on: true, goalP: 0, goalL: 0, fromDay: "2026-11-08",
   },
   {
     name: "f30", idea: "fair2", combo: "edge 2-4% / 30-60с / 0.90-0.93", label: "Справедливая цена σ120с, edge 2-4%, 30-60с, ask 0.90-0.93, вход ask 0.80-0.90",
@@ -2155,7 +2155,7 @@ class ResearchLab {
         }
         await new Promise((r) => setTimeout(r, 700));
       }
-      if ((f.soldShares ?? 0) < f.shares - 1e-9) this.note(`⚠️ LAB СТОП [${f.idea}] ${name}: продано ${(f.soldShares ?? 0).toFixed(2)} из ${f.shares.toFixed(2)}; остальное дождётся итога рынка.${errors.length ? `\n${errors.map((x) => `• ${x}`).join("\n")}` : ""}`);
+      if ((f.soldShares ?? 0) < f.shares - 0.1) this.note(`⚠️ LAB СТОП [${f.idea}] ${name}: продано ${(f.soldShares ?? 0).toFixed(2)} из ${f.shares.toFixed(2)}; остальное дождётся итога рынка.${errors.length ? `\n${errors.map((x) => `• ${x}`).join("\n")}` : ""}`);
     } catch (err) {
       this.note(`⚠️ LAB СТОП [${f.idea}] ${name}: ошибка ${(err as Error).message}`);
     } finally {
