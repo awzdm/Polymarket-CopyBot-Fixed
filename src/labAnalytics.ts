@@ -223,6 +223,12 @@ export const COLS: ColDef[] = [
   { k: "wdn", label: "Вся свеча окна: тень против нас, bps", g: "post", d: 1, hint: "задним числом: насколько монета уходила дальше итога против нас и вернулась" },
   ...TP_DELTAS_PAGE.map((d) => ({ k: `tp${Math.round(d * 100)}`, label: `Секунд до bid ≥ вход+${d.toFixed(2)}`, g: "tp" as const, d: 0, hint: "пусто — цель не достигнута" })),
   ...DN_DELTAS_PAGE.map((d) => ({ k: `dn${Math.round(d * 100)}`, label: `Секунд до bid ≤ вход−${d.toFixed(2)}`, g: "tp" as const, d: 0, hint: "пусто — просадки такой глубины не было" })),
+  // v5.4: состояние в момент, когда bid впервые упал на 10 / 20 центов от входа (для разбора стопов; задним числом — не фильтр входа)
+  ...[10, 20].flatMap((c) => [
+    { k: `fs${c}`, label: `Падение bid за 5с до просадки −${c}¢`, g: "post" as const, d: 3, hint: "на сколько bid упал за 5с до момента, когда он достиг вход−" + (c / 100).toFixed(2) + " (большое = быстрый провал)" },
+    { k: `cx${c}`, label: `Монета за 10с до просадки −${c}¢, bps`, g: "post" as const, d: 1, hint: "движение монеты в нашу сторону за 10с до момента просадки; минус = монета шла против нас" },
+    { k: `cy${c}`, label: `Монета в момент просадки −${c}¢ (от входа), bps`, g: "post" as const, d: 1, hint: "где монета относительно момента входа; минус = ушла против нас" },
+  ]),
 ];
 
 const COL_IDX: Record<string, number> = {};
@@ -446,6 +452,20 @@ export function computeRow(
     set("lost10", first10 !== null ? 1 : 0, 0);
     if (px >= 0.55) set("flip", fell50 ? 1 : 0, 0);
   }
+  // v5.4: состояние в момент просадки на 10 / 20 центов
+  [10, 20].forEach((c) => {
+    const j = DN_DELTAS_PAGE.findIndex((d) => Math.round(d * 100) === c);
+    const dtc = j >= 0 ? dnT[j] : null;
+    if (dtc === null || dtc === undefined) return;
+    const tc = entryT + dtc;
+    const bNow = valAt(se.t, se.bid, tc);
+    const bPrev = valAt(se.t, se.bid, tc - 5);
+    if (bNow !== null && bPrev !== null) set(`fs${c}`, bPrev - bNow, 3);
+    const cNow = valAt(se.t, se.coin, tc);
+    const cPrev = valAt(se.t, se.coin, tc - 10);
+    if (cNow !== null && cPrev !== null) set(`cx${c}`, cNow - cPrev, 1);
+    if (cNow !== null && c0 !== null && c0 !== undefined) set(`cy${c}`, cNow - c0, 1);
+  });
   if (entryT < dur - 10) {
     const e10 = valAt(se.t, se.bid, dur - 10);
     if (e10 !== null) set("end10", e10 - px, 3);
