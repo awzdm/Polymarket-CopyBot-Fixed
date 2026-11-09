@@ -2056,7 +2056,7 @@ class ResearchLab {
     // после входа отслеживаем, насколько низко опускается bid токена (для идеи «Стоп»)
     this.trackAfterEntry(side, hasBid ? (update.bestBid as number) : null, p, now);
     this.paperStopCheck(market.eventSlug, side, hasBid ? (update.bestBid as number) : null, now);
-    this.liveStopCheck(market.eventSlug, side, hasBid ? (update.bestBid as number) : null, now);
+    this.liveStopCheck(market, side, hasBid ? (update.bestBid as number) : null, now);
 
     // v3.2 «Темка»: постановка ордеров в начале окна, проверка исполнения лимиток и тейк-профитов
     this.temkaTick(market, side, p, q, now);
@@ -2115,19 +2115,26 @@ class ResearchLab {
   }
 
   /** v5.3: реальный стоп. Если bid токена ≤ цена входа × (1 − stopPct) — проверяем стакан по REST и продаём все акции по рынку. */
-  private liveStopCheck(slug: string, side: "Up" | "Down", bid: number | null, now: number): void {
+  private liveStopCheck(market: CryptoUpDownMarket, side: "Up" | "Down", bid: number | null, now: number): void {
     if (bid === null || !this.clob) return;
+    const slug = market.eventSlug;
     for (const [k, f] of this.liveFills) {
       if (f.slug !== slug || f.side !== side || !f.stopPct || !f.tokenId || f.stopBusy || f.stopFail) continue;
       const level = f.avg * (1 - f.stopPct);
+      // след bid за последние ~6 с — для сообщения о стопе (скорость падения)
+      const tr = f.trail ?? (f.trail = []);
+      if (!tr.length || now - tr[tr.length - 1][0] >= 250) tr.push([now, bid]);
+      while (tr.length > 1 && now - tr[0][0] > 6000) tr.shift();
       if (bid > level + 1e-9) continue;
       if (f.stopLast !== undefined && now - f.stopLast < 1500) continue;
       f.stopLast = now;
-      void this.liveStopSell(k, level, bid);
+      let zAg: number | null = null;
+      try { zAg = this.temkaAgainstZ(market, side, now); } catch { zAg = null; }
+      void this.liveStopSell(k, level, bid, zAg);
     }
   }
 
-  private async liveStopSell(key: string, level: number, bidWs: number): Promise<void> {
+  private async liveStopSell(key: string, level: number, bidWs: number, zAg: number | null = null): Promise<void> {
     const f = this.liveFills.get(key);
     if (!f || !f.tokenId || !this.clob || f.stopBusy) return;
     f.stopBusy = true;
@@ -2136,6 +2143,23 @@ class ResearchLab {
       // контрольный запрос стакана: не продаём по случайному «мигающему» bid из потока
       const bids = await fetchBids(f.tokenId);
       if (bids !== null && bids.length > 0 && bids[0][0] > level + 1e-9) return;
+      // данные для разбора: стакан в момент стопа и как быстро падал bid
+      let book = "";
+      try {
+        if (bids !== null && bids.length > 0) {
+          const need = f.shares - (f.soldShares ?? 0);
+          let left = need, sum = 0, deep = 0;
+          for (const [px, sz] of bids) {
+            if (px >= bids[0][0] - 0.05 - 1e-9) deep += sz;
+            if (left > 1e-9) { const t = Math.min(left, sz); sum += t * px; left -= t; }
+          }
+          const vw = left <= 1e-9 ? sum / need : (sum + left * 0.01) / need;
+          book = `; стакан: на лучшем bid ${bids[0][1].toFixed(0)} акц., в 5¢ от него ${deep.toFixed(0)}, ${need.toFixed(1)} акц. продались бы по ~${vw.toFixed(3)}${left > 1e-9 ? " (стакана не хватает)" : ""}`;
+        }
+        const tr = f.trail ?? [];
+        const ref = tr.find((x) => Date.now() - x[0] <= 3000);
+        if (ref) book += `; bid 3 с назад ${ref[1].toFixed(2)} → ${bidWs.toFixed(2)}`;
+      } catch { /* необязательно */ }
       const t0 = Date.now();
       const errors: string[] = [];
       f.stopRounds = (f.stopRounds ?? 0) + 1;
@@ -2153,7 +2177,7 @@ class ResearchLab {
           if (filledSize > 0) {
             f.soldShares = (f.soldShares ?? 0) + filledSize;
             f.soldUsd = (f.soldUsd ?? 0) + filledSize * avgPrice;
-            this.note(`🛑 LAB СТОП [${f.idea}] ${name}: продал ${filledSize.toFixed(2)} акций по ${avgPrice.toFixed(3)} (вход ${f.avg.toFixed(3)}, стоп-уровень ${level.toFixed(3)}, bid был ${bidWs.toFixed(2)}), ${Date.now() - t0} мс, попытка ${attempt}`);
+            this.note(`🛑 LAB СТОП [${f.idea}] ${name}: продал ${filledSize.toFixed(2)} акций по ${avgPrice.toFixed(3)} (вход ${f.avg.toFixed(3)}, стоп-уровень ${level.toFixed(3)}, bid был ${bidWs.toFixed(2)}), ${Date.now() - t0} мс, попытка ${attempt}${zAg !== null ? `; монета против нас: z=${zAg.toFixed(2)}` : ""}${book}`);
             if (f.shares - f.soldShares < MIN_SHARES - 1e-9) return;
           } else errors.push(`попытка ${attempt}: без заполнения`);
         } catch (err) {
@@ -3683,7 +3707,7 @@ class ResearchLab {
   private clob: ClobService | null = null;
   liveEnabled = false; // рантайм-переключатель («лаб торговля вкл/выкл»)
   private liveSlugs = new Set<string>(); // рынки, где уже была попытка живой покупки
-  private liveFills = new Map<string, { slug: string; idea: string; coin: string; side: "Up" | "Down"; shares: number; avg: number; usd: number; tokenId?: string; stopPct?: number; stopBusy?: boolean; stopLast?: number; soldShares?: number; soldUsd?: number; stopFail?: boolean; stopRounds?: number }>(); // ключ: «стратегия|рынок»
+  private liveFills = new Map<string, { slug: string; idea: string; coin: string; side: "Up" | "Down"; shares: number; avg: number; usd: number; tokenId?: string; stopPct?: number; stopBusy?: boolean; stopLast?: number; soldShares?: number; soldUsd?: number; stopFail?: boolean; stopRounds?: number; trail?: Array<[number, number]> }>(); // ключ: «стратегия|рынок»
   private liveWindowCount = new Map<number, number>();
   private liveTimes: number[] = [];
   private liveStats = { bought: 0, failed: 0, skipped: 0, wins: 0, losses: 0, pnl: 0 };
