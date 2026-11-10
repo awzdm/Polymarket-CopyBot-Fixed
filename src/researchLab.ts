@@ -1258,6 +1258,10 @@ interface LabEntry {
   pk?: number; // v3.3: пик цены токена до входа
   minBid?: number;
   stops?: (number | null)[];
+  bs10?: number | null; // v5.4: объём лучшего bid, когда bid упал на 10¢ от входа
+  dp10?: number | null; // …и объём заявок в 5¢ от лучшего bid
+  bs20?: number | null;
+  dp20?: number | null;
 }
 
 interface Feat {
@@ -2054,7 +2058,7 @@ class ResearchLab {
     if (!p) return;
 
     // после входа отслеживаем, насколько низко опускается bid токена (для идеи «Стоп»)
-    this.trackAfterEntry(side, hasBid ? (update.bestBid as number) : null, p, now);
+    this.trackAfterEntry(side, hasBid ? (update.bestBid as number) : null, p, now, update.tokenId);
     this.paperStopCheck(market.eventSlug, side, hasBid ? (update.bestBid as number) : null, now);
     this.liveStopCheck(market, side, hasBid ? (update.bestBid as number) : null, now);
 
@@ -2247,16 +2251,47 @@ class ResearchLab {
     );
   }
 
-  private trackAfterEntry(side: "Up" | "Down", bid: number | null, p: PendingMarket, now: number): void {
+  private trackAfterEntry(side: "Up" | "Down", bid: number | null, p: PendingMarket, now: number, tokenId: string): void {
     if (bid === null) return;
     for (const e of p.entries) {
       if (!isBase(e.idea) || e.side !== side || e.ts >= now) continue;
       if (e.minBid === undefined || bid < e.minBid) e.minBid = bid;
+      // v5.4: только для fair2 — снимок глубины стакана в момент просадки на 10 / 20 центов (разбор стопов на странице)
+      if (e.idea === "fair2") {
+        if (e.bs10 === undefined && bid <= e.price - 0.1 + 1e-9) this.snapDepth(e, 10, tokenId);
+        if (e.bs20 === undefined && bid <= e.price - 0.2 + 1e-9) this.snapDepth(e, 20, tokenId);
+      }
       if (!e.stops) e.stops = STOP_LEVELS.map(() => null);
       for (let i = 0; i < STOP_LEVELS.length; i++) {
         if (e.stops[i] === null && bid <= STOP_LEVELS[i]) e.stops[i] = bid;
       }
     }
+  }
+
+  /** v5.4: запоминает объём лучшего bid и глубину в 5¢ от него (один запрос стакана на токен в 1.5 с, только для данных страницы). */
+  private depthCache = new Map<string, { t: number; p: Promise<{ bs: number; dp: number } | null> }>();
+  private snapDepth(e: LabEntry, lvl: 10 | 20, tokenId: string): void {
+    if (lvl === 10) { e.bs10 = null; e.dp10 = null; } else { e.bs20 = null; e.dp20 = null; }
+    if (!tokenId) return;
+    const now = Date.now();
+    let c = this.depthCache.get(tokenId);
+    if (!c || now - c.t > 1500) {
+      c = {
+        t: now,
+        p: fetchBids(tokenId).then((b) => {
+          if (!b || b.length === 0) return null;
+          let dp = 0;
+          for (const [px, sz] of b) if (px >= b[0][0] - 0.05 - 1e-9) dp += sz;
+          return { bs: b[0][1], dp };
+        }).catch(() => null),
+      };
+      this.depthCache.set(tokenId, c);
+      if (this.depthCache.size > 200) for (const k of this.depthCache.keys()) { this.depthCache.delete(k); break; }
+    }
+    void c.p.then((r) => {
+      if (!r) return;
+      if (lvl === 10) { e.bs10 = Math.round(r.bs); e.dp10 = Math.round(r.dp); } else { e.bs20 = Math.round(r.bs); e.dp20 = Math.round(r.dp); }
+    });
   }
 
   private aggregateBotEntry(e: LabEntry, won: boolean, roi: number): void {
@@ -3971,6 +4006,10 @@ class ResearchLab {
           pk: e.pk ?? null,
           bsz: e.bsz ?? null,
           asz: e.asz ?? null,
+          bs10: e.bs10 ?? null,
+          dp10: e.dp10 ?? null,
+          bs20: e.bs20 ?? null,
+          dp20: e.dp20 ?? null,
         });
       }
       for (const pos of p.temka ?? []) {
