@@ -51,6 +51,10 @@ export interface RawTrade {
   pk?: number | null; // пик цены токена до входа
   bsz?: number | null;
   asz?: number | null;
+  bs10?: number | null; // v5.4: объём лучшего bid / глубина в 5¢ в момент просадки на 10¢ и 20¢ (только fair2)
+  dp10?: number | null;
+  bs20?: number | null;
+  dp20?: number | null;
   hits?: (number | null)[]; // только «Темка»: секунд до +0.02/0.03/0.04/0.05/0.07/0.10 (null — не достигнуто)
 }
 
@@ -224,6 +228,10 @@ export const COLS: ColDef[] = [
   ...TP_DELTAS_PAGE.map((d) => ({ k: `tp${Math.round(d * 100)}`, label: `Секунд до bid ≥ вход+${d.toFixed(2)}`, g: "tp" as const, d: 0, hint: "пусто — цель не достигнута" })),
   ...DN_DELTAS_PAGE.map((d) => ({ k: `dn${Math.round(d * 100)}`, label: `Секунд до bid ≤ вход−${d.toFixed(2)}`, g: "tp" as const, d: 0, hint: "пусто — просадки такой глубины не было" })),
   // v5.4: состояние в момент, когда bid впервые упал на 10 / 20 центов от входа (для разбора стопов; задним числом — не фильтр входа)
+  { k: "bs10", label: "Объём bid в момент просадки −10¢", g: "post", d: 0, hint: "акций на лучшем bid, когда токен упал на 10¢ от входа (пусто — не записано)" },
+  { k: "dp10", label: "Глубина bid (5¢) в момент просадки −10¢", g: "post", d: 0, hint: "акций в 5 центах от лучшего bid" },
+  { k: "bs20", label: "Объём bid в момент просадки −20¢", g: "post", d: 0, hint: "акций на лучшем bid, когда токен упал на 20¢ от входа" },
+  { k: "dp20", label: "Глубина bid (5¢) в момент просадки −20¢", g: "post", d: 0, hint: "акций в 5 центах от лучшего bid" },
   ...[10, 20].flatMap((c) => [
     { k: `fs${c}`, label: `Падение bid за 5с до просадки −${c}¢`, g: "post" as const, d: 3, hint: "на сколько bid упал за 5с до момента, когда он достиг вход−" + (c / 100).toFixed(2) + " (большое = быстрый провал)" },
     { k: `cx${c}`, label: `Монета за 10с до просадки −${c}¢, bps`, g: "post" as const, d: 1, hint: "движение монеты в нашу сторону за 10с до момента просадки; минус = монета шла против нас" },
@@ -366,6 +374,10 @@ export function computeRow(
   set("hr", tr.hr, 0);
   set("pk", tr.pk, 3);
   set("bsz", tr.bsz, 0);
+  set("bs10", tr.bs10, 0);
+  set("dp10", tr.dp10, 0);
+  set("bs20", tr.bs20, 0);
+  set("dp20", tr.dp20, 0);
   set("asz", tr.asz, 0);
 
   // до входа (по ленте)
