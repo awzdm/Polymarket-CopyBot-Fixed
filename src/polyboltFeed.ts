@@ -140,7 +140,26 @@ class PolyboltHub {
     }
   }
 
+  private storedCreds: { apiKey: string; secret: string; passphrase: string } | null = null;
+  private authSent = false;
+
+  /** Ключи CLOB, которые бот получил при запуске (createOrDeriveApiKey). Можно вызвать уже после подключения. */
+  setCreds(c: { key: string; secret: string; passphrase: string }): void {
+    this.storedCreds = { apiKey: c.key, secret: c.secret, passphrase: c.passphrase };
+    if (this.ws && this.ws.readyState === WebSocket.OPEN && !this.authSent) this.sendAuth();
+  }
+
+  private sendAuth(): void {
+    const c = this.creds();
+    if (!c || !this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    this.authSent = true;
+    this.ws.send(JSON.stringify({ op: "auth", rid: "a1", auth: c }));
+    this.clearSubTimer();
+    this.subTimer = setTimeout(() => this.sendSubscribe([...this.feeds.values()], true), SUB_FALLBACK_MS);
+  }
+
   private creds(): { apiKey: string; secret: string; passphrase: string } | null {
+    if (this.storedCreds) return this.storedCreds;
     const apiKey = process.env.CLOB_API_KEY;
     const secret = process.env.CLOB_API_SECRET;
     const passphrase = process.env.CLOB_API_PASSPHRASE;
@@ -156,13 +175,9 @@ class PolyboltHub {
 
     ws.on("open", () => {
       console.log("[polybolt] подключено к Polymarket PolyBolt (Chainlink, TWAP-30с считаем сами)");
-      const c = this.creds();
-      if (!c) {
-        console.log("[polybolt] 🔴 не заданы CLOB_API_KEY / CLOB_API_SECRET / CLOB_API_PASSPHRASE — каналы цен закрытые, без ключей данных не будет.");
-      } else {
-        ws.send(JSON.stringify({ op: "auth", rid: "a1", auth: c }));
-      }
-      this.subTimer = setTimeout(() => this.sendSubscribe([...this.feeds.values()], true), SUB_FALLBACK_MS);
+      this.authSent = false;
+      if (this.creds()) this.sendAuth();
+      else console.log("[polybolt] жду ключи CLOB (их передаёт бот после запуска или CLOB_API_KEY/SECRET/PASSPHRASE) — каналы цен закрытые.");
     });
 
     ws.on("message", (raw: Buffer) => this.onMessage(raw));
@@ -172,6 +187,7 @@ class PolyboltHub {
       console.log(`[polybolt] соединение закрыто (код ${code}), переподключение через ${RECONNECT_MS}мс`);
       this.clearSubTimer();
       this.subscribed = false;
+      this.authSent = false;
       setTimeout(() => this.connect(), RECONNECT_MS + (code === 4003 ? Math.random() * 10000 : 0));
     });
 
@@ -261,3 +277,8 @@ class PolyboltHub {
 }
 
 const hub = new PolyboltHub();
+
+/** Передать фиду ключи CLOB от бота (ClobService.getApiCreds()). */
+export function setPolyboltCreds(c: { key: string; secret: string; passphrase: string }): void {
+  hub.setCreds(c);
+}
