@@ -179,17 +179,6 @@ const TRADE_CFGS: TradeCfg[] = [
   },
 ];
 const cfgFor = (idea: string, combo: string): TradeCfg | undefined => TRADE_CFGS.find((c) => c.idea === idea && (c.combo === undefined || c.combo === combo));
-// v5.5 «Вход после дна» для ячейки fair2 «edge <0 / 60-120с / 0.80-0.85»: после сигнала НЕ покупаем сразу, а ждём — bid токена падает до low, потом возвращается до buy — и тогда покупаем по ask
-// (как «Вход после дна» на странице: упала до 75, отросла до 80 — купить). Стопа нет: держим до конца. Цены меняются командой «лаб дно 75 80».
-const DIP = { on: true, low: 75, buy: 80, shares: 5, minLeft: 15, spread: 3 };
-const DIP_IDEA = "fair2";
-const DIP_COMBO = "edge <0 / 60-120с / 0.80-0.85";
-const DIP_NAME = "dip";
-const dipCfg = (): TradeCfg => ({
-  name: DIP_NAME, idea: DIP_IDEA, combo: DIP_COMBO,
-  label: `Справедливая цена σ120с, edge <0, 60-120с, вход после дна (дно ≤${DIP.low}¢, покупка от ${DIP.buy}¢)`,
-  size: DIP.shares, sizeRefPrice: 0.8, cap: Math.min(0.99, (DIP.buy + DIP.spread) / 100), shares: DIP.shares, on: DIP.on, goalP: 0, goalL: 0,
-});
 const MAX_STAKE = Number(process.env.LAB_MAX_STAKE ?? "50");
 const MAX_SHARES = Number(process.env.LAB_MAX_SHARES ?? "100");
 const MIN_SHARES = 5; // у биржи минимум 5 акций
@@ -260,14 +249,6 @@ function loadLiveCfg(): void {
         if (typeof x.goalL === "number" && x.goalL >= 0) c.goalL = x.goalL;
       }
     }
-    const dp = o.__dip as Record<string, any> | undefined;
-    if (dp && typeof dp === "object") {
-      if (typeof dp.on === "boolean") DIP.on = dp.on;
-      if (typeof dp.low === "number" && typeof dp.buy === "number" && dp.low >= 1 && dp.buy <= 98 && dp.low < dp.buy) { DIP.low = dp.low; DIP.buy = dp.buy; }
-      if (typeof dp.shares === "number" && dp.shares >= MIN_SHARES && dp.shares <= MAX_SHARES) DIP.shares = dp.shares;
-      if (typeof dp.minLeft === "number" && dp.minLeft >= 3 && dp.minLeft <= 120) DIP.minLeft = dp.minLeft;
-      if (typeof dp.spread === "number" && dp.spread >= 0 && dp.spread <= 10) DIP.spread = dp.spread;
-    }
     // v4.3 (разовая миграция): торгуют только m98 и f30, у каждой 5 акций и цель дня +$2.5; остальные выключены (включаются командой «лаб тс вкл <имя>»)
     if (!o.__v3) {
       for (const c of TRADE_CFGS) {
@@ -298,7 +279,6 @@ function saveLiveCfg(): void {
     o.__v2 = Object.fromEntries(TRADE_CFGS.map((c) => [c.name, { shares: c.shares ?? null, on: c.on, goalP: c.goalP, goalL: c.goalL }]));
     o.__v3 = true;
     o.__v4 = true;
-    o.__dip = { ...DIP };
     fs.writeFileSync(LIVE_CFG_FILE, JSON.stringify(o));
   } catch (err) {
     console.log("[live-cfg] не удалось сохранить настройки:", (err as Error).message);
@@ -2002,13 +1982,6 @@ class ResearchLab {
       if (!activeSlugs.has(s) && !this.pending.has(s) && !this.liveFills.has(k)) this.liveSlugs.delete(k);
     }
     for (const k of this.liveWindowCount.keys()) if (k < now - 3600_000) this.liveWindowCount.delete(k);
-    for (const k of [...this.dipWatch.keys()]) {
-      const s = k.slice(0, k.lastIndexOf("|"));
-      if (!activeSlugs.has(s) && !this.pending.has(s)) {
-        this.dipWatch.delete(k);
-        this.dipPaper.delete(k);
-      }
-    }
     if (this.liveEnabled && this.clob) void Promise.resolve((this.clob as any).warmMeta?.(tokenIds)).catch(() => {}); // метаданные рынков заранее — быстрый путь ордера
 
     console.log(
@@ -2088,7 +2061,6 @@ class ResearchLab {
     this.trackAfterEntry(side, hasBid ? (update.bestBid as number) : null, p, now, update.tokenId);
     this.paperStopCheck(market.eventSlug, side, hasBid ? (update.bestBid as number) : null, now);
     this.liveStopCheck(market, side, hasBid ? (update.bestBid as number) : null, now);
-    this.dipCheck(market, side, hasBid ? (update.bestBid as number) : q.bid, q.ask, now);
 
     // v3.2 «Темка»: постановка ордеров в начале окна, проверка исполнения лимиток и тейк-профитов
     this.temkaTick(market, side, p, q, now);
@@ -3134,11 +3106,6 @@ class ResearchLab {
         } else if (this.liveEnabled && this.clob) void this.liveBuy(idea, market, side, entryRec, getRatioOf("b"));
         else this.paperBuy(idea, market, side, entryRec, getRatioOf("b"));
       }
-      // v5.5: «вход после дна» — отдельный наблюдатель на тот же сигнал (спред сигнала ≤2¢, как у fair2s)
-      if (idea === DIP_IDEA && combo === DIP_COMBO && DIP.on && entryRec.bid0 != null && entryRec.price - entryRec.bid0 <= 0.02 + 1e-9) {
-        const dk = `${market.eventSlug}|${side}`;
-        if (!this.dipWatch.has(dk)) this.dipWatch.set(dk, { market, side, e: entryRec, armed: false, lowBid: null, lowTs: 0, done: false });
-      }
     };
 
     // ── 1. «Запас» ──
@@ -3757,14 +3724,14 @@ class ResearchLab {
     }).join("\n");
   }
 
-  private paperBuy(idea: string, market: CryptoUpDownMarket, side: "Up" | "Down", e: LabEntry, ratio: number | null, cfgIn?: TradeCfg, extra?: string): void {
-    const cfg = cfgIn ?? cfgFor(idea, e.combo)!;
+  private paperBuy(idea: string, market: CryptoUpDownMarket, side: "Up" | "Down", e: LabEntry, ratio: number | null): void {
+    const cfg = cfgFor(idea, e.combo)!;
     const shares = sharesOf(cfg);
     const t = new Date(e.ts).toISOString().slice(11, 23);
     const text =
       `📝 LAB БЫ КУПИЛ [${cfg.name}, ${stakeTxt(cfg)}] ${t} UTC\n` +
       `${COIN_SHORT[market.coin] ?? market.coin} ${market.windowMinutes}м ${side}, ask ${e.price.toFixed(3)}, bid ${e.bid0 != null ? e.bid0.toFixed(3) : "—"} (потолок бота ${cfg.cap})\n` +
-      `до закрытия ${e.sec}с, z ${e.z != null ? e.z.toFixed(2) : "—"}, Binance ${ratio !== null ? `${(ratio * 100).toFixed(0)}%` : "—"} от потока, ~${shares.toFixed(2)} акций${extra ? `, ${extra}` : ""}\n` +
+      `до закрытия ${e.sec}с, z ${e.z != null ? e.z.toFixed(2) : "—"}, Binance ${ratio !== null ? `${(ratio * 100).toFixed(0)}%` : "—"} от потока, ~${shares.toFixed(2)} акций\n` +
       `${market.eventSlug}`;
     console.log(text.replace(/\n/g, " | "));
     this.onPaperText?.(text);
@@ -3802,11 +3769,11 @@ class ResearchLab {
     );
   }
 
-  private async liveBuy(idea: string, market: CryptoUpDownMarket, side: "Up" | "Down", e: LabEntry, ratio: number | null, cfgIn?: TradeCfg, extra?: string): Promise<void> {
-    const cfg = cfgIn ?? cfgFor(idea, e.combo)!;
+  private async liveBuy(idea: string, market: CryptoUpDownMarket, side: "Up" | "Down", e: LabEntry, ratio: number | null): Promise<void> {
+    const cfg = cfgFor(idea, e.combo)!;
     const slug = market.eventSlug;
     const name = `${COIN_SHORT[market.coin] ?? market.coin} ${market.windowMinutes}м ${side}`;
-    const head = `[${cfg.name}, ${stakeTxt(cfg)}] ${name}, ask ${e.price.toFixed(3)}, bid ${e.bid0 != null ? e.bid0.toFixed(3) : "—"}, z ${e.z != null ? e.z.toFixed(2) : "—"}, Binance ${ratio !== null ? `${(ratio * 100).toFixed(0)}%` : "—"}, до закрытия ${e.sec}с${extra ? `, ${extra}` : ""}`;
+    const head = `[${cfg.name}, ${stakeTxt(cfg)}] ${name}, ask ${e.price.toFixed(3)}, bid ${e.bid0 != null ? e.bid0.toFixed(3) : "—"}, z ${e.z != null ? e.z.toFixed(2) : "—"}, Binance ${ratio !== null ? `${(ratio * 100).toFixed(0)}%` : "—"}, до закрытия ${e.sec}с`;
     if (!this.clob) return;
     const lk = `${cfg.name}|${slug}`;
     if (this.liveSlugs.has(lk)) return; // эта же стратегия в этом рынке уже пробовала (другие стратегии не мешают)
@@ -3889,54 +3856,6 @@ class ResearchLab {
       this.pendingLive--;
     }
   }
-  // v5.5 «Вход после дна»: слежение за сигналами ячейки fair2 (рынок|сторона) и бумажные покупки, если реальная торговля выключена
-  private dipWatch = new Map<string, { market: CryptoUpDownMarket; side: "Up" | "Down"; e: LabEntry; armed: boolean; lowBid: number | null; lowTs: number; done: boolean }>();
-  private dipPaper = new Map<string, { slug: string; coin: string; side: "Up" | "Down"; price: number; shares: number }>();
-  private dipCheck(market: CryptoUpDownMarket, side: "Up" | "Down", bid: number | null, ask: number | null, now: number): void {
-    if (this.dipWatch.size === 0 || bid === null) return;
-    const w = this.dipWatch.get(`${market.eventSlug}|${side}`);
-    if (!w || w.done || !DIP.on) return;
-    const left = (market.closeTimeMs - now) / 1000;
-    if (left < DIP.minLeft) {
-      w.done = true; // слишком поздно для покупки
-      return;
-    }
-    if (!w.armed) {
-      if (bid <= DIP.low / 100 + 1e-9) {
-        w.armed = true;
-        w.lowBid = bid;
-        w.lowTs = now;
-      }
-      return;
-    }
-    if (bid < DIP.buy / 100 - 1e-9 || ask === null) return;
-    if (ask > (DIP.buy + DIP.spread) / 100 + 1e-9) return; // спред раздут — ждём, пока ask подойдёт
-    w.done = true;
-    const e: LabEntry = { ...w.e, price: ask, bid0: bid, ts: now, sec: Math.round(left) };
-    const cfg = dipCfg();
-    const extra = `дно ${w.lowBid !== null ? w.lowBid.toFixed(2) : "—"} (через ${Math.round((w.lowTs - w.e.ts) / 1000)}с после сигнала), вернулось до ${bid.toFixed(2)}`;
-    if (this.liveEnabled && this.clob) void this.liveBuy(DIP_IDEA, market, side, e, null, cfg, extra);
-    else {
-      this.paperBuy(DIP_IDEA, market, side, e, null, cfg, extra);
-      this.dipPaper.set(`${market.eventSlug}|${side}`, { slug: market.eventSlug, coin: market.coin, side, price: ask, shares: sharesOf(cfg) });
-    }
-  }
-  dipStatusText(): string {
-    return (
-      `📉 Вход после дна [${DIP_NAME}] — ${DIP.on ? "🟢 включён" : "⏸ выключен"}\n` +
-      `ТС: Справедливая цена σ120с, edge <0, 60-120с, ask 0.80-0.85 (спред сигнала ≤2¢). Стопа нет — держим до конца.\n` +
-      `Дно: bid упал до ${DIP.low}¢ или ниже. Покупка: когда потом bid вернулся до ${DIP.buy}¢ и ask не выше ${DIP.buy + DIP.spread}¢.\n` +
-      `Размер: ${DIP.shares} акций. Не покупать, если до закрытия осталось меньше ${DIP.minLeft}с.\n` +
-      `Сейчас следим за ${[...this.dipWatch.values()].filter((w) => !w.done).length} сигналами.\n\n` +
-      `Команды:\n` +
-      `«лаб дно 75 80» — цены: дно и покупка (в центах)\n` +
-      `«лаб дно вкл» / «лаб дно выкл»\n` +
-      `«лаб дно акций 5» — сколько акций\n` +
-      `«лаб дно мин 15» — не покупать, если до конца меньше N секунд\n` +
-      `«лаб дно спред 3» — максимум ¢ над ценой покупки, который готов заплатить`
-    );
-  }
-
   private pendingLive = 0;
   private tradeSkipped = new Set<string>(); // «стратегия|рынок|сторона»: ячейка сработала, но дополнительное условие входа не выполнено
 
@@ -3985,18 +3904,6 @@ class ResearchLab {
 
   private paperSettle(p: PendingMarket, slug: string, winner: "Up" | "Down"): void {
     const boughtNames = this.liveSettle(slug, winner);
-    for (const sd of ["Up", "Down"] as const) {
-      this.dipWatch.delete(`${slug}|${sd}`);
-      const dp = this.dipPaper.get(`${slug}|${sd}`);
-      if (dp) {
-        this.dipPaper.delete(`${slug}|${sd}`);
-        const won = dp.side === winner;
-        const pnl = won ? dp.shares * (1 - dp.price) : -dp.shares * dp.price;
-        const text = `${won ? "✅" : "❌"} LAB БЫ: итог [${DIP_NAME}] ${COIN_SHORT[dp.coin] ?? dp.coin} ${dp.side} по ${dp.price.toFixed(3)}: ${won ? "победа" : "проигрыш"} ${pnl >= 0 ? "+" : "−"}$${Math.abs(pnl).toFixed(2)}`;
-        console.log(text);
-        this.onPaperText?.(text);
-      }
-    }
     for (const e of p.entries) {
       const cfg = cfgFor(e.idea, e.combo);
       if (cfg === undefined) continue;
@@ -5662,7 +5569,6 @@ class ResearchLab {
       "лаб биржи все — Binance, Coinbase, Bybit, OKX, Kraken, Bitget: каждая отдельно по корзинам и вместе (сколько бирж против / подтверждают); можно «лаб биржи все 3» (дней)",
       "лаб страница — страница-разбор файлом: все идеи и ячейки, чем победы отличаются от поражений (без периода — всё время; можно: «лаб страница 24ч», «3д», «7д», «30д», «15», «btc»)",
       "лаб объем — ставки торговых стратегий LAB; «лаб объем bot7b0 6», «лаб объем fair2 5», «лаб объем все 5»",
-      "лаб дно — вход после дна (fair2): цены дна и покупки, вкл/выкл: «лаб дно 75 80»",
       "лаб тс — стратегии LAB: список, «лаб тс выкл fair2», «лаб тс вкл cb4»",
       "лаб акций — покупать всегда N акций: «лаб акций cb4 5» (выкл — обратно в $)",
       "лаб лимит — дневная цель/стоп: «лаб лимит cb4 цель 20», «лаб лимит cb4 убыток 15», «лаб лимит все выкл»",
@@ -6037,41 +5943,6 @@ async function pollTelegramCommands(
             }
           } else {
             await telegram?.send(escapeTelegramHtml(lab.liveStatusText() + '\nУправление: "лаб торговля вкл" / "лаб торговля выкл"'));
-          }
-          continue;
-        }
-
-        // v5.5: «вход после дна» — цены дна и покупки, вкл/выкл
-        if (text === "лаб дно" || text.startsWith("лаб дно ") || text === "/lab_dip" || text.startsWith("/lab_dip ")) {
-          const args = text.replace(/^(лаб дно|\/lab_dip)/, "").trim().split(/\s+/).filter(Boolean);
-          const num = (x: string | undefined): number => Number((x ?? "").replace(",", "."));
-          if (args.length === 0) await telegram?.send(escapeTelegramHtml(lab.dipStatusText()));
-          else if (args[0] === "вкл" || args[0] === "выкл") {
-            DIP.on = args[0] === "вкл";
-            saveLiveCfg();
-            await telegram?.send(escapeTelegramHtml(`${DIP.on ? "🟢 Вход после дна включён" : "⏸ Вход после дна выключен"}. Уже купленные позиции доигрываются.\n${lab.dipStatusText()}`));
-          } else if (args[0] === "акций") {
-            const n = num(args[1]);
-            if (!Number.isFinite(n) || n < MIN_SHARES || n > MAX_SHARES) await telegram?.send(escapeTelegramHtml(`Акций от ${MIN_SHARES} до ${MAX_SHARES}. Пример: лаб дно акций 5`));
-            else { DIP.shares = n; saveLiveCfg(); await telegram?.send(escapeTelegramHtml(`✅ Вход после дна: ${n} акций.`)); }
-          } else if (args[0] === "мин") {
-            const n = num(args[1]);
-            if (!Number.isFinite(n) || n < 3 || n > 120) await telegram?.send(escapeTelegramHtml("Секунд от 3 до 120. Пример: лаб дно мин 15"));
-            else { DIP.minLeft = n; saveLiveCfg(); await telegram?.send(escapeTelegramHtml(`✅ Не покупаю, если до закрытия осталось меньше ${n}с.`)); }
-          } else if (args[0] === "спред") {
-            const n = num(args[1]);
-            if (!Number.isFinite(n) || n < 0 || n > 10) await telegram?.send(escapeTelegramHtml("Центов от 0 до 10. Пример: лаб дно спред 3"));
-            else { DIP.spread = n; saveLiveCfg(); await telegram?.send(escapeTelegramHtml(`✅ Покупаю, если ask не выше ${DIP.buy + n}¢ (цена покупки ${DIP.buy}¢ + ${n}¢).`)); }
-          } else {
-            const lo = num(args[0]);
-            const by = num(args[1]);
-            if (!Number.isFinite(lo) || !Number.isFinite(by) || lo < 1 || by > 98 || lo >= by) await telegram?.send(escapeTelegramHtml("Два числа в центах: дно и покупка, дно меньше покупки (1-98). Пример: лаб дно 75 80"));
-            else {
-              DIP.low = lo;
-              DIP.buy = by;
-              saveLiveCfg();
-              await telegram?.send(escapeTelegramHtml(`✅ Вход после дна: дно ≤${lo}¢, покупка, когда bid вернулся до ${by}¢ (ask не выше ${by + DIP.spread}¢). Новые цены действуют сразу, в том числе для уже отслеживаемых сигналов.`));
-            }
           }
           continue;
         }
