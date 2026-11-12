@@ -579,6 +579,7 @@ export interface PageData {
   offsets: number[];
   rows: (number | null)[][];
   exchanges: { label: string; b: string; r: string }[];
+  pm?: Record<string, [number, number, string, string]>; // v5.5: путь bid и ask рынка (шаг 2с) для ВСЕХ ТС: ключ рынок.сторона → [открытие (с), стартовый индекс, строка bid, строка ask]; символ = 256+центы, 255 = нет данных
   paths?: Record<string, (number | null)[]>; // v4.4: путь bid по секундам (шаг 2с, в центах) для сделок «торговых» ячеек; ключ = рынок.сторона.время входа
   cells: Record<string, number[]>; // "idea|combo" -> [n, wins, sumRoi, sumPx, nMarkets] — по ВСЕМ сделкам (до выборки)
 }
@@ -600,6 +601,24 @@ export function setPathCells(keys: string[]): void {
   PATH_CELLS = new Set(keys);
 }
 const PATH_STEP = 2;
+/** v5.5: путь рынка (bid и ask стороны) шагом 2с, от самого раннего входа в этом рынке до конца. Общий для всех ТС. */
+function pathMk(m: MarketRec, side: 0 | 1, minE: number, series: [Series | null, Series | null]): [number, number, string, string] | null {
+  const se = (series[side] ??= seriesFor(m, side));
+  const dur = (m.close - m.open) / 1000;
+  if (!(dur > minE)) return null;
+  const st = Math.max(0, Math.floor(minE / 2));
+  const bb: string[] = [];
+  const aa: string[] = [];
+  let any = false;
+  for (let t = st * PATH_STEP; t <= dur + 0.5; t += PATH_STEP) {
+    const vb = valAt(se.t, se.bid, t, 6);
+    const va = valAt(se.t, se.ask, t, 6);
+    if (vb !== null) any = true;
+    bb.push(String.fromCharCode(vb === null ? 255 : 256 + Math.max(0, Math.min(100, Math.round(vb * 100)))));
+    aa.push(String.fromCharCode(va === null ? 255 : 256 + Math.max(0, Math.min(100, Math.round(va * 100)))));
+  }
+  return any ? [Math.round(m.open / 1000), st, bb.join(""), aa.join("")] : null;
+}
 function pathOf(m: MarketRec, tr: RawTrade, series: [Series | null, Series | null]): (number | null)[] | null {
   const se = (series[tr.s] ??= seriesFor(m, tr.s));
   const dur = (m.close - m.open) / 1000;
@@ -632,6 +651,7 @@ export async function buildPageData(dir: string, opt: PageOptions): Promise<Page
   const store = new ColStore(ID_COLS.length + COLS.length);
   const byCell = new Map<string, number[]>();
   const pathsAll = new Map<string, (number | null)[]>();
+  const pmAll = new Map<string, [number, number, string, string]>();
   const cellAgg = new Map<string, { n: number; w: number; roi: number; px: number; mk: Set<number> }>();
   let mkId = 0;
   let markets = 0;
@@ -646,16 +666,26 @@ export async function buildPageData(dir: string, opt: PageOptions): Promise<Page
     const id = mkId++;
     const series: [Series | null, Series | null] = [null, null];
     const ci = idx(coinMap, coins, m.coin);
+    {
+      const minE: [number, number] = [Infinity, Infinity];
+      for (const tr of m.trades) {
+        if (tr.i.startsWith("temka:")) continue;
+        const e = (tr.ts - m.open) / 1000;
+        if (e < minE[tr.s]) minE[tr.s] = e;
+      }
+      for (const sd of [0, 1] as const) {
+        if (minE[sd] < Infinity) {
+          const pm = pathMk(m, sd, minE[sd], series);
+          if (pm) pmAll.set(`${id}.${sd}`, pm);
+        }
+      }
+    }
     for (const tr of m.trades) {
       if (tr.i.startsWith("temka:")) continue; // v4: «темки» на странице не показываем (и не кладём в файл)
       const ii = idx(ideaMap, ideas, tr.i);
       const co = idx(comboMap, combos, tr.c);
       const row = computeRow(m, tr, id, ci, ii, co, series);
       const key = `${tr.i}|${tr.c}`;
-      if (PATH_CELLS.has(key)) {
-        const p = pathOf(m, tr, series);
-        if (p) pathsAll.set(`${id}.${tr.s}.${Math.round(tr.ts / 1000)}`, p);
-      }
       let list = byCell.get(key);
       if (!list) {
         list = [];
@@ -710,10 +740,12 @@ export async function buildPageData(dir: string, opt: PageOptions): Promise<Page
     }
   }
   const paths: Record<string, (number | null)[]> = {};
+  void pathsAll;
+  const pm: Record<string, [number, number, string, string]> = {};
   for (const i of sel) {
-    const k = `${store.get(7, i)}.${store.get(2, i)}.${store.get(0, i)}`;
-    const p = pathsAll.get(k);
-    if (p) paths[k] = p;
+    const k = `${store.get(7, i)}.${store.get(2, i)}`;
+    const p = pmAll.get(k);
+    if (p) pm[k] = p;
   }
 
   const cells: Record<string, number[]> = {};
@@ -743,6 +775,7 @@ export async function buildPageData(dir: string, opt: PageOptions): Promise<Page
     store,
     sel,
     paths,
+    pm,
     cells,
   };
 }
@@ -757,7 +790,7 @@ export function materializeRows(data: PageData): (number | null)[][] {
 /** Собирает HTML: данные кладутся в <script type="application/json">. Сжатие потоковое — столбец за столбцом (мало памяти). */
 export async function renderPageHtml(data: PageData): Promise<string> {
   // v3.8: сжимаем строки сделок (gzip+base64) — в файл помещаются все сделки, страница распаковывает их при открытии
-  const { rows, paths, store: _s, sel: _l, ...rest } = data;
+  const { rows, paths, pm, store: _s, sel: _l, ...rest } = data;
   void _s;
   void _l;
   const json = JSON.stringify({ ...rest, rows: [] }).replace(/</g, "\\u003c");
@@ -799,12 +832,20 @@ export async function renderPageHtml(data: PageData): Promise<string> {
     }
     await w((j ? "," : "") + JSON.stringify(c));
   }
-  await w(`],"p":${JSON.stringify(paths ?? {})}}`);
+  await w(`],"p":${JSON.stringify(paths ?? {})},"pm":${JSON.stringify(pm ?? {})}}`);
   gz.end();
   await done;
   const b64 = Buffer.concat(chunks).toString("base64");
   chunks.length = 0;
   return PAGE_TEMPLATE.replace("/*__ROWS__*/", () => b64).replace("/*__DATA__*/null", () => json);
+}
+
+/** Оставляет пути только тех рынков/сторон, на которые ссылаются оставшиеся строки. */
+function prunePm(data: PageData): void {
+  if (!data.pm || !data.sel || !data.store) return;
+  const st = data.store;
+  const keep = new Set(data.sel.map((i) => `${st.get(7, i)}.${st.get(2, i)}`));
+  for (const k of Object.keys(data.pm)) if (!keep.has(k)) delete data.pm[k];
 }
 
 /** Ужимает уже собранные данные до maxBytes (без повторного чтения диска): оставляет случайную долю строк. */
@@ -822,10 +863,7 @@ export async function shrinkPage(data: PageData, maxBytes: number): Promise<stri
       data.sel = data.sel.filter((i) => !expIdx.has(st.get(4, i) as number));
       if (data.sel.length < before) {
         data.meta = { ...data.meta, rowsEmbedded: data.sel.length, droppedExp: before - data.sel.length };
-        if (data.paths) {
-          const keep = new Set(data.sel.map((i) => `${st.get(7, i)}.${st.get(2, i)}.${st.get(0, i)}`));
-          for (const k of Object.keys(data.paths)) if (!keep.has(k)) delete data.paths[k];
-        }
+        prunePm(data);
         html = await renderPageHtml(data);
       }
     }
@@ -837,10 +875,7 @@ export async function shrinkPage(data: PageData, maxBytes: number): Promise<stri
     const rnd01 = mulberry(777 + attempt);
     data.sel = data.sel.filter(() => rnd01() < ratio);
     data.meta = { ...data.meta, rowsEmbedded: data.sel.length, sampled: true };
-    if (data.paths) {
-      const keep = new Set(data.sel.map((i) => `${data.store!.get(7, i)}.${data.store!.get(2, i)}.${data.store!.get(0, i)}`));
-      for (const k of Object.keys(data.paths)) if (!keep.has(k)) delete data.paths[k];
-    }
+    prunePm(data);
     html = await renderPageHtml(data);
   }
   return html;
