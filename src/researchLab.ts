@@ -56,6 +56,7 @@ import { createLogger } from "./logger.js";
 import { Side } from "@polymarket/clob-client-v2";
 import { ClobService } from "./clob.js";
 import { setPolyboltCreds } from "./polyboltFeed.js";
+import { LabTest } from "./labTest.js";
 import { appendMarketRecord, compressOldDays, buildPage, shrinkPage, buildExchangeSummary, setPathCells, MarketRec, RawTrade, TapeRow } from "./labAnalytics.js";
 
 // ─────────────────────────── Общие настройки ───────────────────────────
@@ -140,7 +141,7 @@ const TRADE_CFGS: TradeCfg[] = [
   // Всегда 5 акций (при цене 0.60-0.70 это $3.00-$3.50).
   {
     name: "cb4", idea: "fair1", combo: "edge <0 / 120-180с / 0.60-0.70", label: "№4 σ60с, edge<0, 120-180с, ask 0.60-0.70, Coinbase/поток 3.44-17.07",
-    size: 3, sizeRefPrice: 0.6, cap: 0.7, shares: 5, on: true, goalP: 3, goalL: 0, fromDay: "2026-11-07",
+    size: 5, sizeRefPrice: 0.6, cap: 0.7, on: true, goalP: 3, goalL: 0, fromDay: "2026-11-13",
     filter: (e) => {
       if (e.pm == null || !(e.pm > 0) || e.cb == null) return false;
       const r = Math.round((e.cb / e.pm) * 100) / 100;
@@ -293,6 +294,12 @@ function loadLiveCfg(): void {
       }
       v3Pending = true;
     }
+    // v5.6 (разовая миграция): cb4 — ставка $5 (без фиксированных акций), цель дня +$3, торгует с 2026-11-13 00:00 UTC (= 07:00 по Бангкоку)
+    if (!o.__v5) {
+      const c = TRADE_CFGS.find((x) => x.name === "cb4");
+      if (c) { c.on = true; c.shares = undefined; c.size = 5; c.goalP = 3; }
+      v3Pending = true;
+    }
   } catch {
     /* файла ещё нет — настройки по умолчанию */
   }
@@ -304,6 +311,7 @@ function saveLiveCfg(): void {
     o.__v2 = Object.fromEntries(TRADE_CFGS.map((c) => [c.name, { shares: c.shares ?? null, on: c.on, goalP: c.goalP, goalL: c.goalL }]));
     o.__v3 = true;
     o.__v4 = true;
+    o.__v5 = true;
     o.__dip = { ...DIP };
     fs.writeFileSync(LIVE_CFG_FILE, JSON.stringify(o));
   } catch (err) {
@@ -2095,6 +2103,11 @@ class ResearchLab {
     this.paperStopCheck(market.eventSlug, side, hasBid ? (update.bestBid as number) : null, now);
     this.liveStopCheck(market, side, hasBid ? (update.bestBid as number) : null, now);
     this.dipCheck(market, side, hasBid ? (update.bestBid as number) : q.bid, q.ask, now);
+    try {
+      this.test.onTick(market, side, hasBid ? (update.bestBid as number) : q.bid, q.ask, now);
+    } catch (err) {
+      console.log("[lab-test] ошибка тика:", (err as Error).message);
+    }
 
     // v3.2 «Темка»: постановка ордеров в начале окна, проверка исполнения лимиток и тейк-профитов
     this.temkaTick(market, side, p, q, now);
@@ -3110,6 +3123,14 @@ class ResearchLab {
         ...(extra ?? {}),
       };
       p.entries.push(entryRec);
+      try {
+        this.testSigEntry = entryRec;
+        this.test.onSignal(idea, combo, market, side, ask, bid, now);
+      } catch (err) {
+        console.log("[lab-test] ошибка сигнала:", (err as Error).message);
+      } finally {
+        this.testSigEntry = null;
+      }
       if (idea === PAPER_STOP.idea && combo === PAPER_STOP.combo) {
         const tokenId = side === "Up" ? market.upTokenId : market.downTokenId;
         this.paperStops.set(`${market.eventSlug}|${side}`, {
@@ -3895,6 +3916,24 @@ class ResearchLab {
       this.pendingLive--;
     }
   }
+  // v5.6 «ЛАБ ТЕСТ»: отдельные бумажные тесты ТС со стопами / входами после дна (ничего не покупает; см. labTest.ts)
+  private testSigEntry: LabEntry | null = null;
+  private test = new LabTest({
+    fetchBids: (tokenId) => fetchBids(tokenId),
+    getBid: (tokenId) => this.quotes.get(tokenId)?.bid ?? null,
+    dataDir: path.dirname(LIVE_CFG_FILE),
+    cfgFilter: (name) => {
+      const c = TRADE_CFGS.find((x) => x.name === name);
+      const e = this.testSigEntry;
+      return !c || !c.filter || !e ? true : c.filter(e, null);
+    },
+  });
+  testText(arg?: string): string {
+    return this.test.statusText(arg);
+  }
+  testReset(): void {
+    this.test.reset();
+  }
   // v5.5 «Вход после дна»: слежение за сигналами ячейки fair2 (рынок|сторона) и бумажные покупки, если реальная торговля выключена
   private dipWatch = new Map<string, { market: CryptoUpDownMarket; side: "Up" | "Down"; e: LabEntry; armed: boolean; lowBid: number | null; lowTs: number; done: boolean }>();
   private dipPaper = new Map<string, { slug: string; coin: string; side: "Up" | "Down"; price: number; shares: number }>();
@@ -4269,6 +4308,11 @@ class ResearchLab {
     this.recordMarket(slug, p, winner);
     this.paperSettle(p, slug, winner);
     this.paperStopSettle(slug, winner);
+    try {
+      this.test.onSettle(slug, winner);
+    } catch (err) {
+      console.log("[lab-test] ошибка итога:", (err as Error).message);
+    }
 
     this.dropPending(slug);
     if ((p.wm ?? 5) === TARGET_WINDOW_MINUTES) this.resolvedCount++;
@@ -5668,6 +5712,7 @@ class ResearchLab {
       "лаб биржи все — Binance, Coinbase, Bybit, OKX, Kraken, Bitget: каждая отдельно по корзинам и вместе (сколько бирж против / подтверждают); можно «лаб биржи все 3» (дней)",
       "лаб страница — страница-разбор файлом: все идеи и ячейки, чем победы отличаются от поражений (без периода — всё время; можно: «лаб страница 24ч», «3д», «7д», «30д», «15», «btc»)",
       "лаб объем — ставки торговых стратегий LAB; «лаб объем bot7b0 6», «лаб объем fair2 5», «лаб объем все 5»",
+      "лаб тест — бумажные тесты ТС со стопами/входами после дна (без покупок): «лаб тест», «лаб тест T01», «лаб тест сброс»",
       "лаб дно — вход после дна (fair2): цены дна и покупки, вкл/выкл: «лаб дно 75 80»",
       "лаб тс — стратегии LAB: список, «лаб тс выкл fair2», «лаб тс вкл cb4»",
       "лаб акций — покупать всегда N акций: «лаб акций cb4 5» (выкл — обратно в $)",
@@ -5987,6 +6032,15 @@ async function pollTelegramCommands(
         const msg = update.message;
         if (!msg?.text || String(msg.chat?.id) !== String(chatId)) continue;
         const text = normalizeCmd(msg.text);
+
+        if (text === "лаб тест" || text.startsWith("лаб тест ")) {
+          const arg = text.replace(/^лаб тест/, "").trim();
+          if (arg === "сброс") {
+            lab.testReset();
+            await telegram?.send(escapeTelegramHtml("🧪 ЛАБ ТЕСТ: данные сброшены, считаем заново."));
+          } else await telegram?.send(escapeTelegramHtml(lab.testText(arg || undefined)));
+          continue;
+        }
 
         if (text === "лаб стоп") {
           await telegram?.send(escapeTelegramHtml(lab.paperStopText()));
