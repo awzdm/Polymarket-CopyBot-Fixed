@@ -182,7 +182,7 @@ const TRADE_CFGS: TradeCfg[] = [
 const cfgFor = (idea: string, combo: string): TradeCfg | undefined => TRADE_CFGS.find((c) => c.idea === idea && (c.combo === undefined || c.combo === combo));
 // v5.5 «Вход после дна» для ячейки fair2 «edge <0 / 60-120с / 0.80-0.85»: после сигнала НЕ покупаем сразу, а ждём — bid токена падает до low, потом возвращается до buy — и тогда покупаем по ask
 // (как «Вход после дна» на странице: упала до 75, отросла до 80 — купить). Стопа нет: держим до конца. Цены меняются командой «лаб дно 75 80».
-const DIP = { on: true, low: 75, buy: 80, shares: 5, minLeft: 15, spread: 3 };
+const DIP = { on: true, low: 60, buy: 60, shares: 5, minLeft: 15, spread: 3 };
 const DIP_IDEA = "fair2";
 const DIP_COMBO = "edge <0 / 60-120с / 0.80-0.85";
 const DIP_NAME = "dip";
