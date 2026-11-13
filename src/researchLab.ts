@@ -395,6 +395,68 @@ const PRICE_FEEDS: Record<string, CoinPriceFeed> = {
   Dogecoin: dogePriceFeed,
 };
 const INCLUDED_COINS = Object.keys(PRICE_FEEDS);
+// ───── v6: свечи 15м и 1ч по монете (подтверждение старшим таймфреймом) ─────
+// Раз в 15с запоминаем цену каждой монеты (история ~2 ч, сохраняется в файл), по ней считаем, что делала монета на 15-минутке и часовике до входа.
+const HTF_KEEP_MS = 135 * 60 * 1000;
+const HTF_STEP_MS = 15 * 1000;
+interface HtfFeats { m15: number | null; m60: number | null; q5: number | null; q15: number | null; q60: number | null }
+class HtfTracker {
+  private h: Record<string, { t: number; p: number }[]> = {};
+  private readonly file = path.resolve(STORAGE_DIR, "lab-htf.json");
+  load(): void {
+    try {
+      const j = JSON.parse(fs.readFileSync(this.file, "utf8"));
+      if (j && typeof j === "object") this.h = j;
+    } catch { /* нет файла — начнём с нуля */ }
+  }
+  save(): void {
+    try {
+      fs.writeFileSync(this.file + ".tmp", JSON.stringify(this.h));
+      fs.renameSync(this.file + ".tmp", this.file);
+    } catch { /* не критично */ }
+  }
+  sample(): void {
+    const t = Date.now();
+    for (const [coin, feed] of Object.entries(PRICE_FEEDS)) {
+      const p = feed.getLatestPrice();
+      if (p === null || !(p > 0)) continue;
+      const a = this.h[coin] ?? (this.h[coin] = []);
+      a.push({ t, p });
+      const cut = t - HTF_KEEP_MS;
+      while (a.length > 0 && a[0].t < cut) a.shift();
+    }
+  }
+  private at(coin: string, ts: number): number | null {
+    const a = this.h[coin];
+    if (!a || a.length === 0) return null;
+    let best: number | null = null;
+    let bd = Infinity;
+    for (let i = a.length - 1; i >= 0; i--) {
+      const d = Math.abs(a[i].t - ts);
+      if (d < bd) { bd = d; best = a[i].p; }
+      if (a[i].t < ts - 60000) break;
+    }
+    return best !== null && bd <= 45000 ? best : null;
+  }
+  /** Движения в bps в нашу сторону: m — с начала текущей свечи до сейчас, q — вся предыдущая свеча. */
+  feats(coin: string, now: number, coinNow: number, dir: 1 | -1): HtfFeats {
+    const mv = (a: number | null, b: number | null): number | null =>
+      a === null || b === null || b <= 0 ? null : Math.round(((a - b) / b) * 1e4 * dir * 10) / 10;
+    const o5 = Math.floor(now / 300000) * 300000;
+    const o15 = Math.floor(now / 900000) * 900000;
+    const o60 = Math.floor(now / 3600000) * 3600000;
+    const p15 = this.at(coin, o15);
+    const p60 = this.at(coin, o60);
+    return {
+      m15: mv(coinNow, p15),
+      m60: mv(coinNow, p60),
+      q5: mv(this.at(coin, o5), this.at(coin, o5 - 300000)),
+      q15: mv(p15, this.at(coin, o15 - 900000)),
+      q60: mv(p60, this.at(coin, o60 - 3600000)),
+    };
+  }
+}
+const htfTracker = new HtfTracker();
 const COIN_SHORT: Record<string, string> = {
   Bitcoin: "BTC",
   Ethereum: "ETH",
@@ -1317,6 +1379,11 @@ interface LabEntry {
   cg?: number; // соседей с просевшим токеном (строго)
   cgs?: number; // соседей с токеном, упавшим на 0.10+ от пика (мягко)
   tr15?: number | null; // ask сейчас − ask 15с назад
+  m15?: number | null; // v6: монета с начала 15-мин свечи, bps в нашу сторону
+  m60?: number | null; // …с начала часа
+  q5?: number | null; // …вся предыдущая 5-мин свеча
+  q15?: number | null; // …предыдущая 15-мин свеча
+  q60?: number | null; // …предыдущий час
   fp?: number | null; // справедливая вероятность p
   fe?: number | null; // edge = p − ask
   xs?: Record<string, number | null>; // v3.4: Bybit/OKX/Kraken/Bitget
@@ -1346,6 +1413,11 @@ interface Feat {
   cg: number;
   cgs: number;
   tr15: number | null;
+  m15: number | null;
+  m60: number | null;
+  q5: number | null;
+  q15: number | null;
+  q60: number | null;
   fe: number | null;
   xs: Record<string, number | null>; // v3.4: движение остальных бирж в нашу сторону
 }
@@ -3116,6 +3188,7 @@ class ResearchLab {
           cg: cont.strict,
           cgs: cont.soft,
           tr15: getTraj(),
+          ...htfTracker.feats(market.coin, now, coinNow, side === "Up" ? 1 : -1),
           fe: getFair(120, 5)?.edge ?? null,
           xs: Object.fromEntries(EXTRA_EXCHANGES.map((x) => [x.key, exMove(x.feed)])),
         };
@@ -4190,6 +4263,11 @@ class ResearchLab {
           cg: e.cg ?? null,
           cgs: e.cgs ?? null,
           tr15: e.tr15 ?? null,
+          m15: e.m15 ?? null,
+          m60: e.m60 ?? null,
+          q5: e.q5 ?? null,
+          q15: e.q15 ?? null,
+          q60: e.q60 ?? null,
           fe: e.fe ?? null,
           xings: e.xings ?? null,
           agreeN: e.agreeN ?? null,
@@ -5779,6 +5857,10 @@ class ResearchLab {
 
   start(): void {
     this.loadState();
+    htfTracker.load();
+    htfTracker.sample();
+    setInterval(() => htfTracker.sample(), HTF_STEP_MS);
+    setInterval(() => htfTracker.save(), 5 * 60 * 1000);
     this.refreshMarkets();
     setInterval(() => this.refreshMarkets(), MARKET_REFRESH_MS);
     setInterval(() => this.checkResolutions(), 30 * 1000);
