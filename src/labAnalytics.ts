@@ -709,12 +709,33 @@ const DYN_B = [0, 1]; // 0 — любая цена токена, 1 — толь�
 const DYN_W = [60, 120, 999]; // ордер живёт первые N секунд рынка (999 = весь рынок)
 const CRA_S = [15, 30, 60, 120]; // окно начала рынка, секунд
 const CRA_P = [1, 2, 3, 5, 7, 10, 15, 20]; // до какой цены (¢) должен упасть токен
+const FILL_KEEP = 20;
 interface LimCell { n: number; f: number; h: number; w: number; pnl: number; cost: number; d: Map<string, number> }
 class LimAgg {
   cells = new Map<string, LimCell>();
+  // примеры реальных сделок для проверки глазами: до FILL_KEEP случайных исполнений на каждый вариант (ключ без выхода)
+  fills = new Map<string, { cnt: number; pick: { mk: string; ft: number; pay: number; ex: number[] }[] }>();
+  mkt = new Map<string, { o: number; c: string; w: number; sd: number; win: number; t: number[]; b: (number | null)[]; lo: (number | null)[] | null; hi: (number | null)[] | null }>();
+  private rnd = mulberry(4242);
+  private cur: { m: MarketRec; side: number; t: number[]; bid: (number | null)[]; mn: (number | null)[]; mx: (number | null)[]; wk: boolean } | null = null;
   days = new Set<string>();
   markets = 0;
   wkMarkets = 0;
+  private recordFill(key: string, fi: number, pay: number, ex: number[]): void {
+    const c = this.cur;
+    if (!c) return;
+    let f = this.fills.get(key);
+    if (!f) { f = { cnt: 0, pick: [] }; this.fills.set(key, f); }
+    f.cnt++;
+    const mk = `${c.m.slug}.${c.side}`;
+    const item = { mk, ft: c.t[fi], pay: Math.round(pay * 1000) / 10, ex };
+    if (f.pick.length < FILL_KEEP) f.pick.push(item);
+    else { const j = Math.floor(this.rnd() * f.cnt); if (j < FILL_KEEP) f.pick[j] = item; else return; }
+    if (!this.mkt.has(mk)) {
+      const cv = (a: (number | null)[]): (number | null)[] => a.map((v) => (v === null ? null : Math.round(v * 100)));
+      this.mkt.set(mk, { o: Math.round(c.m.open / 1000), c: c.m.coin, w: c.m.wm, sd: c.side, win: c.m.win, t: c.t.map((x) => Math.round(x)), b: cv(c.bid), lo: c.wk ? cv(c.mn) : null, hi: c.wk ? cv(c.mx) : null });
+    }
+  }
   private cell(k: string): LimCell {
     let c = this.cells.get(k);
     if (!c) { c = { n: 0, f: 0, h: 0, w: 0, pnl: 0, cost: 0, d: new Map() }; this.cells.set(k, c); }
@@ -739,6 +760,7 @@ class LimAgg {
         mx[i] = r.length >= 12 ? ((side === 0 ? r[9] : r[11]) ?? null) : null;
       }
       const won = side === m.win;
+      this.cur = { m, side, t, bid, mn, mx, wk: hasWk };
       for (const v of LIM_V) {
         if (v === "wk" && !hasWk) continue;
         this.addDynCrash(v, t, bid, mn, mx, dur, won, day);
@@ -772,6 +794,7 @@ class LimAgg {
                 if (X > 0 && hit[k] === null && runMax >= L + X / 100 - 1e-9) hit[k] = t[j];
               }
             }
+            const exS: number[] = [];
             LIM_X.forEach((X, k) => {
               const c = this.cell(base + X);
               c.f++;
@@ -782,7 +805,9 @@ class LimAgg {
               c.pnl += pnl;
               c.cost += L;
               c.d.set(day, (c.d.get(day) ?? 0) + pnl);
+              exS.push(X > 0 && hit[k] !== null ? (hit[k] as number) : -1, Math.round(pnl * 1000) / 10);
             });
+            this.recordFill(base.slice(0, -1), fi, L, exS);
           }
         }
       }
@@ -791,20 +816,22 @@ class LimAgg {
   /** Общая часть: после покупки по цене pay на замере fi считаем все выходы. */
   private finish(base: string, v: string, fi: number, pay: number, t: number[], bid: (number | null)[], mx: (number | null)[], dur: number, won: boolean, day: string): void {
     const n = t.length;
+    const ex: number[] = [];
     for (const X of LIM_E) {
       const c = this.cell(base + X);
       c.f++;
       let pnl: number | null = null;
+      let exT = -1;
       if (X > 0) {
         const goal = pay + X / 100 - 1e-9;
         for (let j = fi + 1; j < n; j++) {
           const hv = v === "s5" ? bid[j] : mx[j];
-          if (hv !== null && hv >= goal) { pnl = X / 100; break; }
+          if (hv !== null && hv >= goal) { pnl = X / 100; exT = t[j]; break; }
         }
       } else if (X < 0) {
         const tt = t[fi] - X;
         for (let j = fi + 1; j < n; j++) {
-          if (t[j] >= tt && bid[j] !== null) { if (dur - t[j] >= 1) pnl = (bid[j] as number) - pay; break; }
+          if (t[j] >= tt && bid[j] !== null) { if (dur - t[j] >= 1) { pnl = (bid[j] as number) - pay; exT = t[j]; } break; }
         }
       }
       if (pnl !== null) c.h++;
@@ -813,7 +840,9 @@ class LimAgg {
       c.pnl += pnl;
       c.cost += pay;
       c.d.set(day, (c.d.get(day) ?? 0) + pnl);
+      ex.push(exT, Math.round(pnl * 1000) / 10);
     }
+    this.recordFill(base.slice(0, -1), fi, pay, ex);
   }
   private addDynCrash(v: string, t: number[], bid: (number | null)[], mn: (number | null)[], mx: (number | null)[], dur: number, won: boolean, day: string): void {
     const n = t.length;
@@ -854,7 +883,17 @@ class LimAgg {
       if (c.f === 0) continue;
       cells[k] = [c.n, c.f, c.h, c.w, Math.round(c.pnl * 1000) / 1000, Math.round(c.cost * 1000) / 1000, days.map((d) => Math.round((c.d.get(d) ?? 0) * 1000) / 1000)];
     }
-    return { L: LIM_L, X: LIM_X, W: LIM_W, E: LIM_E, DD: DYN_D, DU: DYN_U, DB: DYN_B, DW: DYN_W, CS: CRA_S, CP: CRA_P, days, markets: this.markets, wkMarkets: this.wkMarkets, cells };
+    const used = new Map<string, number>();
+    const mk: unknown[] = [];
+    const fl: Record<string, unknown> = {};
+    for (const [k, f] of this.fills) {
+      fl[k] = [f.cnt, f.pick.map((p) => {
+        let i = used.get(p.mk);
+        if (i === undefined) { i = mk.length; used.set(p.mk, i); const e = this.mkt.get(p.mk)!; mk.push([p.mk.slice(0, p.mk.lastIndexOf(".")), e.c, e.w, e.sd, e.win, e.o, e.t, e.b, e.lo, e.hi]); }
+        return [i, p.ft, p.pay, p.ex];
+      })];
+    }
+    return { fills: fl, mk, L: LIM_L, X: LIM_X, W: LIM_W, E: LIM_E, DD: DYN_D, DU: DYN_U, DB: DYN_B, DW: DYN_W, CS: CRA_S, CP: CRA_P, days, markets: this.markets, wkMarkets: this.wkMarkets, cells };
   }
 }
 
