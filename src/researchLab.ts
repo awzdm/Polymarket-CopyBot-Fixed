@@ -57,6 +57,7 @@ import { Side } from "@polymarket/clob-client-v2";
 import { ClobService } from "./clob.js";
 import { setPolyboltCreds } from "./polyboltFeed.js";
 import { LabTest } from "./labTest.js";
+import { PostWatcher } from "./labPost.js";
 import { appendMarketRecord, compressOldDays, buildPage, shrinkPage, buildExchangeSummary, setPathCells, MarketRec, RawTrade, TapeRow } from "./labAnalytics.js";
 
 // ─────────────────────────── Общие настройки ───────────────────────────
@@ -64,6 +65,7 @@ import { appendMarketRecord, compressOldDays, buildPage, shrinkPage, buildExchan
 // Где хранить файлы: постоянный диск Railway (RAILWAY_VOLUME_MOUNT_PATH) или папка из LAB_DATA_PATH, иначе рабочая папка.
 const STORAGE_DIR = process.env.LAB_DATA_PATH || process.env.RAILWAY_VOLUME_MOUNT_PATH || process.cwd();
 const STATE_FILE = path.resolve(STORAGE_DIR, "research-lab-state.json");
+const LAB_TAPE_DIR = path.resolve(STORAGE_DIR, "lab-tape"); // v6: ленты рынков БЕЗ сделок (для поиска лимиток на прострелы); рядом с lab-data
 const LAB_DATA_DIR = path.resolve(STORAGE_DIR, "lab-data"); // v3.3: карточки рынков (лента цен + все сделки), без лимита по времени
 const TAPE_MS = 5 * 1000; // лента цен: раз в 5с
 const STATE_VERSION = 4; // v3.1 совместима с v3.0: новые поля читаются с запасными значениями
@@ -1753,6 +1755,26 @@ class ResearchLab {
   private lastTokenIds: string[] = [];
 
   private quotes = new Map<string, Quote>();
+  private wicks = new Map<string, { mn: number; mx: number }>(); // v6: минимум/максимум bid токена между замерами ленты (прострелы)
+  // v6: замер «после окна» (стаканы после закрытия до резолва) — только запись, торговлю не трогает
+  private postWatch = new PostWatcher({
+    dir: path.resolve(STORAGE_DIR, "lab-post"),
+    fetchBook: (t) => fetchBook(t),
+    resolveWinner: (s) => resolveWinner(s),
+    coinMove: (coin, openMs) => {
+      const f = PRICE_FEEDS[coin];
+      if (!f) return null;
+      const o = f.getPriceAt(openMs), n = f.getLatestPrice();
+      return o === null || n === null || o === 0 ? null : ((n - o) / o) * 1e4;
+    },
+    coinMoveAt: (coin, openMs, atMs) => {
+      const f = PRICE_FEEDS[coin];
+      if (!f) return null;
+      const o = f.getPriceAt(openMs), n = f.getPriceAt(atMs);
+      return o === null || n === null || o === 0 ? null : ((n - o) / o) * 1e4;
+    },
+  });
+  postText(days: number): string { return this.postWatch.report(days); }
   private peaks = new Map<string, number>();
   private openPrices = new Map<string, number>();
   private touchStates = new Map<string, { touchedHigh: boolean; touchedCorridor: boolean; leftAfterTouch: boolean }>();
@@ -2048,6 +2070,7 @@ class ResearchLab {
       if (market.closeTimeMs <= Date.now()) return null;
       p = { closeTimeMs: market.closeTimeMs, coin: market.coin, entries: [], arb: null, wm: market.windowMinutes };
       this.pending.set(market.eventSlug, p);
+      try { this.postWatch.add(market.eventSlug, market.coin, market.windowMinutes, market.closeTimeMs, market.upTokenId, market.downTokenId); } catch { /* замер best-effort */ }
       if (market.windowMinutes === TARGET_WINDOW_MINUTES) this.marketsSeenCount++;
     }
     return p;
@@ -2171,6 +2194,11 @@ class ResearchLab {
       q.ask = hasAsk ? (update.bestAsk as number) : null;
     }
     this.quotes.set(update.tokenId, q);
+    if (hasBid && q.bid !== null) {
+      const w = this.wicks.get(update.tokenId);
+      if (!w) this.wicks.set(update.tokenId, { mn: q.bid, mx: q.bid });
+      else { if (q.bid < w.mn) w.mn = q.bid; if (q.bid > w.mx) w.mx = q.bid; }
+    }
     if ((hasBid || hasAsk) && q.ask !== null) this.pushAsk(update.tokenId, now, q.ask);
 
     // "цена" для условий коридора — как в боте: bestBid, иначе bestAsk
@@ -4230,6 +4258,13 @@ class ResearchLab {
         bps(binance.getLatest(m.coin), binance.getPriceAt(m.coin, openMs)),
         bps(coinbase.getLatest(m.coin), coinbase.getPriceAt(m.coin, openMs)),
       ];
+      // v6: прострелы — минимум и максимум bid каждого токена за время между замерами (индексы 8-11: Up мин, Up макс, Down мин, Down макс)
+      for (const [tok, q] of [[m.upTokenId, qu], [m.downTokenId, qd]] as const) {
+        const w = this.wicks.get(tok);
+        row.push(r3(w ? w.mn : q?.bid), r3(w ? w.mx : q?.bid));
+        if (q?.bid !== null && q?.bid !== undefined) this.wicks.set(tok, { mn: q.bid, mx: q.bid });
+        else this.wicks.delete(tok);
+      }
       (p.tape ??= []).push(row);
     }
   }
@@ -4295,7 +4330,7 @@ class ResearchLab {
           hits: pos.hits,
         });
       }
-      if (trades.length === 0) return;
+      if (trades.length === 0 && (p.tape?.length ?? 0) < 20) return;
       const rec: MarketRec = {
         v: 1,
         slug,
@@ -4307,7 +4342,7 @@ class ResearchLab {
         tape: p.tape ?? [],
         trades,
       };
-      appendMarketRecord(LAB_DATA_DIR, rec);
+      appendMarketRecord(trades.length === 0 ? LAB_TAPE_DIR : LAB_DATA_DIR, rec);
     } catch (err) {
       console.error("[lab-data] ошибка записи карточки:", (err as Error).message);
     }
@@ -5845,6 +5880,7 @@ class ResearchLab {
       "лаб биржи все — Binance, Coinbase, Bybit, OKX, Kraken, Bitget: каждая отдельно по корзинам и вместе (сколько бирж против / подтверждают); можно «лаб биржи все 3» (дней)",
       "лаб страница — страница-разбор файлом: все идеи и ячейки, чем победы отличаются от поражений (без периода — всё время; можно: «лаб страница 24ч», «3д», «7д», «30д», «15», «btc»)",
       "лаб объем — ставки торговых стратегий LAB; «лаб объем bot7b0 6», «лаб объем fair2 5», «лаб объем все 5»",
+      "лаб после [дней] — что происходит с токенами после закрытия окна до резолва (замер, без покупок)",
       "лаб тест — бумажные тесты ТС со стопами/входами после дна (без покупок): «лаб тест», «лаб тест T01», «лаб тест сброс»",
       "лаб дно — вход после дна (fair2): цены дна и покупки, вкл/выкл: «лаб дно 75 80»",
       "лаб тс — стратегии LAB: список, «лаб тс выкл fair2», «лаб тс вкл cb4»",
@@ -5857,6 +5893,7 @@ class ResearchLab {
 
   start(): void {
     this.loadState();
+    this.postWatch.start();
     htfTracker.load();
     htfTracker.sample();
     setInterval(() => htfTracker.sample(), HTF_STEP_MS);
@@ -5867,7 +5904,9 @@ class ResearchLab {
     setInterval(() => this.sampleArb(), ARB_SAMPLE_MS);
     setInterval(() => this.sampleTape(), TAPE_MS);
     void compressOldDays(LAB_DATA_DIR);
+    void compressOldDays(LAB_TAPE_DIR);
     setInterval(() => void compressOldDays(LAB_DATA_DIR), 60 * 60 * 1000);
+    setInterval(() => void compressOldDays(LAB_TAPE_DIR), 60 * 60 * 1000);
     setInterval(() => this.saveState(), AUTOSAVE_INTERVAL_MS);
     setInterval(() => {
       console.log(
@@ -6176,6 +6215,12 @@ async function pollTelegramCommands(
             lab.testReset();
             await telegram?.send(escapeTelegramHtml("🧪 ЛАБ ТЕСТ: данные сброшены, считаем заново."));
           } else await telegram?.send(escapeTelegramHtml(lab.testText(arg || undefined)));
+          continue;
+        }
+
+        if (text === "лаб после" || text.startsWith("лаб после ")) {
+          const n = parseInt(text.replace(/^лаб после/, "").trim(), 10);
+          await telegram?.send(escapeTelegramHtml(lab.postText(Number.isFinite(n) && n > 0 ? n : 3)));
           continue;
         }
 
