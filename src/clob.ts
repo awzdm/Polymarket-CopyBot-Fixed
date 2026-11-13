@@ -275,6 +275,7 @@ export class ClobService {
     minBidPrice?: number; // для BUY — не входить, если живой bid ниже этой цены (или bid нет)
     snapshot?: OrderSnapshot; // v4: свежий снимок стакана из потока — позволяет пропустить REST-запрос стакана (быстрый путь, только BUY)
     priceAtCap?: boolean; // v4: ставить цену FAK-ордера ровно на maxBuyPrice (а не на live ask + буфер)
+    allowBelowMin?: boolean; // v5: ТОЛЬКО для «лаб проба» — не блокировать ордер меньше минимального размера у нас (пусть решает биржа). В обычной торговле не используется.
   }): Promise<{ status: string; filledSize?: string; filledUsdc?: string; orderId?: string | null; timing?: OrderTiming }> {
     const { tokenId, side, size } = params;
 
@@ -343,7 +344,7 @@ export class ClobService {
       cappedPrice = params.priceAtCap ? capTick : Math.min(cappedPrice, capTick);
     }
 
-    if (size < book.minOrderSize) {
+    if (size < book.minOrderSize && !params.allowBelowMin) {
       throw new Error(
         `Order size ${size} is below the market minimum ${book.minOrderSize} — not submitted.`
       );
