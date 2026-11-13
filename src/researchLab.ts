@@ -114,8 +114,10 @@ interface TradeCfg {
   cap: number; // потолок цены покупки
   minBid?: number; // не входить, если живой bid ниже
   /** Дополнительное условие входа (проверяется один раз, в момент первого срабатывания ячейки — как считает страница). */
-  filter?: (e: LabEntry, tb60: number | null) => boolean;
+  filter?: (e: LabEntry, tb60: number | null, x?: { tb30: number | null; clo: number | null }) => boolean;
   needTb60?: boolean; // условию нужен показатель «bid токена: вход − 60с назад»
+  needTb30?: boolean; // v5.7: …«bid токена: вход − 30с назад»
+  needClo?: boolean; // v5.7: …«свеча до входа: минимум монеты, bps» (≤ 0)
   shares?: number; // v4.0: если задано — всегда покупаем столько акций (ставка в $ тогда не используется)
   on: boolean; // v4.0: стратегия торгует (команда «лаб тс вкл/выкл»); выключенная только пишется в статистику
   goalP: number; // v4.0: дневная цель по прибыли, $ (0 = выкл): набрала за день (UTC) — до конца дня не покупает
@@ -146,6 +148,37 @@ const TRADE_CFGS: TradeCfg[] = [
       if (e.pm == null || !(e.pm > 0) || e.cb == null) return false;
       const r = Math.round((e.cb / e.pm) * 100) / 100;
       return r >= 3.44 && r <= 17.07;
+    },
+  },
+  // v5.7: три ТС с фильтрами (из «Лучших ТС»). Ставка $5, торгуют сразу, без дневной цели.
+  {
+    name: "fz1", idea: "fair1", combo: "edge 0-2% / 120-180с / 0.80-0.85", label: "СЦ σ60с, edge 0-2%, 120-180с, ask 0.80-0.85 + bid токена за 30с +0.10…0.20, пик токена ≥0.79, edge ≥0.001",
+    size: 5, sizeRefPrice: 0.8, cap: 0.85, needTb30: true, on: true, goalP: 0, goalL: 0,
+    filter: (e, _t, x) => {
+      const tb30 = x?.tb30 ?? null;
+      if (tb30 === null || tb30 < 0.1 - 1e-9 || tb30 > 0.2 + 1e-9) return false;
+      if (e.pk == null || e.pk < 0.79 - 1e-9) return false;
+      return e.fe != null && Math.round(e.fe * 1000) / 1000 >= 0.001 - 1e-9;
+    },
+  },
+  {
+    name: "fz2", idea: "fair1", combo: "edge 2-4% / 60-120с / 0.60-0.70", label: "СЦ σ60с, edge 2-4%, 60-120с, ask 0.60-0.70 + свеча до входа −3.5…0 bps, пик токена ≤0.93, объём ask ≥5",
+    size: 5, sizeRefPrice: 0.6, cap: 0.7, needClo: true, on: true, goalP: 0, goalL: 0,
+    filter: (e, _t, x) => {
+      const clo = x?.clo ?? null;
+      if (clo === null || clo < -3.5 - 1e-9 || clo > 1e-9) return false;
+      if (e.pk == null || e.pk > 0.93 + 1e-9) return false;
+      return e.asz != null && e.asz >= 5;
+    },
+  },
+  {
+    name: "fz3", idea: "fair2", combo: "edge 0-2% / 30-60с / 0.70-0.80", label: "СЦ σ120с, edge 0-2%, 30-60с, ask 0.70-0.80 + свеча до входа −7…−0.7 bps, движение монеты ≤1.9 bps, ask ≤0.77",
+    size: 5, sizeRefPrice: 0.7, cap: 0.77, needClo: true, on: true, goalP: 0, goalL: 0,
+    filter: (e, _t, x) => {
+      const clo = x?.clo ?? null;
+      if (clo === null || clo < -7 - 1e-9 || clo > -0.7 + 1e-9) return false;
+      if (e.pm == null || Math.round(e.pm * 1e5) / 10 > 1.9 + 1e-9) return false;
+      return e.price <= 0.77 + 1e-9;
     },
   },
   // v4.2: «Справедливая цена (σ 120с) · edge 0-2% / 120-180с / 0.90-0.93». Ставка $5 (≈5.6 акции); в акциях: «лаб акций f120 5».
@@ -3144,7 +3177,11 @@ class ResearchLab {
         let pass = true;
         if (tcfg.filter) {
           const tb60 = tcfg.needTb60 ? this.tokenBidDelta(p, market, side, bid, 60, now) : null;
-          pass = tcfg.filter(entryRec, tb60);
+          const ext = {
+            tb30: tcfg.needTb30 ? this.tokenBidDelta(p, market, side, bid, 30, now) : null,
+            clo: tcfg.needClo ? this.candleLow(p, market, side, now, entryRec.pm ?? null) : null,
+          };
+          pass = tcfg.filter(entryRec, tb60, ext);
         }
         const tkey = `${tcfg.name}|${market.eventSlug}|${side}`;
         const dayBlk = pass && tcfg.on ? this.dayBlock(tcfg) : null;
@@ -3986,6 +4023,24 @@ class ResearchLab {
   private tradeSkipped = new Set<string>(); // «стратегия|рынок|сторона»: ячейка сработала, но дополнительное условие входа не выполнено
 
   /** «Bid токена: вход − N с назад» — как на странице: bid сейчас минус последний bid той же стороны на момент (вход − N с), не старше 12 с в ленте. */
+  /** v5.7: «Свеча до входа: минимум монеты, bps» — как на странице: низшая точка движения монеты (в нашу сторону) от открытия окна до входа, ≤ 0, по ленте раз в 5с и текущему движению */
+  private candleLow(p: PendingMarket, market: CryptoUpDownMarket, side: "Up" | "Down", nowMs: number, pm: number | null): number | null {
+    if (!p.tape || p.tape.length < 3) return null;
+    const openMs = market.closeTimeMs - market.windowMinutes * 60 * 1000;
+    const entryT = (nowMs - openMs) / 1000;
+    const sg = side === "Up" ? 1 : -1;
+    let lo = 0;
+    for (const r of p.tape) {
+      if ((r[0] as number) > entryT) continue;
+      const v = r[5];
+      if (v === null || v === undefined) continue;
+      const x = sg * (v as number);
+      if (x < lo) lo = x;
+    }
+    if (pm !== null) lo = Math.min(lo, pm * 1e4);
+    return Math.round(lo * 10) / 10;
+  }
+
   private tokenBidDelta(p: PendingMarket, market: CryptoUpDownMarket, side: "Up" | "Down", bidNow: number | null, backSec: number, nowMs: number): number | null {
     if (bidNow === null || !p.tape || p.tape.length === 0) return null;
     const openMs = market.closeTimeMs - market.windowMinutes * 60 * 1000;
