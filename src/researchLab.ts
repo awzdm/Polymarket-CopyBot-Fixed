@@ -1818,22 +1818,36 @@ class ResearchLab {
     let filled = 0;
     try {
       const resp: any = await this.clob.placeLimitOrder({ tokenId: pick.tok, side: Side.BUY, price: pick.ask, size, maxSlippagePct: 0.5, maxBuyPrice: Math.min(0.99, pick.ask + 0.03), priceAtCap: true, allowBelowMin: true } as any);
-      filled = Number(resp?.filledSize ?? 0);
-      L.push(`BUY: ответ биржи — заполнено ${resp?.filledSize ?? "?"} акций, на $${resp?.filledUsdc ?? "?"}. Сырой ответ: ${JSON.stringify(resp).slice(0, 300)}`);
+      // у биржи поля перепутаны (making = доллары, taking = акции): акции определяем так же, как при обычной покупке
+      const fl = resolveFillLive(Number(resp?.filledSize ?? 0), Number(resp?.filledUsdc ?? 0), pick.ask);
+      filled = fl.filledSize;
+      L.push(`BUY: ✅ БИРЖА ПРИНЯЛА ордер меньше 5 акций. Куплено ${filled.toFixed(4)} акций по средней ${fl.avgPrice.toFixed(3)} (сырой ответ: ${JSON.stringify(resp).slice(0, 260)})`);
     } catch (err) {
       L.push(`BUY: ОТКАЗ — ${(err as Error).message}`);
       L.push("Вывод: покупка меньше 5 акций не прошла. Если в тексте выше нет слов «not submitted» — это отказ самой биржи (наш локальный блок в clob.ts для пробы отключён).");
       return L.join("\n");
     }
     if (filled > 0) {
-      const b2 = await fetchBook(pick.tok);
-      const bid = b2?.bid ?? pick.bid ?? 0.01;
-      try {
-        const r2: any = await this.clob.placeLimitOrder({ tokenId: pick.tok, side: Side.SELL, price: bid, size: filled, maxSlippagePct: 45, allowBelowMin: true } as any);
-        L.push(`SELL: заполнено ${r2?.filledSize ?? "?"} акций, на $${r2?.filledUsdc ?? "?"}. Сырой ответ: ${JSON.stringify(r2).slice(0, 300)}`);
-      } catch (err) {
-        L.push(`SELL: ОТКАЗ — ${(err as Error).message}`);
-        L.push(`⚠️ Купленные ${filled} акций остались на счёте — продай вручную на сайте или дождись итога рынка.`);
+      // токены появляются на счёте не мгновенно (ончейн-расчёт) — продаём с повторами, пока биржа отвечает «баланс 0»
+      let sold = false;
+      let lastErr = "";
+      for (let k = 1; k <= 8 && !sold; k++) {
+        await new Promise((r) => setTimeout(r, k === 1 ? 6000 : 4000));
+        const b2 = await fetchBook(pick.tok);
+        const bid = b2?.bid ?? pick.bid ?? 0.01;
+        try {
+          const r2: any = await this.clob.placeLimitOrder({ tokenId: pick.tok, side: Side.SELL, price: bid, size: filled, maxSlippagePct: 45, allowBelowMin: true } as any);
+          const f2 = resolveFillLive(Number(r2?.filledSize ?? 0), Number(r2?.filledUsdc ?? 0), bid);
+          L.push(`SELL (попытка ${k}, через ~${6 + (k - 1) * 4}с после покупки): ✅ БИРЖА ПРИНЯЛА продажу меньше 5 акций. Продано ${f2.filledSize.toFixed(4)} акций по средней ${f2.avgPrice.toFixed(3)} (сырой ответ: ${JSON.stringify(r2).slice(0, 220)})`);
+          sold = true;
+        } catch (err) {
+          lastErr = (err as Error).message;
+          if (!/balance|allowance/i.test(lastErr)) break;
+        }
+      }
+      if (!sold) {
+        L.push(`SELL: ОТКАЗ — ${lastErr}`);
+        L.push(`⚠️ Купленные ${filled.toFixed(2)} акций остались на счёте — продай вручную на сайте или дождись итога рынка.`);
       }
     } else {
       L.push("Покупка не заполнилась — деньги не потрачены.");
