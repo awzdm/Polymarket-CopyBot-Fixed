@@ -193,6 +193,13 @@ export const COLS: ColDef[] = [
   { k: "rv5", label: "Режим волатильности 5м", g: "entry", d: 2, hint: "σ за 5 минут ÷ обычная σ" },
   { k: "cg", label: "Соседей с просевшим токеном", g: "entry", d: 0, hint: "заражение: строго" },
   { k: "cgs", label: "Соседей с токеном −0.10 от пика", g: "entry", d: 0, hint: "заражение: мягко" },
+  { k: "lo30", label: "Токен: самый низкий bid за первые 30с окна", g: "entry", d: 3, hint: "был ли обвал токена на старте рынка (до входа)" },
+  { k: "lo60", label: "Токен: самый низкий bid за первые 60с окна", g: "entry", d: 3, hint: "то же за 60 секунд" },
+  { k: "b0", label: "Токен: bid в начале окна", g: "entry", d: 3, hint: "с какой цены токен начал окно (первый замер ленты)" },
+  { k: "jmp", label: "Токен до входа: самый резкий скачок вверх за шаг (5с)", g: "entry", d: 3, hint: "«вкат»: маленькое = растёт плавно, большое = были резкие рывки" },
+  { k: "rdd", label: "Токен до входа: откат от своего максимума", g: "entry", d: 3, hint: "насколько bid проседал от уже достигнутого максимума; 0 = ни разу не откатывал" },
+  { k: "mono", label: "Токен до входа: доля шагов вверх или на месте", g: "entry", d: 2, hint: "1 = рос без единого падения; 0.5 = болтался" },
+  { k: "slp", label: "Токен до входа: рост, ¢ в минуту", g: "entry", d: 2, hint: "(bid сейчас − bid в начале) ÷ минут" },
   { k: "m15", label: "Монета на 15-мин свече: с её начала до входа, bps", g: "entry", d: 1, hint: "в нашу сторону (+) или против (−); пусто, пока не накопилась история" },
   { k: "m60", label: "Монета на часовой свече: с её начала до входа, bps", g: "entry", d: 1, hint: "то же для часа" },
   { k: "q5", label: "Прошлая 5-мин свеча монеты, bps", g: "entry", d: 1, hint: "предыдущие 5 минут: шла в нашу сторону (+) или против (−)" },
@@ -403,6 +410,45 @@ export function computeRow(
     if (b30 !== null && entryT - 30 >= -1) set("tb30", bidNow - b30, 3);
     if (b60 !== null && entryT - 60 >= -1) set("tb60", bidNow - b60, 3);
   }
+  // плавность роста токена от начала окна до входа (по ленте 5с)
+  {
+    let prev: number | null = null, first: number | null = null, mx = -1, maxJ = 0, maxDd = 0, up = 0, steps = 0, firstT = 0;
+    for (let i = 0; i < se.t.length; i++) {
+      if (se.t[i] > entryT) break;
+      const b = se.bid[i];
+      if (b === null || b === undefined) continue;
+      if (first === null) { first = b; firstT = se.t[i]; }
+      if (prev !== null) {
+        steps++;
+        if (b >= prev - 1e-9) up++;
+        if (b - prev > maxJ) maxJ = b - prev;
+      }
+      if (b > mx) mx = b;
+      if (mx - b > maxDd) maxDd = mx - b;
+      prev = b;
+    }
+    if (first !== null && steps >= 3) {
+      set("b0", first, 3);
+      {
+        let l30 = Infinity, l60 = Infinity;
+        for (let i = 0; i < se.t.length; i++) {
+          if (se.t[i] > entryT || se.t[i] > 60) break;
+          const b = se.bid[i];
+          if (b === null || b === undefined) continue;
+          if (b < l60) l60 = b;
+          if (se.t[i] <= 30 && b < l30) l30 = b;
+        }
+        if (l30 < Infinity) set("lo30", l30, 3);
+        if (l60 < Infinity) set("lo60", l60, 3);
+      }
+      set("jmp", maxJ, 3);
+      set("rdd", maxDd, 3);
+      set("mono", up / steps, 2);
+      const mins = (entryT - firstT) / 60;
+      if (prev !== null && mins >= 0.3) set("slp", ((prev - first) * 100) / mins, 2);
+    }
+  }
+
   const c0 = pmBps ?? valAt(se.t, se.coin, entryT);
   if (c0 !== null && c0 !== undefined && entryT - 30 >= -1) {
     const cPrev = valAt(se.t, se.coin, entryT - 30);
@@ -596,6 +642,7 @@ export interface PageData {
   exchanges: { label: string; b: string; r: string }[];
   pm?: Record<string, [number, number, string, string]>; // v5.5: путь bid и ask рынка (шаг 2с) для ВСЕХ ТС: ключ рынок.сторона → [открытие (с), стартовый индекс, строка bid, строка ask]; символ = 256+центы, 255 = нет данных
   paths?: Record<string, (number | null)[]>; // v4.4: путь bid по секундам (шаг 2с, в центах) для сделок «торговых» ячеек; ключ = рынок.сторона.время входа
+  lim?: Record<string, unknown>; // v6: сетка «лимитки на прострелы»
   cells: Record<string, number[]>; // "idea|combo" -> [n, wins, sumRoi, sumPx, nMarkets] — по ВСЕМ сделкам (до выборки)
 }
 
@@ -646,6 +693,171 @@ function pathOf(m: MarketRec, tr: RawTrade, series: [Series | null, Series | nul
   }
   return out.some((x) => x !== null) ? out : null;
 }
+// ───────────────────────── v6: лимитки на прострелы ─────────────────────────
+// Ставим лимитную покупку токена ниже рынка на цену L, ждём, пока цена туда упадёт; после покупки продаём лимиткой на L+Δ или держим до резолва.
+// Два варианта замера: "s5" — по bid в момент замера ленты (раз в 5с, красивее: ловит только то, что видно в замере),
+// "wk" — по минимуму/максимуму bid между замерами (честнее, видит прострелы; только для новых данных).
+const LIM_L = [0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.94, 0.95, 0.96, 0.97, 0.98];
+const LIM_X = [2, 3, 5, 8, 12, 0]; // цель в центах; 0 = держим до резолва
+const LIM_W = [300, 120, 60, 30]; // ордер стоит только в последние N секунд рынка (300 = весь рынок)
+const LIM_V = ["s5", "wk"] as const;
+// режимы 2 и 3: динамическая лимитка (ходит за ценой) и «обвал на старте». Выходы: >0 лимитка на +X¢, <0 продать по рынку через |X| с, 0 держать до резолва
+const LIM_E = [2, 3, 5, 8, 12, -5, -10, -30, 0];
+const DYN_D = [5, 10, 20, 30]; // насколько ниже цены висит лимитка, %
+const DYN_U = [1, 3]; // как часто лимитка подтягивается за ценой: каждый замер (5с) или каждые 3 (15с)
+const DYN_B = [0, 1]; // 0 — любая цена токена, 1 — только 15-85¢
+const DYN_W = [60, 120, 999]; // ордер живёт первые N секунд рынка (999 = весь рынок)
+const CRA_S = [15, 30, 60, 120]; // окно начала рынка, секунд
+const CRA_P = [1, 2, 3, 5, 7, 10, 15, 20]; // до какой цены (¢) должен упасть токен
+interface LimCell { n: number; f: number; h: number; w: number; pnl: number; cost: number; d: Map<string, number> }
+class LimAgg {
+  cells = new Map<string, LimCell>();
+  days = new Set<string>();
+  markets = 0;
+  wkMarkets = 0;
+  private cell(k: string): LimCell {
+    let c = this.cells.get(k);
+    if (!c) { c = { n: 0, f: 0, h: 0, w: 0, pnl: 0, cost: 0, d: new Map() }; this.cells.set(k, c); }
+    return c;
+  }
+  add(m: MarketRec): void {
+    if (!m.tape || m.tape.length < 20) return;
+    const day = dayStr(m.close);
+    const dur = (m.close - m.open) / 1000;
+    this.days.add(day);
+    this.markets++;
+    const hasWk = m.tape.some((r) => r.length >= 12 && r[8] !== null && r[8] !== undefined);
+    if (hasWk) this.wkMarkets++;
+    for (const side of [0, 1] as const) {
+      const n = m.tape.length;
+      const t: number[] = new Array(n), bid: (number | null)[] = new Array(n), mn: (number | null)[] = new Array(n), mx: (number | null)[] = new Array(n);
+      for (let i = 0; i < n; i++) {
+        const r = m.tape[i];
+        t[i] = r[0] as number;
+        bid[i] = (side === 0 ? r[1] : r[3]) ?? null;
+        mn[i] = r.length >= 12 ? ((side === 0 ? r[8] : r[10]) ?? null) : null;
+        mx[i] = r.length >= 12 ? ((side === 0 ? r[9] : r[11]) ?? null) : null;
+      }
+      const won = side === m.win;
+      for (const v of LIM_V) {
+        if (v === "wk" && !hasWk) continue;
+        this.addDynCrash(v, t, bid, mn, mx, dur, won, day);
+        for (const W of LIM_W) {
+          // строка, на которой ордер ставится: первая с t ≥ 10с и ≤ W секунд до конца
+          let i0 = -1;
+          for (let i = 0; i < n; i++) { if (t[i] >= 10 && dur - t[i] <= W && dur - t[i] >= 3) { i0 = i; break; } }
+          if (i0 < 0) continue;
+          const b0 = bid[i0];
+          if (b0 === null) continue;
+          for (const L of LIM_L) {
+            const base = `${v}|${W}|${L}|`;
+            for (const X of LIM_X) this.cell(base + X).n++;
+            if (b0 <= L + 1e-9) continue; // ордер должен стоять ниже рынка
+            let fi = -1;
+            for (let i = i0 + 1; i < n; i++) {
+              if (dur - t[i] < 3) break;
+              const lowV = v === "s5" ? bid[i] : mn[i];
+              if (lowV !== null && lowV <= (v === "s5" ? L : L - 0.01) + 1e-9) { fi = i; break; }
+            }
+            if (fi < 0) continue;
+            // после покупки: когда впервые достигнуты цели
+            const hit: (number | null)[] = LIM_X.map(() => null);
+            let runMax = -1;
+            for (let j = fi + 1; j < n; j++) {
+              const hv = v === "s5" ? bid[j] : mx[j];
+              if (hv === null) continue;
+              if (hv > runMax) runMax = hv;
+              for (let k = 0; k < LIM_X.length; k++) {
+                const X = LIM_X[k];
+                if (X > 0 && hit[k] === null && runMax >= L + X / 100 - 1e-9) hit[k] = t[j];
+              }
+            }
+            LIM_X.forEach((X, k) => {
+              const c = this.cell(base + X);
+              c.f++;
+              let pnl: number;
+              if (X > 0 && hit[k] !== null) { c.h++; pnl = X / 100; }
+              else pnl = won ? 1 - L : -L;
+              if (won) c.w++;
+              c.pnl += pnl;
+              c.cost += L;
+              c.d.set(day, (c.d.get(day) ?? 0) + pnl);
+            });
+          }
+        }
+      }
+    }
+  }
+  /** Общая часть: после покупки по цене pay на замере fi считаем все выходы. */
+  private finish(base: string, v: string, fi: number, pay: number, t: number[], bid: (number | null)[], mx: (number | null)[], dur: number, won: boolean, day: string): void {
+    const n = t.length;
+    for (const X of LIM_E) {
+      const c = this.cell(base + X);
+      c.f++;
+      let pnl: number | null = null;
+      if (X > 0) {
+        const goal = pay + X / 100 - 1e-9;
+        for (let j = fi + 1; j < n; j++) {
+          const hv = v === "s5" ? bid[j] : mx[j];
+          if (hv !== null && hv >= goal) { pnl = X / 100; break; }
+        }
+      } else if (X < 0) {
+        const tt = t[fi] - X;
+        for (let j = fi + 1; j < n; j++) {
+          if (t[j] >= tt && bid[j] !== null) { if (dur - t[j] >= 1) pnl = (bid[j] as number) - pay; break; }
+        }
+      }
+      if (pnl !== null) c.h++;
+      else pnl = won ? 1 - pay : -pay;
+      if (won) c.w++;
+      c.pnl += pnl;
+      c.cost += pay;
+      c.d.set(day, (c.d.get(day) ?? 0) + pnl);
+    }
+  }
+  private addDynCrash(v: string, t: number[], bid: (number | null)[], mn: (number | null)[], mx: (number | null)[], dur: number, won: boolean, day: string): void {
+    const n = t.length;
+    // динамическая лимитка
+    for (const D of DYN_D) for (const U of DYN_U) for (const B of DYN_B) for (const Wd of DYN_W) {
+      const base = `d|${v}|${D}|${U}|${B}|${Wd}|`;
+      for (const X of LIM_E) this.cell(base + X).n++;
+      let lim: number | null = null, fi = -1, pay = 0;
+      for (let k = 0; k < n - 1; k++) {
+        if (k % U === 0) {
+          const b = bid[k];
+          lim = b !== null && b > 0 && (B === 0 || (b >= 0.15 && b <= 0.85)) ? b * (1 - D / 100) : null;
+        }
+        if (t[k + 1] > Wd || dur - t[k + 1] < 3) break;
+        if (lim === null || lim < 0.02) continue;
+        const low = v === "s5" ? bid[k + 1] : mn[k + 1];
+        if (low !== null && low <= (v === "s5" ? lim : lim - 0.01) + 1e-9) { fi = k + 1; pay = lim; break; }
+      }
+      if (fi >= 0) this.finish(base, v, fi, Math.round(pay * 1000) / 1000, t, bid, mx, dur, won, day);
+    }
+    // обвал на старте
+    for (const S of CRA_S) for (const P of CRA_P) {
+      const base = `c|${v}|${S}|${P}|`;
+      for (const X of LIM_E) this.cell(base + X).n++;
+      let fi = -1;
+      for (let i = 0; i < n; i++) {
+        if (t[i] > S || dur - t[i] < 3) break;
+        const low = v === "s5" ? bid[i] : mn[i];
+        if (low !== null && low <= P / 100 + 1e-9) { fi = i; break; }
+      }
+      if (fi >= 0) this.finish(base, v, fi, P / 100, t, bid, mx, dur, won, day);
+    }
+  }
+  out(): Record<string, unknown> {
+    const days = [...this.days].sort();
+    const cells: Record<string, (number | number[])[]> = {};
+    for (const [k, c] of this.cells) {
+      if (c.f === 0) continue;
+      cells[k] = [c.n, c.f, c.h, c.w, Math.round(c.pnl * 1000) / 1000, Math.round(c.cost * 1000) / 1000, days.map((d) => Math.round((c.d.get(d) ?? 0) * 1000) / 1000)];
+    }
+    return { L: LIM_L, X: LIM_X, W: LIM_W, E: LIM_E, DD: DYN_D, DU: DYN_U, DB: DYN_B, DW: DYN_W, CS: CRA_S, CP: CRA_P, days, markets: this.markets, wkMarkets: this.wkMarkets, cells };
+  }
+}
+
 export async function buildPageData(dir: string, opt: PageOptions): Promise<PageData> {
   const coins: string[] = [];
   const ideas: string[] = [];
@@ -674,10 +886,12 @@ export async function buildPageData(dir: string, opt: PageOptions): Promise<Page
   let firstTs = Infinity;
   let lastTs = 0;
 
+  const limAgg = new LimAgg();
   for await (const m of readMarketRecords(dir, opt.sinceMs)) {
     if (opt.coin && m.coin !== opt.coin) continue;
     if (opt.wm && m.wm !== opt.wm) continue;
     markets++;
+    try { limAgg.add(m); } catch { /* замер best-effort */ }
     const id = mkId++;
     const series: [Series | null, Series | null] = [null, null];
     const ci = idx(coinMap, coins, m.coin);
@@ -763,6 +977,14 @@ export async function buildPageData(dir: string, opt: PageOptions): Promise<Page
     if (p) pm[k] = p;
   }
 
+  // рынки без сделок (только лента) — нужны только для сетки лимиток
+  try {
+    for await (const m of readMarketRecords(path.resolve(dir, "..", "lab-tape"), opt.sinceMs)) {
+      if (opt.coin && m.coin !== opt.coin) continue;
+      if (opt.wm && m.wm !== opt.wm) continue;
+      limAgg.add(m);
+    }
+  } catch { /* папки может не быть */ }
   const cells: Record<string, number[]> = {};
   for (const [k, a] of cellAgg) cells[k] = [a.n, a.w, a.roi, a.px, a.mk.size];
 
@@ -792,6 +1014,7 @@ export async function buildPageData(dir: string, opt: PageOptions): Promise<Page
     paths,
     pm,
     cells,
+    lim: limAgg.out(),
   };
 }
 
