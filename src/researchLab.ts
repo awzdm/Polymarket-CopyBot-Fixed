@@ -1817,19 +1817,19 @@ class ResearchLab {
     const L: string[] = [`🧪 Проба: ${pick.m.eventSlug} ${pick.side}, ask ${pick.ask}, пробую купить ${size} акций (~$${(size * pick.ask).toFixed(2)})`];
     let filled = 0;
     try {
-      const resp: any = await this.clob.placeLimitOrder({ tokenId: pick.tok, side: Side.BUY, price: pick.ask, size, maxSlippagePct: 0.5, maxBuyPrice: Math.min(0.99, pick.ask + 0.03), priceAtCap: true } as any);
+      const resp: any = await this.clob.placeLimitOrder({ tokenId: pick.tok, side: Side.BUY, price: pick.ask, size, maxSlippagePct: 0.5, maxBuyPrice: Math.min(0.99, pick.ask + 0.03), priceAtCap: true, allowBelowMin: true } as any);
       filled = Number(resp?.filledSize ?? 0);
       L.push(`BUY: ответ биржи — заполнено ${resp?.filledSize ?? "?"} акций, на $${resp?.filledUsdc ?? "?"}. Сырой ответ: ${JSON.stringify(resp).slice(0, 300)}`);
     } catch (err) {
       L.push(`BUY: ОТКАЗ — ${(err as Error).message}`);
-      L.push("Вывод: покупка меньше 5 акций не прошла (текст ошибки выше — по нему видно, биржа это или наш слой clob.ts).");
+      L.push("Вывод: покупка меньше 5 акций не прошла. Если в тексте выше нет слов «not submitted» — это отказ самой биржи (наш локальный блок в clob.ts для пробы отключён).");
       return L.join("\n");
     }
     if (filled > 0) {
       const b2 = await fetchBook(pick.tok);
       const bid = b2?.bid ?? pick.bid ?? 0.01;
       try {
-        const r2: any = await this.clob.placeLimitOrder({ tokenId: pick.tok, side: Side.SELL, price: bid, size: filled, maxSlippagePct: 45 } as any);
+        const r2: any = await this.clob.placeLimitOrder({ tokenId: pick.tok, side: Side.SELL, price: bid, size: filled, maxSlippagePct: 45, allowBelowMin: true } as any);
         L.push(`SELL: заполнено ${r2?.filledSize ?? "?"} акций, на $${r2?.filledUsdc ?? "?"}. Сырой ответ: ${JSON.stringify(r2).slice(0, 300)}`);
       } catch (err) {
         L.push(`SELL: ОТКАЗ — ${(err as Error).message}`);
