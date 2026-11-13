@@ -1775,6 +1775,72 @@ class ResearchLab {
     },
   });
   postText(days: number): string { return this.postWatch.report(days); }
+
+  /** «лаб минимум»: бесплатная проверка — что биржа сообщает про минимальный размер ордера на живых рынках (ничего не покупает). */
+  async minInfoText(): Promise<string> {
+    const list = [...this.activeMarkets.values()].filter((m) => m.closeTimeMs - Date.now() > 20000).slice(0, 4);
+    if (list.length === 0) return "Живых рынков сейчас нет — повтори через минуту.";
+    const L: string[] = ["📏 Что биржа говорит про минимальный ордер (только чтение, ничего не покупается):"];
+    for (const m of list) {
+      for (const [nm, tok] of [["Up", m.upTokenId], ["Down", m.downTokenId]] as const) {
+        try {
+          const resp = await fetch(`${CLOB_HOST}/book?token_id=${tok}`);
+          const ob: any = await resp.json();
+          L.push(`${m.eventSlug} ${nm}: min_order_size=${ob.min_order_size ?? "—"} акций, tick_size=${ob.tick_size ?? "—"}, neg_risk=${ob.neg_risk ?? "—"}`);
+        } catch (err) {
+          L.push(`${m.eventSlug} ${nm}: не удалось прочитать (${(err as Error).message})`);
+        }
+      }
+    }
+    L.push("");
+    L.push("Это то, что биржа объявляет. Принимает ли она реально меньше — проверяет «лаб проба» (покупка ~$1, платная).");
+    return L.join("\n");
+  }
+
+  /** «лаб проба да»: РЕАЛЬНАЯ покупка на ~$1 (меньше 5 акций) и сразу продажа обратно — узнать, пропускает ли биржа ордера меньше минимума. */
+  async probeSmallText(confirmed: boolean, wantShares: number | null): Promise<string> {
+    if (!this.clob) return "Торговый клиент не подключён — проба невозможна.";
+    if (!confirmed) {
+      return "⚠️ «лаб проба» — РЕАЛЬНАЯ сделка на деньги: купит на ~$1 (меньше 5 акций) токен на живом рынке и сразу продаст обратно. Потеря обычно несколько центов (спред). Цель — узнать, принимает ли биржа ордер меньше 5 акций. Чтобы выполнить, напиши: лаб проба да (или «лаб проба да 2» — столько акций, от 1 до 4.9)";
+    }
+    const list = [...this.activeMarkets.values()].filter((m) => m.closeTimeMs - Date.now() > 100000);
+    let pick: { m: CryptoUpDownMarket; tok: string; side: string; ask: number; bid: number | null } | null = null;
+    for (const m of list) {
+      for (const [sd, tok] of [["Up", m.upTokenId], ["Down", m.downTokenId]] as const) {
+        const b = await fetchBook(tok);
+        if (b && b.ask !== null && b.ask >= 0.25 && b.ask <= 0.8 && b.bid !== null && b.ask - b.bid <= 0.03 && b.askSize >= 6) { pick = { m, tok, side: sd, ask: b.ask, bid: b.bid }; break; }
+      }
+      if (pick) break;
+    }
+    if (!pick) return "Не нашёл подходящий рынок (нужен токен 25–80¢ с узким спредом и до закрытия больше 100с). Повтори через минуту.";
+    const size = wantShares !== null && wantShares >= 1 && wantShares < 5 ? wantShares : Math.min(4.9, Math.max(1, Math.ceil((1.05 / pick.ask) * 100) / 100));
+    const L: string[] = [`🧪 Проба: ${pick.m.eventSlug} ${pick.side}, ask ${pick.ask}, пробую купить ${size} акций (~$${(size * pick.ask).toFixed(2)})`];
+    let filled = 0;
+    try {
+      const resp: any = await this.clob.placeLimitOrder({ tokenId: pick.tok, side: Side.BUY, price: pick.ask, size, maxSlippagePct: 0.5, maxBuyPrice: Math.min(0.99, pick.ask + 0.03), priceAtCap: true } as any);
+      filled = Number(resp?.filledSize ?? 0);
+      L.push(`BUY: ответ биржи — заполнено ${resp?.filledSize ?? "?"} акций, на $${resp?.filledUsdc ?? "?"}. Сырой ответ: ${JSON.stringify(resp).slice(0, 300)}`);
+    } catch (err) {
+      L.push(`BUY: ОТКАЗ — ${(err as Error).message}`);
+      L.push("Вывод: покупка меньше 5 акций не прошла (текст ошибки выше — по нему видно, биржа это или наш слой clob.ts).");
+      return L.join("\n");
+    }
+    if (filled > 0) {
+      const b2 = await fetchBook(pick.tok);
+      const bid = b2?.bid ?? pick.bid ?? 0.01;
+      try {
+        const r2: any = await this.clob.placeLimitOrder({ tokenId: pick.tok, side: Side.SELL, price: bid, size: filled, maxSlippagePct: 45 } as any);
+        L.push(`SELL: заполнено ${r2?.filledSize ?? "?"} акций, на $${r2?.filledUsdc ?? "?"}. Сырой ответ: ${JSON.stringify(r2).slice(0, 300)}`);
+      } catch (err) {
+        L.push(`SELL: ОТКАЗ — ${(err as Error).message}`);
+        L.push(`⚠️ Купленные ${filled} акций остались на счёте — продай вручную на сайте или дождись итога рынка.`);
+      }
+    } else {
+      L.push("Покупка не заполнилась — деньги не потрачены.");
+    }
+    return L.join("\n");
+  }
+
   private peaks = new Map<string, number>();
   private openPrices = new Map<string, number>();
   private touchStates = new Map<string, { touchedHigh: boolean; touchedCorridor: boolean; leftAfterTouch: boolean }>();
@@ -5880,6 +5946,8 @@ class ResearchLab {
       "лаб биржи все — Binance, Coinbase, Bybit, OKX, Kraken, Bitget: каждая отдельно по корзинам и вместе (сколько бирж против / подтверждают); можно «лаб биржи все 3» (дней)",
       "лаб страница — страница-разбор файлом: все идеи и ячейки, чем победы отличаются от поражений (без периода — всё время; можно: «лаб страница 24ч», «3д», «7д», «30д», «15», «btc»)",
       "лаб объем — ставки торговых стратегий LAB; «лаб объем bot7b0 6», «лаб объем fair2 5», «лаб объем все 5»",
+      "лаб минимум — бесплатно: какой минимальный размер ордера объявляет биржа",
+      "лаб проба — проверка покупки меньше 5 акций (РЕАЛЬНЫЕ ~$1, спросит подтверждение)",
       "лаб после [дней] — что происходит с токенами после закрытия окна до резолва (замер, без покупок)",
       "лаб тест — бумажные тесты ТС со стопами/входами после дна (без покупок): «лаб тест», «лаб тест T01», «лаб тест сброс»",
       "лаб дно — вход после дна (fair2): цены дна и покупки, вкл/выкл: «лаб дно 75 80»",
@@ -6215,6 +6283,17 @@ async function pollTelegramCommands(
             lab.testReset();
             await telegram?.send(escapeTelegramHtml("🧪 ЛАБ ТЕСТ: данные сброшены, считаем заново."));
           } else await telegram?.send(escapeTelegramHtml(lab.testText(arg || undefined)));
+          continue;
+        }
+
+        if (text === "лаб минимум") {
+          await telegram?.send(escapeTelegramHtml(await lab.minInfoText()));
+          continue;
+        }
+
+        if (text === "лаб проба" || text.startsWith("лаб проба ")) {
+          const m = text.match(/^лаб проба да(?:\s+([\d.,]+))?$/);
+          await telegram?.send(escapeTelegramHtml(await lab.probeSmallText(!!m, m && m[1] ? Number(m[1].replace(",", ".")) : null)));
           continue;
         }
 
