@@ -42,6 +42,11 @@ export interface RawTrade {
   cg?: number | null;
   cgs?: number | null;
   tr15?: number | null;
+  m15?: number | null;
+  m60?: number | null;
+  q5?: number | null;
+  q15?: number | null;
+  q60?: number | null;
   fe?: number | null;
   xings?: number | null;
   agreeN?: number | null;
@@ -188,6 +193,11 @@ export const COLS: ColDef[] = [
   { k: "rv5", label: "Режим волатильности 5м", g: "entry", d: 2, hint: "σ за 5 минут ÷ обычная σ" },
   { k: "cg", label: "Соседей с просевшим токеном", g: "entry", d: 0, hint: "заражение: строго" },
   { k: "cgs", label: "Соседей с токеном −0.10 от пика", g: "entry", d: 0, hint: "заражение: мягко" },
+  { k: "m15", label: "Монета на 15-мин свече: с её начала до входа, bps", g: "entry", d: 1, hint: "в нашу сторону (+) или против (−); пусто, пока не накопилась история" },
+  { k: "m60", label: "Монета на часовой свече: с её начала до входа, bps", g: "entry", d: 1, hint: "то же для часа" },
+  { k: "q5", label: "Прошлая 5-мин свеча монеты, bps", g: "entry", d: 1, hint: "предыдущие 5 минут: шла в нашу сторону (+) или против (−)" },
+  { k: "q15", label: "Прошлая 15-мин свеча монеты, bps", g: "entry", d: 1, hint: "предыдущая 15-минутка целиком, в нашу сторону" },
+  { k: "q60", label: "Прошлый час монеты, bps", g: "entry", d: 1, hint: "предыдущий час целиком, в нашу сторону" },
   { k: "tr15", label: "Токен за 15с до входа", g: "entry", d: 3, hint: "ask сейчас минус ask 15с назад" },
   { k: "fe", label: "Edge (справедливая − ask)", g: "entry", d: 3, hint: "p=Φ(d/(σ√t)) минус цена" },
   { k: "xings", label: "Пересечений цены открытия", g: "entry", d: 0, hint: "«пила» за 3 минуты" },
@@ -366,6 +376,11 @@ export function computeRow(
   set("cg", tr.cg, 0);
   set("cgs", tr.cgs, 0);
   set("tr15", tr.tr15, 3);
+  set("m15", tr.m15, 1);
+  set("m60", tr.m60, 1);
+  set("q5", tr.q5, 1);
+  set("q15", tr.q15, 1);
+  set("q60", tr.q60, 1);
   set("fe", tr.fe, 3);
   set("xings", tr.xings, 0);
   set("agree", tr.agreeN, 0);
