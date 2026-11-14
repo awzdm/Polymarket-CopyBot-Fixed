@@ -6353,7 +6353,7 @@ async function pollTelegramCommands(
             else if (!Number.isFinite(val) || val <= 0) await telegram?.send(escapeTelegramHtml(`Укажи сумму числом, например: лаб объем ${targets[0].name} 6`));
             else {
               const bad = targets.filter((c) => val < minStakeOf(c) || val > MAX_STAKE);
-              if (bad.length > 0) await telegram?.send(escapeTelegramHtml(`Не меняю: ${bad.map((c) => `${c.name} допускает $${minStakeOf(c).toFixed(2)}–$${MAX_STAKE}`).join("; ")} (у биржи минимум 5 акций; максимум можно поднять переменной LAB_MAX_STAKE).`));
+              if (bad.length > 0) await telegram?.send(escapeTelegramHtml(`Не меняю: ${bad.map((c) => `${c.name} допускает $${minStakeOf(c).toFixed(2)}–$${MAX_STAKE}`).join("; ")} (у биржи минимум $1 на покупку, у нас с запасом $1.05; максимум можно поднять переменной LAB_MAX_STAKE). Если у стратегии задано число акций, доллары не используются — меняй командой «лаб акций ...».`));
               else {
                 for (const c of targets) c.size = val;
                 saveLiveCfg();
