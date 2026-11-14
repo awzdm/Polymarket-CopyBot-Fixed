@@ -200,6 +200,7 @@ export const COLS: ColDef[] = [
   { k: "rdd", label: "Токен до входа: откат от своего максимума", g: "entry", d: 3, hint: "насколько bid проседал от уже достигнутого максимума; 0 = ни разу не откатывал" },
   { k: "mono", label: "Токен до входа: доля шагов вверх или на месте", g: "entry", d: 2, hint: "1 = рос без единого падения; 0.5 = болтался" },
   { k: "slp", label: "Токен до входа: рост, ¢ в минуту", g: "entry", d: 2, hint: "(bid сейчас − bid в начале) ÷ минут" },
+  { k: "rg", label: "Режим монеты: 1 дамп · 2 падение · 3 боковик · 4 рост · 5 памп", g: "entry", d: 0, hint: "что делала монета к моменту входа, независимо от нашей стороны. 5 = резкий памп за последние 30с, 1 = резкий дамп; 4/2 = устойчиво росла/падала на 15-мин свече; 3 = боковик (без явного движения). Пороги подстроены под монету; пусто, если данных нет" },
   { k: "m15", label: "Монета на 15-мин свече: с её начала до входа, bps", g: "entry", d: 1, hint: "в нашу сторону (+) или против (−); пусто, пока не накопилась история" },
   { k: "m60", label: "Монета на часовой свече: с её начала до входа, bps", g: "entry", d: 1, hint: "то же для часа" },
   { k: "q5", label: "Прошлая 5-мин свеча монеты, bps", g: "entry", d: 1, hint: "предыдущие 5 минут: шла в нашу сторону (+) или против (−)" },
@@ -266,6 +267,9 @@ function rnd(x: number | null | undefined, d: number): number | null {
   const f = Math.pow(10, d);
   return Math.round(x * f) / f;
 }
+
+/** множитель порогов режима монеты (BTC=1, остальные волатильнее) */
+const REG_SCALE: Record<string, number> = { Bitcoin: 1, Ethereum: 1.4, Solana: 1.8, XRP: 1.8, Dogecoin: 2.2, _: 1.5 };
 
 function binBucket(r: number): number {
   return r < 0 ? 0 : r < 0.5 ? 1 : r < 0.8 ? 2 : r < 1.2 ? 3 : 4;
@@ -384,6 +388,20 @@ export function computeRow(
   set("cgs", tr.cgs, 0);
   set("tr15", tr.tr15, 3);
   set("m15", tr.m15, 1);
+  {
+    // режим монеты (в абсолютном направлении, не «в нашу сторону»): дамп/падение/боковик/рост/памп
+    const sg = tr.s === 0 ? 1 : -1;
+    const k = REG_SCALE[m.coin] ?? REG_SCALE._ ?? 1.5;
+    const sp30 = tr.sp30 !== null && tr.sp30 !== undefined ? tr.sp30 * 1e4 * sg : null;
+    const trendRaw = tr.m15 ?? tr.m60 ?? pmBps;
+    const trend = trendRaw !== null && trendRaw !== undefined ? trendRaw * sg : null;
+    let rg: number | null = null;
+    if (sp30 !== null && sp30 >= 6 * k) rg = 5;
+    else if (sp30 !== null && sp30 <= -6 * k) rg = 1;
+    else if (trend !== null) rg = trend >= 8 * k ? 4 : trend <= -8 * k ? 2 : 3;
+    else if (sp30 !== null) rg = 3;
+    set("rg", rg, 0);
+  }
   set("m60", tr.m60, 1);
   set("q5", tr.q5, 1);
   set("q15", tr.q15, 1);
