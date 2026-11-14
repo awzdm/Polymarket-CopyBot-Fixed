@@ -44,7 +44,7 @@ interface Watch {
 
 const POLL_MS = 3000;
 const RES_EVERY_MS = 6000;
-const MAX_AFTER_MS = 180 * 1000;
+const MAX_AFTER_MS = 420 * 1000;
 const TAIL_AFTER_RES_MS = 6000;
 
 export class PostWatcher {
@@ -138,7 +138,7 @@ export class PostWatcher {
     L.push(`Сколько секунд после закрытия окна до резолва: быстрые 10% ≤ ${pq(res, 0.1)}с, медиана ${pq(res, 0.5)}с, медленные 10% ≥ ${pq(res, 0.9)}с`);
     L.push("");
     L.push("Покупаем токен той стороны, куда монета ушла к закрытию, по ask после закрытия (цены ≤ уровня, на ≥5 акций). Решение «кто лидер» — по ходу монеты (не по токену).");
-    const levels = [0.99, 0.98, 0.97, 0.95];
+    const levels = [0.999, 0.998, 0.995, 0.99, 0.98, 0.95];
     const buckets: [string, number, number][] = [["|ход| < 1 bps", 0, 1], ["1–2", 1, 2], ["2–4", 2, 4], ["> 4", 4, 1e9]];
     for (const [name, lo, hi] of buckets) {
       const set = recs.filter((r) => typeof r.fin === "number" && Math.abs(r.fin) >= lo && Math.abs(r.fin) < hi && r.win !== null);
@@ -163,7 +163,7 @@ export class PostWatcher {
         }
       }
       L.push(`${name}: рынков ${set.length}, лидер выиграл ${(wins / set.length * 100).toFixed(1)}%`);
-      levels.forEach((lv, li) => L.push(`   ask ≤ ${Math.round(lv * 100)}¢ нашёлся в ${got[li]} (${(got[li] / set.length * 100).toFixed(0)}%), на 5 акций ${pnl[li] >= 0 ? "+" : "−"}$${Math.abs(pnl[li]).toFixed(2)}, первая секунда медиана ${pq(secs[li], 0.5)}с`));
+      levels.forEach((lv, li) => L.push(`   ask ≤ ${Math.round(lv * 1000) / 10}¢ нашёлся в ${got[li]} (${(got[li] / set.length * 100).toFixed(0)}%), на 5 акций ${pnl[li] >= 0 ? "+" : "−"}$${Math.abs(pnl[li]).toFixed(2)}, первая секунда медиана ${pq(secs[li], 0.5)}с`));
     }
     return L.join("\n");
   }
