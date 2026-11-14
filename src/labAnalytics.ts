@@ -15,6 +15,7 @@ import * as path from "path";
 import * as zlib from "zlib";
 import * as readline from "readline";
 import { PAGE_TEMPLATE } from "./labPageTemplate.js";
+import { limInfo } from "./labLim.js";
 
 // ───────────────────────── Типы записи ─────────────────────────
 
@@ -661,6 +662,7 @@ export interface PageData {
   pm?: Record<string, [number, number, string, string]>; // v5.5: путь bid и ask рынка (шаг 2с) для ВСЕХ ТС: ключ рынок.сторона → [открытие (с), стартовый индекс, строка bid, строка ask]; символ = 256+центы, 255 = нет данных
   paths?: Record<string, (number | null)[]>; // v4.4: путь bid по секундам (шаг 2с, в центах) для сделок «торговых» ячеек; ключ = рынок.сторона.время входа
   lim?: Record<string, unknown>; // v6: сетка «лимитки на прострелы»
+  paperLim?: unknown; // v6: бумажный тест лимиток по живому стакану (lab-lim.json от бота)
   cells: Record<string, number[]>; // "idea|combo" -> [n, wins, sumRoi, sumPx, nMarkets] — по ВСЕМ сделкам (до выборки)
 }
 
@@ -955,6 +957,13 @@ export async function buildPageData(dir: string, opt: PageOptions): Promise<Page
   let lastTs = 0;
 
   const limAgg = new LimAgg();
+  let paperLim: unknown = null;
+  try {
+    const o = JSON.parse(await fs.promises.readFile(path.resolve(dir, "..", "lab-lim.json"), "utf8"));
+    paperLim = { since: o.since ?? null, stats: o.stats ?? {}, log: Array.isArray(o.log) ? o.log : [], variants: limInfo() };
+  } catch {
+    paperLim = null; // бумажный тест ещё не запускался
+  }
   for await (const m of readMarketRecords(dir, opt.sinceMs)) {
     if (opt.coin && m.coin !== opt.coin) continue;
     if (opt.wm && m.wm !== opt.wm) continue;
@@ -1083,6 +1092,7 @@ export async function buildPageData(dir: string, opt: PageOptions): Promise<Page
     pm,
     cells,
     lim: limAgg.out(),
+    paperLim: paperLim,
   };
 }
 
