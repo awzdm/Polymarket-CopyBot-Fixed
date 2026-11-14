@@ -234,8 +234,11 @@ const dipCfg = (): TradeCfg => ({
 });
 const MAX_STAKE = Number(process.env.LAB_MAX_STAKE ?? "50");
 const MAX_SHARES = Number(process.env.LAB_MAX_SHARES ?? "100");
-const MIN_SHARES = 5; // у биржи минимум 5 акций
-const minStakeOf = (c: TradeCfg): number => Math.ceil(MIN_SHARES * c.sizeRefPrice * 100) / 100;
+// v6: проверено пробой («лаб проба», 14.11.2026): биржа принимает покупку и продажу МЕНЬШЕ 5 акций (минимум 5 был только в нашем clob.ts).
+// У покупки остаётся минимум $1 на сумму ордера, поэтому нижняя граница — 1 акция и не меньше ~$1.05 по цене входа. Ставки по умолчанию не менялись (5 акций).
+const MIN_SHARES = 1;
+const MIN_NOTIONAL = 1.05; // биржа: покупка рыночным ордером — минимум $1
+const minStakeOf = (c: TradeCfg): number => Math.max(MIN_NOTIONAL, Math.ceil(MIN_SHARES * c.sizeRefPrice * 100) / 100);
 const sharesOf = (c: TradeCfg): number => (c.shares !== undefined && c.shares > 0 ? c.shares : c.size / c.sizeRefPrice);
 const stakeTxt = (c: TradeCfg): string => (c.shares !== undefined && c.shares > 0 ? `${c.shares} акций` : `$${c.size}`) + (c.stopPct ? `, стоп ${Math.round(c.stopPct * 100)}%` : "");
 const limitsTxt = (c: TradeCfg): string => `цель ${c.goalP > 0 ? `+$${c.goalP}` : "выкл"}, стоп ${c.goalL > 0 ? `−$${c.goalL}` : "выкл"}`;
@@ -2436,7 +2439,7 @@ class ResearchLab {
         const have = f.shares - (f.soldShares ?? 0);
         if (have < MIN_SHARES - 1e-9) break; // остаток меньше минимального ордера — дождёмся итога рынка
         try {
-          const resp: any = await this.clob.placeLimitOrder({ tokenId: f.tokenId, side: Side.SELL, price: bidWs, size: have, maxSlippagePct: 45 });
+          const resp: any = await this.clob.placeLimitOrder({ tokenId: f.tokenId, side: Side.SELL, price: bidWs, size: have, maxSlippagePct: 45, allowBelowMin: true } as any);
           const { filledSize, avgPrice } = resolveFillLive(Number(resp.filledSize ?? 0), Number(resp.filledUsdc ?? 0), bidWs);
           if (filledSize > 0) {
             f.soldShares = (f.soldShares ?? 0) + filledSize;
@@ -4077,7 +4080,8 @@ class ResearchLab {
 
     const tokenId = side === "Up" ? market.upTokenId : market.downTokenId;
     // для ТС со стопом берём на ~6% больше: после округления/комиссии заполнение бывает 4.9 акции, а биржа не даёт продать меньше 5 — стоп бы не сработал
-    const size = cfg.stopPct ? Math.ceil(sharesOf(cfg) * 106) / 100 : sharesOf(cfg);
+    const size0 = cfg.stopPct ? Math.ceil(sharesOf(cfg) * 106) / 100 : sharesOf(cfg);
+    const size = Math.max(size0, Math.ceil((MIN_NOTIONAL / Math.max(0.05, e.price)) * 100) / 100); // меньше $1 по сумме биржа не берёт
     const errors: string[] = [];
     const t0 = Date.now();
     try {
@@ -4101,6 +4105,7 @@ class ResearchLab {
             minBidPrice: cfg.minBid,
             snapshot: attempt === 1 && e.bid0 != null && snapAge <= 1500 ? { bid: e.bid0, ask: e.price, ageMs: snapAge } : undefined,
             priceAtCap: true,
+            allowBelowMin: true, // v6: меньше 5 акций биржа принимает (проверено), блок только в старом clob.ts
           };
           const resp: any = await this.clob.placeLimitOrder(orderParams);
           const rawA = Number(resp.filledSize ?? 0);
