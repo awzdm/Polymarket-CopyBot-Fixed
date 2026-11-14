@@ -169,7 +169,7 @@ const TRADE_CFGS: TradeCfg[] = [
   },
   {
     name: "fz2", group: "kol", idea: "fair1", combo: "edge 2-4% / 60-120с / 0.60-0.70", label: "СЦ σ60с, edge 2-4%, 60-120с, ask 0.60-0.70 + свеча до входа −3.5…0 bps, пик токена ≤0.93, объём ask ≥5",
-    size: 5, sizeRefPrice: 0.6, cap: 0.7, needClo: true, on: true, goalP: 0, goalL: 0,
+    size: 5, sizeRefPrice: 0.6, cap: 0.7, needClo: true, on: true, goalP: 0, goalL: 0, fromDay: KOL_FROM,
     filter: (e, _t, x) => {
       const clo = x?.clo ?? null;
       if (clo === null || clo < -3.5 - 1e-9 || clo > 1e-9) return false;
@@ -179,7 +179,7 @@ const TRADE_CFGS: TradeCfg[] = [
   },
   {
     name: "fz3", group: "kol", idea: "fair2", combo: "edge 0-2% / 30-60с / 0.70-0.80", label: "СЦ σ120с, edge 0-2%, 30-60с, ask 0.70-0.80 + свеча до входа −7…−0.7 bps, движение монеты ≤1.9 bps, ask ≤0.77",
-    size: 5, sizeRefPrice: 0.7, cap: 0.77, needClo: true, on: true, goalP: 0, goalL: 0,
+    size: 5, sizeRefPrice: 0.7, cap: 0.77, needClo: true, on: true, goalP: 0, goalL: 0, fromDay: KOL_FROM,
     filter: (e, _t, x) => {
       const clo = x?.clo ?? null;
       if (clo === null || clo < -7 - 1e-9 || clo > -0.7 + 1e-9) return false;
