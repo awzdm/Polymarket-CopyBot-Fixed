@@ -58,6 +58,7 @@ import { ClobService } from "./clob.js";
 import { setPolyboltCreds } from "./polyboltFeed.js";
 import { LabTest } from "./labTest.js";
 import { PostWatcher } from "./labPost.js";
+import { LabLim } from "./labLim.js";
 import { appendMarketRecord, compressOldDays, buildPage, shrinkPage, buildExchangeSummary, setPathCells, MarketRec, RawTrade, TapeRow } from "./labAnalytics.js";
 
 // ─────────────────────────── Общие настройки ───────────────────────────
@@ -268,6 +269,31 @@ interface PaperStopRec {
 }
 const PAPER_STOP_LOG_MAX = 500;
 /** Все заявки на покупку (bids) токена: [цена, размер] по убыванию цены. */
+/** Стакан целиком (v6, для бумажных «лимиток»): bids по убыванию цены, asks по возрастанию. */
+async function fetchBookFull(tokenId: string): Promise<{ bids: Array<[number, number]>; asks: Array<[number, number]> } | null> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const resp = await fetch(`${CLOB_HOST}/book?token_id=${tokenId}`, { signal: ctrl.signal });
+    if (!resp.ok) return null;
+    const ob: any = await resp.json();
+    const conv = (arr: any[]): Array<[number, number]> => {
+      const out: Array<[number, number]> = [];
+      for (const o of arr ?? []) {
+        const px = Number(o.price), sz = Number(o.size);
+        if (Number.isFinite(px) && Number.isFinite(sz) && sz > 0) out.push([px, sz]);
+      }
+      return out;
+    };
+    const bids = conv(ob.bids).sort((a, b) => b[0] - a[0]);
+    const asks = conv(ob.asks).sort((a, b) => a[0] - b[0]);
+    return { bids, asks };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 async function fetchBids(tokenId: string): Promise<Array<[number, number]> | null> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
@@ -2324,6 +2350,11 @@ class ResearchLab {
     } catch (err) {
       console.log("[lab-test] ошибка тика:", (err as Error).message);
     }
+    try {
+      this.lim.onTick(market, side, hasBid ? (update.bestBid as number) : q.bid, q.ask, now);
+    } catch (err) {
+      console.log("[lab-lim] ошибка тика:", (err as Error).message);
+    }
 
     // v3.2 «Темка»: постановка ордеров в начале окна, проверка исполнения лимиток и тейк-профитов
     this.temkaTick(market, side, p, q, now);
@@ -4151,6 +4182,10 @@ class ResearchLab {
       return !c || !c.filter || !e ? true : c.filter(e, null);
     },
   });
+  // v6 «ЛАБ ЛИМИТКИ»: бумажные идеи про прострелы по живому стакану (ничего не покупает; см. labLim.ts)
+  private lim = new LabLim({ fetchBook: (t) => fetchBookFull(t), dataDir: path.dirname(LIVE_CFG_FILE) });
+  limText(arg?: string): string { return this.lim.statusText(arg); }
+  limReset(): void { this.lim.reset(); }
   testText(arg?: string): string {
     return this.test.statusText(arg);
   }
@@ -4565,6 +4600,11 @@ class ResearchLab {
       this.test.onSettle(slug, winner);
     } catch (err) {
       console.log("[lab-test] ошибка итога:", (err as Error).message);
+    }
+    try {
+      this.lim.onSettle(slug, winner);
+    } catch (err) {
+      console.log("[lab-lim] ошибка итога:", (err as Error).message);
     }
 
     this.dropPending(slug);
@@ -5965,6 +6005,7 @@ class ResearchLab {
       "лаб биржи все — Binance, Coinbase, Bybit, OKX, Kraken, Bitget: каждая отдельно по корзинам и вместе (сколько бирж против / подтверждают); можно «лаб биржи все 3» (дней)",
       "лаб страница — страница-разбор файлом: все идеи и ячейки, чем победы отличаются от поражений (без периода — всё время; можно: «лаб страница 24ч», «3д», «7д», «30д», «15», «btc»)",
       "лаб объем — ставки торговых стратегий LAB; «лаб объем bot7b0 6», «лаб объем fair2 5», «лаб объем все 5»",
+      "лаб лимитки — бумажная проверка идей про прострелы по живому стакану: «лаб лимитки», «лаб лимитки C01», «лаб лимитки сброс»",
       "лаб минимум — бесплатно: какой минимальный размер ордера объявляет биржа",
       "лаб проба — проверка покупки меньше 5 акций (РЕАЛЬНЫЕ ~$1, спросит подтверждение)",
       "лаб после [дней] — что происходит с токенами после закрытия окна до резолва (замер, без покупок)",
@@ -6302,6 +6343,13 @@ async function pollTelegramCommands(
             lab.testReset();
             await telegram?.send(escapeTelegramHtml("🧪 ЛАБ ТЕСТ: данные сброшены, считаем заново."));
           } else await telegram?.send(escapeTelegramHtml(lab.testText(arg || undefined)));
+          continue;
+        }
+
+        if (text === "лаб лимитки" || text.startsWith("лаб лимитки ")) {
+          const arg = text.replace(/^лаб лимитки/, "").trim();
+          if (arg === "сброс") { lab.limReset(); await telegram?.send("🪤 Бумажные лимитки сброшены."); }
+          else await telegram?.send(escapeTelegramHtml(lab.limText(arg || undefined)));
           continue;
         }
 
