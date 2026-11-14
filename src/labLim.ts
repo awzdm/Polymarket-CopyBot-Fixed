@@ -49,6 +49,7 @@ const kindTxt = (k: Kind): string =>
   k.k === "cr" ? `обвал на старте: в первые ${k.S}с ask ≤ ${k.P}¢`
   : k.k === "dy" ? `динамическая лимитка на ${k.D}% ниже цены (подтягивается каждые 5с)`
   : `лимитка ${k.L}¢ (ставим с 10-й секунды, если ask выше)`;
+export const limInfo = (): Array<{ id: string; rule: string }> => LIM_VARIANTS.map((v) => ({ id: v.id, rule: limRuleTxt(v) }));
 export const limRuleTxt = (v: Variant): string => `${kindTxt(v.kind)} · ${exitTxt(v.exit)}`;
 
 interface Pos {
@@ -110,7 +111,7 @@ export class LabLim {
   private save(): void {
     if (!this.dirty) return;
     this.dirty = false;
-    try { fs.writeFileSync(this.file, JSON.stringify({ since: this.since, stats: this.stats, log: this.log.slice(-800) })); } catch { /* не критично */ }
+    try { fs.writeFileSync(this.file, JSON.stringify({ since: this.since, stats: this.stats, log: this.log.slice(-8000) })); } catch { /* не критично */ }
   }
   private st(id: string): VStat { return (this.stats[id] ??= newStat()); }
   reset(): void { this.pos.clear(); this.stats = {}; this.log = []; this.since = Date.now(); this.dirty = true; this.save(); }
@@ -225,6 +226,7 @@ export class LabLim {
     s.exits++;
     s.pnl += pnl;
     if (pnl < 0) s.bad++;
+    if (this.log.length > 9000) this.log.splice(0, 1000);
     this.log.push({ t: Date.now(), v: p.v.id, slug: p.slug, coin: p.coin, side: p.side, sec: p.fillSec, trig: p.trigAsk, entry: r2(p.entry * 100) / 100, how, exit: r2(vwap * 100) / 100, pnl: r2(pnl), won: null });
     p.phase = "done";
     this.dirty = true;
@@ -243,7 +245,8 @@ export class LabLim {
         if (won) s.wins++;
         s.pnl += pnl;
         if (pnl < 0) s.bad++;
-        this.log.push({ t: Date.now(), v: p.v.id, slug: p.slug, coin: p.coin, side: p.side, sec: p.fillSec, trig: p.trigAsk, entry: r2(p.entry * 100) / 100, how: "до резолва", exit: won ? 1 : 0, pnl: r2(pnl), won });
+        if (this.log.length > 9000) this.log.splice(0, 1000);
+    this.log.push({ t: Date.now(), v: p.v.id, slug: p.slug, coin: p.coin, side: p.side, sec: p.fillSec, trig: p.trigAsk, entry: r2(p.entry * 100) / 100, how: "до резолва", exit: won ? 1 : 0, pnl: r2(pnl), won });
         this.dirty = true;
       }
       this.pos.delete(key);
