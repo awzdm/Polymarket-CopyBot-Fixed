@@ -15,6 +15,7 @@ import * as path from "path";
 import * as zlib from "zlib";
 import * as readline from "readline";
 import { PAGE_TEMPLATE } from "./labPageTemplate.js";
+import { promisify } from "node:util";
 import { limInfo } from "./labLim.js";
 
 // ───────────────────────── Типы записи ─────────────────────────
@@ -1110,49 +1111,51 @@ export async function renderPageHtml(data: PageData): Promise<string> {
   void _s;
   void _l;
   const json = JSON.stringify({ ...rest, rows: [] }).replace(/</g, "\\u003c");
-  const gz = zlib.createGzip({ level: 9 });
-  const chunks: Buffer[] = [];
-  gz.on("data", (c: Buffer) => chunks.push(c));
-  const done = new Promise<void>((res, rej) => {
-    gz.on("end", () => res());
-    gz.on("error", rej);
-  });
-  const w = (str: string): Promise<void> =>
-    new Promise<void>((res) => {
-      if (gz.write(str)) res();
-      else gz.once("drain", () => res());
-    });
+  // v6.1: строки режутся на куски по CHUNK_ROWS строк, каждый кусок — отдельный gzip+base64 (части разделены «|»).
+  // Зачем: раньше все строки были ОДНИМ json-текстом; при росте данных он переваливал за предел строки в браузере (~512 МБ)
+  // и страница падала с «Unexpected end of JSON input». Теперь браузер читает кусок за куском.
+  const gzip = promisify(zlib.gzip);
   const useStore = data.store !== undefined;
   const sel = data.sel ?? [];
   const nr = useStore ? sel.length : rows.length;
   let nc = 0;
   if (useStore) nc = data.store!.nc;
   else for (const r of rows) if (r.length > nc) nc = r.length;
-  await w(`{"n":${nr},"c":[`);
-  for (let j = 0; j < nc; j++) {
-    const c: (number | null)[] = new Array(nr);
-    if (useStore) {
-      const st = data.store!;
-      const arr = st.cols[j];
-      const d = COL_DEC[j] ?? 3;
-      const f = Math.pow(10, d);
-      for (let i = 0; i < nr; i++) {
-        const v = arr[sel[i]];
-        c[i] = v !== v ? null : d === 0 ? Math.round(v) : Math.round(v * f) / f;
+  const CHUNK_ROWS = 150_000;
+  const parts: string[] = [];
+  const nChunks = Math.max(1, Math.ceil(nr / CHUNK_ROWS));
+  for (let k = 0; k < nChunks; k++) {
+    const i0 = k * CHUNK_ROWS;
+    const i1 = Math.min(nr, i0 + CHUNK_ROWS);
+    const m = i1 - i0;
+    const cols: string[] = [];
+    for (let j = 0; j < nc; j++) {
+      const c: (number | null)[] = new Array(m);
+      if (useStore) {
+        const st = data.store!;
+        const arr = st.cols[j];
+        const d = COL_DEC[j] ?? 3;
+        const f = Math.pow(10, d);
+        for (let i = 0; i < m; i++) {
+          const v = arr[sel[i0 + i]];
+          c[i] = v !== v ? null : d === 0 ? Math.round(v) : Math.round(v * f) / f;
+        }
+      } else {
+        for (let i = 0; i < m; i++) {
+          const v = rows[i0 + i][j];
+          c[i] = v === undefined ? null : v;
+        }
       }
-    } else {
-      for (let i = 0; i < nr; i++) {
-        const v = rows[i][j];
-        c[i] = v === undefined ? null : v;
-      }
+      cols.push(JSON.stringify(c));
     }
-    await w((j ? "," : "") + JSON.stringify(c));
+    const last = k === nChunks - 1;
+    const txt = `{"n":${m},"c":[${cols.join(",")}]${last ? `,"p":${JSON.stringify(paths ?? {})},"pm":${JSON.stringify(pm ?? {})}` : ""}}`;
+    const buf = await gzip(Buffer.from(txt), { level: 9 });
+    parts.push(buf.toString("base64"));
+    await new Promise<void>((res) => setImmediate(res)); // не держим бота занятым
   }
-  await w(`],"p":${JSON.stringify(paths ?? {})},"pm":${JSON.stringify(pm ?? {})}}`);
-  gz.end();
-  await done;
-  const b64 = Buffer.concat(chunks).toString("base64");
-  chunks.length = 0;
+  const b64 = parts.join("|");
+  parts.length = 0;
   return PAGE_TEMPLATE.replace("/*__ROWS__*/", () => b64).replace("/*__DATA__*/null", () => json);
 }
 
