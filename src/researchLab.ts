@@ -117,7 +117,7 @@ interface TradeCfg {
   cap: number; // потолок цены покупки
   minBid?: number; // не входить, если живой bid ниже
   /** Дополнительное условие входа (проверяется один раз, в момент первого срабатывания ячейки — как считает страница). */
-  filter?: (e: LabEntry, tb60: number | null, x?: { tb30: number | null; clo: number | null; jmp?: number | null; rdd?: number | null }) => boolean;
+  filter?: (e: LabEntry, tb60: number | null, x?: { tb30: number | null; clo: number | null; jmp?: number | null; rdd?: number | null; b0?: number | null; mono?: number | null; chi?: number | null; crg?: number | null }) => boolean;
   needTb60?: boolean; // условию нужен показатель «bid токена: вход − 60с назад»
   needTb30?: boolean; // v5.7: …«bid токена: вход − 30с назад»
   needPath?: boolean; // v6: …«токен до входа: самый резкий скачок вверх (jmp)» и «откат от своего максимума (rdd)» — по ленте токена с начала окна
@@ -129,9 +129,31 @@ interface TradeCfg {
   goalL: number; // v4.0: дневной стоп по убытку, $ (0 = выкл)
   stopPct?: number; // v5.3: реальный стоп — продаём по рынку, когда bid ≤ цена входа × (1 − stopPct)
   fromDay?: string; // v4.8: начать торговать с этого дня (UTC, «2026-11-07»); до этого только пишет статистику
+  untilDay?: string; // v7: торговать ДО конца предыдущего дня (UTC): с 00:00 этого дня только пишет статистику
+  exact?: boolean; // v7: число акций = ставка ÷ реальная цена входа (для ТС с широким коридором цены); иначе от sizeRefPrice
 }
 const KOL_FROM = "2026-11-15"; // v6: коллектив начинает торговать с этого дня (UTC)
+const KOL_UNTIL = "2026-11-17"; // v7: старый коллектив торгует до конца 2026-11-16 (UTC), дальше его заменяет «Набор 15» (k19)
 const notStarted = (c: TradeCfg): boolean => c.fromDay !== undefined && Date.now() < Date.parse(`${c.fromDay}T00:00:00Z`);
+const ended = (c: TradeCfg): boolean => c.untilDay !== undefined && Date.now() >= Date.parse(`${c.untilDay}T00:00:00Z`);
+// ══ v7: помощники для фильтров «Набора 15» (считаются, как на странице: сначала округление значения до тех же знаков, потом сравнение)
+const R1 = (v: number): number => Math.round(v * 10) / 10;
+const R2 = (v: number): number => Math.round(v * 100) / 100;
+const R3 = (v: number): number => Math.round(v * 1000) / 1000;
+/** Биржа ÷ поток (во сколько раз биржа прошла от открытия относительно потока); меньше 0 — против. Нужен поток в нашу сторону > 0. */
+const exRatioOf = (e: LabEntry, v: number | null | undefined): number | null => (e.pm != null && e.pm > 0 && v != null ? v / e.pm : null);
+/** Корзина 0-4 («0 против, 1 <50%, 2 50-80%, 3 80-120%, 4 >120%») */
+const bucketIdx = (r: number): number => (r < 0 ? 0 : r < 0.5 ? 1 : r < 0.8 ? 2 : r < 1.2 ? 3 : 4);
+/** «Бирж против»: сколько из доступных бирж (Binance, Coinbase, Bybit, OKX, Kraken, Bitget) ушли против нашей стороны */
+const nagOf = (e: LabEntry): number | null => {
+  if (!(e.pm != null && e.pm > 0)) return null;
+  const vals: Array<number | null | undefined> = [e.bin, e.cb, ...Object.values(e.xs ?? {})];
+  let n = 0;
+  for (const v of vals) if (v != null && bucketIdx(v / e.pm) === 0) n++;
+  return n;
+};
+const inR = (v: number | null | undefined, lo: number | null, hi: number | null): boolean =>
+  v != null && (lo === null || v >= lo - 1e-9) && (hi === null || v <= hi + 1e-9);
 const TRADE_CFGS: TradeCfg[] = [
   { name: "bot7b0", idea: "bot7b0", label: "профиль 9: Модель, Binance против", size: 5, sizeRefPrice: 0.92, cap: 0.98, minBid: 0.92, on: false, goalP: 0, goalL: 0 },
   { name: "fair2", idea: "fair2", combo: "edge 2-4% / 60-120с / 0.93-0.96", label: "Справедливая цена σ120с, edge 2-4%, 60-120с, ask 0.93-0.96", size: 5, sizeRefPrice: 0.93, cap: 0.96, on: false, goalP: 0, goalL: 0 },
@@ -168,7 +190,7 @@ const TRADE_CFGS: TradeCfg[] = [
     },
   },
   {
-    name: "fz2", group: "kol", idea: "fair1", combo: "edge 2-4% / 60-120с / 0.60-0.70", label: "СЦ σ60с, edge 2-4%, 60-120с, ask 0.60-0.70 + свеча до входа −3.5…0 bps, пик токена ≤0.93, объём ask ≥5",
+    name: "fz2", group: "k19", idea: "fair1", combo: "edge 2-4% / 60-120с / 0.60-0.70", label: "СЦ σ60с, edge 2-4%, 60-120с, ask 0.60-0.70 + свеча до входа −3.5…0 bps, пик токена ≤0.93, объём ask ≥5",
     size: 5, sizeRefPrice: 0.6, cap: 0.7, needClo: true, on: true, goalP: 0, goalL: 0, fromDay: KOL_FROM,
     filter: (e, _t, x) => {
       const clo = x?.clo ?? null;
@@ -178,7 +200,7 @@ const TRADE_CFGS: TradeCfg[] = [
     },
   },
   {
-    name: "fz3", group: "kol", idea: "fair2", combo: "edge 0-2% / 30-60с / 0.70-0.80", label: "СЦ σ120с, edge 0-2%, 30-60с, ask 0.70-0.80 + свеча до входа −7…−0.7 bps, движение монеты ≤1.9 bps, ask ≤0.77",
+    name: "fz3", group: "k19", idea: "fair2", combo: "edge 0-2% / 30-60с / 0.70-0.80", label: "СЦ σ120с, edge 0-2%, 30-60с, ask 0.70-0.80 + свеча до входа −7…−0.7 bps, движение монеты ≤1.9 bps, ask ≤0.77",
     size: 5, sizeRefPrice: 0.7, cap: 0.77, needClo: true, on: true, goalP: 0, goalL: 0, fromDay: KOL_FROM,
     filter: (e, _t, x) => {
       const clo = x?.clo ?? null;
@@ -187,14 +209,114 @@ const TRADE_CFGS: TradeCfg[] = [
       return e.price <= 0.77 + 1e-9;
     },
   },
+  // ══ v7: «НАБОР 15» (19 разных ТС; №1, №5 и №12 — это fz3, fz2 и kol8 ниже). Каждая торгует независимо, 1.1$, дневная цель +$1 у каждой, старт с 2026-11-17 00:00 UTC.
+  // Старый коллектив (kol1…kol10) торгует до конца 2026-11-16 (UTC) и потом сам останавливается (untilDay). Все 19: «лаб тс выкл k19», объём: «лаб акций k19 5».
+  // Номер в имени (ts03…ts22) — номер строки в экспорте «КОЛЛЕКТИВ (22 ТС)». ts20 стоит ВЫШЕ kol1: у них одна ячейка, а ячейку обслуживает первая найденная ТС.
+  {
+    name: "ts03", group: "k19", idea: "model", combo: "сила 2-3 / 180-240с / 0.60-0.70", label: "Набор 15 №3: Модель цены, сила 2-3, 180-240с, ask 0.60-0.70 + z 2.09…2.47, Bybit/поток ≥ −0.18, корзина Kraken ≤2",
+    size: 1.1, sizeRefPrice: 0.6, cap: 0.7, on: true, goalP: 1, goalL: 0, fromDay: "2026-11-17",
+    filter: (e) => {
+      if (e.z == null || !inR(R2(e.z), 2.09, 2.47)) return false;
+      const by = exRatioOf(e, e.xs?.["by"]);
+      if (by === null || R2(by) < -0.18 - 1e-9) return false;
+      const kr = exRatioOf(e, e.xs?.["kr"]);
+      return kr !== null && bucketIdx(kr) <= 2;
+    },
+  },
+  {
+    name: "ts04", group: "k19", idea: "fair1", combo: "edge 4-6% / 30-60с / 0.80-0.85", label: "Набор 15 №4: СЦ σ60с, edge 4-6%, 30-60с, ask 0.80-0.85 + объём bid 26…227",
+    size: 1.1, sizeRefPrice: 0.8, cap: 0.85, on: true, goalP: 1, goalL: 0, fromDay: "2026-11-17",
+    filter: (e) => e.bsz != null && inR(Math.round(e.bsz), 26, 227),
+  },
+  {
+    name: "ts06", group: "k19", idea: "fair2", combo: "edge 4-6% / 30-60с / 0.80-0.85", label: "Набор 15 №6: СЦ σ120с, edge 4-6%, 30-60с, ask 0.80-0.85 + свеча до входа −11.4…−2.4 bps, бирж против ≤5, откат токена от максимума ≤0.69",
+    size: 1.1, sizeRefPrice: 0.8, cap: 0.85, needClo: true, needPath: true, on: true, goalP: 1, goalL: 0, fromDay: "2026-11-17",
+    filter: (e, _t, x) => {
+      if (!inR(x?.clo, -11.4, -2.4)) return false;
+      const nag = nagOf(e);
+      if (nag === null || nag > 5) return false;
+      return inR(x?.rdd, null, 0.69);
+    },
+  },
+  {
+    name: "ts08", group: "k19", idea: "impulse", combo: "0.12% за 15с / 120с", label: "Набор 15 №8: Импульс 0.12% за 15с, 120с + bid токена за 60с ≥0.38, до закрытия 57…115с",
+    size: 1.1, sizeRefPrice: 0.6, cap: 0.98, exact: true, needTb60: true, on: true, goalP: 1, goalL: 0, fromDay: "2026-11-17",
+    filter: (e, tb60) => inR(tb60, 0.38, null) && inR(e.sec, 57, 115),
+  },
+  {
+    name: "ts09", group: "k19", idea: "fair2", combo: "edge 2-4% / 30-60с / 0.85-0.90", label: "Набор 15 №9: СЦ σ120с, edge 2-4%, 30-60с, ask 0.85-0.90 + объём bid 60…223, объём ask ≤829",
+    size: 1.1, sizeRefPrice: 0.85, cap: 0.9, on: true, goalP: 1, goalL: 0, fromDay: "2026-11-17",
+    filter: (e) => e.bsz != null && e.asz != null && inR(Math.round(e.bsz), 60, 223) && Math.round(e.asz) <= 829,
+  },
+  {
+    name: "ts10", group: "k19", idea: "impulse", combo: "0.05% за 15с / 60с", label: "Набор 15 №10: Импульс 0.05% за 15с, 60с + σ2м ≤0.45, доля шагов токена вверх ≤0.62",
+    size: 1.1, sizeRefPrice: 0.6, cap: 0.98, exact: true, needPath: true, on: true, goalP: 1, goalL: 0, fromDay: "2026-11-17",
+    filter: (e, _t, x) => e.rv2 != null && R2(e.rv2) <= 0.45 + 1e-9 && inR(x?.mono, null, 0.62),
+  },
+  {
+    name: "ts11", group: "k19", idea: "model", combo: "сила 1.5-2 / до 30с / 0.90-0.93", label: "Набор 15 №11: Модель цены, сила 1.5-2, до 30с, ask 0.90-0.93 + z 1.52…1.83, σ5м 0.35…1.03",
+    size: 1.1, sizeRefPrice: 0.9, cap: 0.93, on: true, goalP: 1, goalL: 0, fromDay: "2026-11-17",
+    filter: (e) => e.z != null && e.rv5 != null && inR(R2(e.z), 1.52, 1.83) && inR(R2(e.rv5), 0.35, 1.03),
+  },
+  {
+    name: "ts14", group: "k19", idea: "cbd", combo: "тело свечи 50-80% · сила 1-2 / 30-60с", label: "Набор 15 №14: Свеча: тело 50-80%, сила 1-2, 30-60с + цена входа 0.80…0.90",
+    size: 1.1, sizeRefPrice: 0.8, cap: 0.9, exact: true, on: true, goalP: 1, goalL: 0, fromDay: "2026-11-17",
+    filter: (e) => inR(R3(e.price), 0.8, 0.9),
+  },
+  {
+    name: "ts15", group: "k19", idea: "fair2", combo: "edge 0-2% / 180-240с / 0.97-0.98", label: "Набор 15 №15: СЦ σ120с, edge 0-2%, 180-240с, ask 0.97-0.98 + Bitget/поток 0.66…1.48, час UTC ≤20",
+    size: 1.1, sizeRefPrice: 0.97, cap: 0.98, on: true, goalP: 1, goalL: 0, fromDay: "2026-11-17",
+    filter: (e) => {
+      const bg = exRatioOf(e, e.xs?.["bg"]);
+      return bg !== null && inR(R2(bg), 0.66, 1.48) && e.hr != null && e.hr <= 20;
+    },
+  },
+  {
+    name: "ts16", group: "k19", idea: "fair2", combo: "edge <0 / 180-240с / 0.97-0.98", label: "Набор 15 №16: СЦ σ120с, edge<0, 180-240с, ask 0.97-0.98 + размах монеты до входа ≥11.9 bps",
+    size: 1.1, sizeRefPrice: 0.97, cap: 0.98, needClo: true, on: true, goalP: 1, goalL: 0, fromDay: "2026-11-17",
+    filter: (_e, _t, x) => inR(x?.crg, 11.9, null),
+  },
+  {
+    name: "ts17", group: "k19", idea: "fair1", combo: "edge <0 / 180-240с / 0.97-0.98", label: "Набор 15 №17: СЦ σ60с, edge<0, 180-240с, ask 0.97-0.98 + откат токена от максимума ≤0.10",
+    size: 1.1, sizeRefPrice: 0.97, cap: 0.98, needPath: true, on: true, goalP: 1, goalL: 0, fromDay: "2026-11-17",
+    filter: (_e, _t, x) => inR(x?.rdd, null, 0.1),
+  },
+  {
+    name: "ts18", group: "k19", idea: "margin", combo: "z≥1.5 / 30с", label: "Набор 15 №18: Запас, z≥1.5, 30с (без фильтров)",
+    size: 1.1, sizeRefPrice: 0.97, cap: 0.98, on: true, goalP: 1, goalL: 0, fromDay: "2026-11-17",
+  },
+  {
+    name: "ts19", group: "k19", idea: "margin", combo: "z≥1.0 / 30с", label: "Набор 15 №19: Запас, z≥1.0, 30с + bid токена в начале окна ≥0.36",
+    size: 1.1, sizeRefPrice: 0.97, cap: 0.98, needPath: true, on: true, goalP: 1, goalL: 0, fromDay: "2026-11-17",
+    filter: (_e, _t, x) => inR(x?.b0, 0.36, null),
+  },
+  {
+    name: "ts20", group: "k19", idea: "fair2", combo: "edge <0 / 180-240с / 0.98-0.99", label: "Набор 15 №20: СЦ σ120с, edge<0, 180-240с, ask 0.98-0.99 + пик токена ≥0.95",
+    size: 1.1, sizeRefPrice: 0.98, cap: 0.99, on: true, goalP: 1, goalL: 0, fromDay: "2026-11-17",
+    filter: (e) => e.pk != null && R3(e.pk) >= 0.95 - 1e-9,
+  },
+  {
+    name: "ts21", group: "k19", idea: "model", combo: "сила 2-3 / 30-60с / 0.98-0.99", label: "Набор 15 №21: Модель цены, сила 2-3, 30-60с, ask 0.98-0.99 + максимум монеты до входа 3.1…14.9 bps, спред ≤0.08",
+    size: 1.1, sizeRefPrice: 0.98, cap: 0.99, needClo: true, on: true, goalP: 1, goalL: 0, fromDay: "2026-11-17",
+    filter: (e, _t, x) => inR(x?.chi, 3.1, 14.9) && e.bid0 != null && R3(e.price - e.bid0) <= 0.08 + 1e-9,
+  },
+  {
+    name: "ts22", group: "k19", idea: "bot1", combo: "профиль", label: "Набор 15 №22: Профиль 1 + bid токена за 60с ≥0.16, корзина OKX 1…4",
+    size: 1.1, sizeRefPrice: 0.97, cap: 0.98, needTb60: true, on: true, goalP: 1, goalL: 0, fromDay: "2026-11-17",
+    filter: (e, tb60) => {
+      if (!inR(tb60, 0.16, null)) return false;
+      const ok = exRatioOf(e, e.xs?.["ok"]);
+      return ok !== null && inR(bucketIdx(ok), 1, 4);
+    },
+  },
   // ══ v6: «КОЛЛЕКТИВ» из 10 ТС (kol1…kol10; №3 = fz3 и №5 = fz2 уже есть выше). Каждая торгует независимо — как в «Коллективной работе» на странице, пересекающиеся входы НЕ склеиваются.
   // 5 акций у каждой, без дневной цели, старт с 2026-11-15 00:00 UTC. Включить/выключить все сразу: «лаб тс выкл kol»; объём: «лаб акций kol 5».
   // Условия считаются, как на странице: один раз, в момент первого срабатывания ячейки; значения округляются так же (цена до 0.001, bps до 0.1, поток до 0.01).
-  { name: "kol1", group: "kol", idea: "fair2", combo: "edge <0 / 180-240с / 0.98-0.99", label: "Коллектив №1: СЦ σ120с, edge<0, 180-240с, ask 0.98-0.99", size: 1.1, sizeRefPrice: 0.98, cap: 0.99, on: true, goalP: 0, goalL: 0, fromDay: KOL_FROM },
-  { name: "kol2", group: "kol", idea: "fair1", combo: "edge <0 / 180-240с / 0.98-0.99", label: "Коллектив №2: СЦ σ60с, edge<0, 180-240с, ask 0.98-0.99", size: 1.1, sizeRefPrice: 0.98, cap: 0.99, on: true, goalP: 0, goalL: 0, fromDay: KOL_FROM },
+  { name: "kol1", group: "kol", idea: "fair2", combo: "edge <0 / 180-240с / 0.98-0.99", label: "Коллектив №1: СЦ σ120с, edge<0, 180-240с, ask 0.98-0.99", size: 1.1, sizeRefPrice: 0.98, cap: 0.99, on: true, goalP: 0, goalL: 0, fromDay: KOL_FROM, untilDay: KOL_UNTIL },
+  { name: "kol2", group: "kol", idea: "fair1", combo: "edge <0 / 180-240с / 0.98-0.99", label: "Коллектив №2: СЦ σ60с, edge<0, 180-240с, ask 0.98-0.99", size: 1.1, sizeRefPrice: 0.98, cap: 0.99, on: true, goalP: 0, goalL: 0, fromDay: KOL_FROM, untilDay: KOL_UNTIL },
   {
     name: "kol4", group: "kol", idea: "fair2", combo: "edge <0 / 30-60с / 0.97-0.98", label: "Коллектив №4: СЦ σ120с, edge<0, 30-60с, ask 0.97-0.98 + объём bid ≥62, Bybit/поток −0.62…3.95",
-    size: 1.1, sizeRefPrice: 0.97, cap: 0.98, on: true, goalP: 0, goalL: 0, fromDay: KOL_FROM,
+    size: 1.1, sizeRefPrice: 0.97, cap: 0.98, on: true, goalP: 0, goalL: 0, fromDay: KOL_FROM, untilDay: KOL_UNTIL,
     filter: (e) => {
       if (e.bsz == null || Math.round(e.bsz) < 62) return false;
       const by = e.xs ? e.xs["by"] : null;
@@ -205,7 +327,7 @@ const TRADE_CFGS: TradeCfg[] = [
   },
   {
     name: "kol6", group: "kol", idea: "fair1", combo: "edge <0 / 120-180с / 0.70-0.80", label: "Коллектив №6: СЦ σ60с, edge<0, 120-180с, ask 0.70-0.80 + движение за 10с ≤0.3 bps, edge −0.240…−0.006, откат токена от максимума ≥0.180",
-    size: 1.1, sizeRefPrice: 0.7, cap: 0.8, needPath: true, on: true, goalP: 0, goalL: 0, fromDay: KOL_FROM,
+    size: 1.1, sizeRefPrice: 0.7, cap: 0.8, needPath: true, on: true, goalP: 0, goalL: 0, fromDay: KOL_FROM, untilDay: KOL_UNTIL,
     filter: (e, _t, x) => {
       if (e.sp10 == null || Math.round(e.sp10 * 1e5) / 10 > 0.3 + 1e-9) return false;
       if (e.fe == null) return false;
@@ -217,7 +339,7 @@ const TRADE_CFGS: TradeCfg[] = [
   },
   {
     name: "kol7", group: "kol", idea: "fair1", combo: "edge <0 / 60-120с / 0.60-0.70", label: "Коллектив №7 («ТС с фильтрами 2»): СЦ σ60с, edge<0, 60-120с, ask 0.60-0.70 + объём bid 21…369, ask ≤0.680, Binance/поток −13.77…20.26",
-    size: 1.1, sizeRefPrice: 0.6, cap: 0.68, on: true, goalP: 0, goalL: 0, fromDay: KOL_FROM,
+    size: 1.1, sizeRefPrice: 0.6, cap: 0.68, on: true, goalP: 0, goalL: 0, fromDay: KOL_FROM, untilDay: KOL_UNTIL,
     filter: (e) => {
       if (e.bsz == null) return false;
       const b = Math.round(e.bsz);
@@ -229,7 +351,7 @@ const TRADE_CFGS: TradeCfg[] = [
     },
   },
   {
-    name: "kol8", group: "kol", idea: "model", combo: "сила 0.5-1 / 60-120с / 0.85-0.90", label: "Коллектив №8: Модель цены, сила 0.5-1, 60-120с, ask 0.85-0.90 + bid токена за 30с 0.10…0.20 и за 60с 0.16…0.34, пик ≥0.79, edge ≥0.001, σ5м ≥0.30, ask за 15с −0.04…0.28",
+    name: "kol8", group: "k19", idea: "model", combo: "сила 0.5-1 / 60-120с / 0.85-0.90", label: "Коллектив №8: Модель цены, сила 0.5-1, 60-120с, ask 0.85-0.90 + bid токена за 30с 0.10…0.20 и за 60с 0.16…0.34, пик ≥0.79, edge ≥0.001, σ5м ≥0.30, ask за 15с −0.04…0.28",
     size: 1.1, sizeRefPrice: 0.85, cap: 0.9, needTb30: true, needTb60: true, on: true, goalP: 0, goalL: 0, fromDay: KOL_FROM,
     filter: (e, tb60, x) => {
       const tb30 = x?.tb30 ?? null;
@@ -245,7 +367,7 @@ const TRADE_CFGS: TradeCfg[] = [
   },
   {
     name: "kol9", group: "kol", idea: "fair1", combo: "edge <0 / 60-120с / 0.90-0.93", label: "Коллектив №9: СЦ σ60с, edge<0, 60-120с, ask 0.90-0.93 + до закрытия 79…117с, свеча до входа −5.4…0 bps, скачок токена за шаг ≥0.130",
-    size: 1.1, sizeRefPrice: 0.9, cap: 0.93, needClo: true, needPath: true, on: true, goalP: 0, goalL: 0, fromDay: KOL_FROM,
+    size: 1.1, sizeRefPrice: 0.9, cap: 0.93, needClo: true, needPath: true, on: true, goalP: 0, goalL: 0, fromDay: KOL_FROM, untilDay: KOL_UNTIL,
     filter: (e, _t, x) => {
       if (e.sec < 79 || e.sec > 117) return false;
       const clo = x?.clo ?? null;
@@ -256,7 +378,7 @@ const TRADE_CFGS: TradeCfg[] = [
   },
   {
     name: "kol10", group: "kol", idea: "crv", combo: "отрыв в 3-5 раза больше любого отката / 180-240с", label: "Коллектив №10: Монета, отрыв в 3-5 раза больше любого отката, 180-240с + откат токена от максимума ≤0.240, до закрытия ≤209с, спред ≤0.030",
-    size: 1.1, sizeRefPrice: 0.9, cap: 0.99, needPath: true, on: true, goalP: 0, goalL: 0, fromDay: KOL_FROM,
+    size: 1.1, sizeRefPrice: 0.9, cap: 0.99, needPath: true, on: true, goalP: 0, goalL: 0, fromDay: KOL_FROM, untilDay: KOL_UNTIL,
     filter: (e, _t, x) => {
       if (e.sec > 209) return false;
       if (e.bid0 == null || Math.round((e.price - e.bid0) * 1000) / 1000 > 0.03 + 1e-9) return false;
@@ -322,10 +444,29 @@ const MAX_SHARES = Number(process.env.LAB_MAX_SHARES ?? "100");
 const MIN_SHARES = 1;
 const MIN_NOTIONAL = 1.05; // биржа: покупка рыночным ордером — минимум $1
 const minStakeOf = (c: TradeCfg): number => Math.max(MIN_NOTIONAL, Math.ceil(MIN_SHARES * c.sizeRefPrice * 100) / 100);
-const sharesOf = (c: TradeCfg): number => (c.shares !== undefined && c.shares > 0 ? c.shares : c.size / c.sizeRefPrice);
+const sharesOf = (c: TradeCfg, price?: number): number => (c.shares !== undefined && c.shares > 0 ? c.shares : c.size / (c.exact && price !== undefined && price > 0.05 ? price : c.sizeRefPrice));
 const stakeTxt = (c: TradeCfg): string => (c.shares !== undefined && c.shares > 0 ? `${c.shares} акций` : `$${c.size}`) + (c.stopPct ? `, стоп ${Math.round(c.stopPct * 100)}%` : "");
 const limitsTxt = (c: TradeCfg): string => `цель ${c.goalP > 0 ? `+$${c.goalP}` : "выкл"}, стоп ${c.goalL > 0 ? `−$${c.goalL}` : "выкл"}`;
 const LIVE_CFG_FILE = path.resolve(process.env.LAB_DATA_PATH || process.env.RAILWAY_VOLUME_MOUNT_PATH || process.cwd(), "lab-live-config.json");
+const DAY_STATE_FILE = path.resolve(path.dirname(LIVE_CFG_FILE), "lab-day-state.json");
+function loadDayState(): Map<string, { day: number; real: number; told: boolean }> {
+  const m = new Map<string, { day: number; real: number; told: boolean }>();
+  try {
+    const o = JSON.parse(fs.readFileSync(DAY_STATE_FILE, "utf8")) as Record<string, { day: number; real: number; told?: boolean }>;
+    const today = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
+    for (const [k, v] of Object.entries(o)) if (v && v.day === today && typeof v.real === "number") m.set(k, { day: v.day, real: v.real, told: !!v.told });
+  } catch {
+    /* файла нет — счётчики с нуля */
+  }
+  return m;
+}
+function saveDayState(m: Map<string, { day: number; real: number; told: boolean }>): void {
+  try {
+    fs.writeFileSync(DAY_STATE_FILE, JSON.stringify(Object.fromEntries(m)));
+  } catch (err) {
+    console.log("[day-state] не удалось сохранить дневные счётчики:", (err as Error).message);
+  }
+}
 let v3Pending = false;
 // v4.4: подробный путь цены по каждой сделке записываем для ячеек, которые торгует бот (для окна сделки на странице)
 // v5.0: ячейки, для которых пишем путь bid по секундам, хотя бот их не торгует (проверка стопов на реальных ценах продажи)
@@ -456,6 +597,14 @@ function loadLiveCfg(): void {
       DIP.on = false;
       v3Pending = true;
     }
+    // v7 (разовая миграция): «Набор 15» (группа k19: ts03…ts22 + fz2, fz3, kol8) — ставка $1.1, цель дня +$1 у каждой, включены. Старый коллектив не трогаем: он сам остановится по untilDay.
+    if (!o.__v7) {
+      for (const c of TRADE_CFGS) {
+        if (c.group !== "k19") continue;
+        c.on = true; c.shares = undefined; c.size = 1.1; c.goalP = 1; c.goalL = 0;
+      }
+      v3Pending = true;
+    }
   } catch {
     /* файла ещё нет — настройки по умолчанию */
   }
@@ -469,6 +618,7 @@ function saveLiveCfg(): void {
     o.__v4 = true;
     o.__v5 = true;
     o.__v6 = true;
+    o.__v7 = true;
     o.__dip = { ...DIP };
     fs.writeFileSync(LIVE_CFG_FILE, JSON.stringify(o));
   } catch (err) {
@@ -478,7 +628,7 @@ function saveLiveCfg(): void {
 // v3.7: РЕАЛЬНАЯ торговля теми же идеями (PAPER_TRADE). Включается переменной LAB_TRADE=on (нужны PRIVATE_KEY, FUNDER_ADDRESS и т.д. как у бота).
 // v3.9: каждая стратегия торгует независимо (одна позиция на рынок — только внутри стратегии); общие лимиты широкие: 12 в окне, 30 открытых, 200 в час (env LAB_MAX_PER_WINDOW / LAB_MAX_OPEN / LAB_QUOTA_PER_HOUR).
 const LIVE_TRADE_ENV = (process.env.LAB_TRADE ?? "off").toLowerCase() === "on";
-const LIVE_MAX_PER_WINDOW = Number(process.env.LAB_MAX_PER_WINDOW ?? "12"); // v3.9: стратегии независимы, лимит общий и широкий
+const LIVE_MAX_PER_WINDOW = Number(process.env.LAB_MAX_PER_WINDOW ?? "25"); // v3.9: стратегии независимы, лимит общий и широкий
 const LIVE_MAX_OPEN = Number(process.env.LAB_MAX_OPEN ?? "30");
 const LIVE_QUOTA_PER_HOUR = Number(process.env.LAB_QUOTA_PER_HOUR ?? "200");
 const LIVE_ATTEMPTS = 3; // сколько раз пробуем купить, если ордер не исполнился (FAK без встречных заявок)
@@ -3487,7 +3637,7 @@ class ResearchLab {
           const tb60 = tcfg.needTb60 ? this.tokenBidDelta(p, market, side, bid, 60, now) : null;
           const ext = {
             tb30: tcfg.needTb30 ? this.tokenBidDelta(p, market, side, bid, 30, now) : null,
-            clo: tcfg.needClo ? this.candleLow(p, market, side, now, entryRec.pm ?? null) : null,
+            ...(tcfg.needClo ? this.candleStats(p, market, side, now, entryRec.pm ?? null) : { clo: null }),
             ...(tcfg.needPath ? this.tokenPath(p, market, side, now) : {}),
           };
           pass = tcfg.filter(entryRec, tb60, ext);
@@ -3495,8 +3645,9 @@ class ResearchLab {
         const tkey = `${tcfg.name}|${market.eventSlug}|${side}`;
         const dayBlk = pass && tcfg.on ? this.dayBlock(tcfg) : null;
         if (!pass) this.tradeSkipped.add(tkey);
-        else if (!tcfg.on || notStarted(tcfg)) {
-          /* стратегия выключена командой «лаб тс выкл» (или ещё не наступил день старта): в статистику пишем, не торгуем */
+        else if (!tcfg.on || notStarted(tcfg) || ended(tcfg)) {
+          /* стратегия выключена командой «лаб тс выкл» (или ещё не наступил день старта / он уже закончился): в статистику пишем, не торгуем */
+          if (tcfg.on) this.tradeSkipped.add(tkey); // v7: без «LAB БЫ» сообщений для ещё не стартовавших и уже закончивших ТС
         } else if (dayBlk !== null) {
           this.tradeSkipped.add(tkey);
           const ds = this.dayState(tcfg.name);
@@ -4104,7 +4255,8 @@ class ResearchLab {
   onPaperText: ((text: string) => void) | null = null;
 
   // v4.0: дневная цель / дневной стоп (по закрытым сделкам стратегии, день по UTC)
-  private dayPnl = new Map<string, { day: number; real: number; told: boolean }>();
+  // v7: дневные счётчики цели/стопа хранятся и на диске (lab-day-state.json рядом с настройками), чтобы деплой/перезапуск посреди дня НЕ обнулял «цель +$1 набрана»
+  private dayPnl: Map<string, { day: number; real: number; told: boolean }> = loadDayState();
   private dayState(name: string): { day: number; real: number; told: boolean } {
     const d = Math.floor(Date.now() / DAY_MS);
     let st = this.dayPnl.get(name);
@@ -4116,6 +4268,7 @@ class ResearchLab {
   }
   private addDayPnl(name: string, pnl: number): void {
     this.dayState(name).real += pnl;
+    saveDayState(this.dayPnl);
   }
   private dayBlock(c: TradeCfg): string | null {
     const st = this.dayState(c.name);
@@ -4126,13 +4279,13 @@ class ResearchLab {
   dayLimitsText(): string {
     return TRADE_CFGS.map((c) => {
       const st = this.dayState(c.name);
-      return `• ${c.name} ${c.on ? (notStarted(c) ? "🕒" : "🟢") : "⏸"} ${stakeTxt(c)}${notStarted(c) ? `, старт ${c.fromDay} 00:00 UTC` : ""}, ${limitsTxt(c)}; сегодня закрыто ${st.real >= 0 ? "+" : "−"}$${Math.abs(st.real).toFixed(2)}${this.dayBlock(c) ? " — остановлена на день" : ""}`;
+      return `• ${c.name} ${c.on ? (ended(c) ? "🏁" : notStarted(c) ? "🕒" : "🟢") : "⏸"} ${stakeTxt(c)}${notStarted(c) ? `, старт ${c.fromDay} 00:00 UTC` : ""}${ended(c) ? `, закончила ${c.untilDay} 00:00 UTC (дальше только статистика)` : ""}, ${limitsTxt(c)}; сегодня закрыто ${st.real >= 0 ? "+" : "−"}$${Math.abs(st.real).toFixed(2)}${this.dayBlock(c) ? " — остановлена на день" : ""}`;
     }).join("\n");
   }
 
   private paperBuy(idea: string, market: CryptoUpDownMarket, side: "Up" | "Down", e: LabEntry, ratio: number | null, cfgIn?: TradeCfg, extra?: string): void {
     const cfg = cfgIn ?? cfgFor(idea, e.combo)!;
-    const shares = sharesOf(cfg);
+    const shares = sharesOf(cfg, e.price);
     const t = new Date(e.ts).toISOString().slice(11, 23);
     const text =
       `📝 LAB БЫ КУПИЛ [${cfg.name}, ${stakeTxt(cfg)}] ${t} UTC\n` +
@@ -4205,7 +4358,7 @@ class ResearchLab {
 
     const tokenId = side === "Up" ? market.upTokenId : market.downTokenId;
     // для ТС со стопом берём на ~6% больше: после округления/комиссии заполнение бывает 4.9 акции, а биржа не даёт продать меньше 5 — стоп бы не сработал
-    const size0 = cfg.stopPct ? Math.ceil(sharesOf(cfg) * 106) / 100 : sharesOf(cfg);
+    const size0 = cfg.stopPct ? Math.ceil(sharesOf(cfg, e.price) * 106) / 100 : sharesOf(cfg, e.price);
     const size = Math.max(size0, Math.ceil((MIN_NOTIONAL / Math.max(0.05, e.price)) * 100) / 100); // меньше $1 по сумме биржа не берёт
     const errors: string[] = [];
     const t0 = Date.now();
@@ -4339,42 +4492,45 @@ class ResearchLab {
 
   /** «Bid токена: вход − N с назад» — как на странице: bid сейчас минус последний bid той же стороны на момент (вход − N с), не старше 12 с в ленте. */
   /** v5.7: «Свеча до входа: минимум монеты, bps» — как на странице: низшая точка движения монеты (в нашу сторону) от открытия окна до входа, ≤ 0, по ленте раз в 5с и текущему движению */
-  private candleLow(p: PendingMarket, market: CryptoUpDownMarket, side: "Up" | "Down", nowMs: number, pm: number | null): number | null {
-    if (!p.tape || p.tape.length < 3) return null;
+  private candleStats(p: PendingMarket, market: CryptoUpDownMarket, side: "Up" | "Down", nowMs: number, pm: number | null): { clo: number | null; chi: number | null; crg: number | null } {
+    if (!p.tape || p.tape.length < 3) return { clo: null, chi: null, crg: null };
     const openMs = market.closeTimeMs - market.windowMinutes * 60 * 1000;
     const entryT = (nowMs - openMs) / 1000;
     const sg = side === "Up" ? 1 : -1;
-    let lo = 0;
+    let lo = 0, hi = 0;
     for (const r of p.tape) {
       if ((r[0] as number) > entryT) continue;
       const v = r[5];
       if (v === null || v === undefined) continue;
       const x = sg * (v as number);
       if (x < lo) lo = x;
+      if (x > hi) hi = x;
     }
-    if (pm !== null) lo = Math.min(lo, pm * 1e4);
-    return Math.round(lo * 10) / 10;
+    if (pm !== null) { lo = Math.min(lo, pm * 1e4); hi = Math.max(hi, pm * 1e4); }
+    return { clo: Math.round(lo * 10) / 10, chi: Math.round(hi * 10) / 10, crg: Math.round((hi - lo) * 10) / 10 };
   }
 
   /** v6: «скачок вверх» (jmp) и «откат от максимума» (rdd) по ленте bid токена с начала окна до входа — как считает страница (шаг 5с, значения до 0.001, нужно ≥3 шагов). */
-  private tokenPath(p: PendingMarket, market: CryptoUpDownMarket, side: "Up" | "Down", nowMs: number): { jmp: number | null; rdd: number | null } {
-    if (!p.tape || p.tape.length === 0) return { jmp: null, rdd: null };
+  private tokenPath(p: PendingMarket, market: CryptoUpDownMarket, side: "Up" | "Down", nowMs: number): { jmp: number | null; rdd: number | null; b0: number | null; mono: number | null } {
+    const none = { jmp: null, rdd: null, b0: null, mono: null };
+    if (!p.tape || p.tape.length === 0) return none;
     const openMs = market.closeTimeMs - market.windowMinutes * 60 * 1000;
     const entryT = (nowMs - openMs) / 1000;
     const col = side === "Up" ? 1 : 3;
-    let prev: number | null = null, mx = -1, maxJ = 0, maxDd = 0, steps = 0;
+    let prev: number | null = null, first: number | null = null, mx = -1, maxJ = 0, maxDd = 0, steps = 0, up = 0;
     for (const row of p.tape) {
       if ((row[0] as number) > entryT) break;
       const raw = row[col];
       if (raw === null || raw === undefined) continue;
       const b = raw as number;
-      if (prev !== null) { steps++; if (b - prev > maxJ) maxJ = b - prev; }
+      if (first === null) first = b;
+      if (prev !== null) { steps++; if (b >= prev - 1e-9) up++; if (b - prev > maxJ) maxJ = b - prev; }
       if (b > mx) mx = b;
       if (mx - b > maxDd) maxDd = mx - b;
       prev = b;
     }
-    if (steps < 3) return { jmp: null, rdd: null };
-    return { jmp: Math.round(maxJ * 1000) / 1000, rdd: Math.round(maxDd * 1000) / 1000 };
+    if (steps < 3 || first === null) return none;
+    return { jmp: Math.round(maxJ * 1000) / 1000, rdd: Math.round(maxDd * 1000) / 1000, b0: Math.round(first * 1000) / 1000, mono: Math.round((up / steps) * 100) / 100 };
   }
 
   private tokenBidDelta(p: PendingMarket, market: CryptoUpDownMarket, side: "Up" | "Down", bidNow: number | null, backSec: number, nowMs: number): number | null {
@@ -6818,7 +6974,7 @@ async function main() {
           console.log(`[polybolt] не удалось передать ключи фиду цен: ${(e as Error).message}`);
         }
         lab.liveEnabled = true;
-        const t = `🟢 LAB: РЕАЛЬНАЯ торговля включена. ${TRADE_CFGS.filter((c) => c.on).map((c) => `${c.name} ${stakeTxt(c)} (потолок ${c.cap}${c.minBid !== undefined ? `, мин. bid ${c.minBid}` : ""}${notStarted(c) ? `, старт ${c.fromDay} 00:00 UTC` : ""})`).join("; ")}. Лимиты: ${LIVE_MAX_PER_WINDOW} в окне, ${LIVE_MAX_OPEN} открытых, ${LIVE_QUOTA_PER_HOUR}/час. Выключить: «лаб торговля выкл».`;
+        const t = `🟢 LAB: РЕАЛЬНАЯ торговля включена. ${TRADE_CFGS.filter((c) => c.on).map((c) => `${c.name} ${stakeTxt(c)} (потолок ${c.cap}${c.minBid !== undefined ? `, мин. bid ${c.minBid}` : ""}${notStarted(c) ? `, старт ${c.fromDay} 00:00 UTC` : ""}${ended(c) ? `, закончила ${c.untilDay} 00:00 UTC` : ""})`).join("; ")}. Лимиты: ${LIVE_MAX_PER_WINDOW} в окне, ${LIVE_MAX_OPEN} открытых, ${LIVE_QUOTA_PER_HOUR}/час. Выключить: «лаб торговля выкл».`;
         console.log(t);
         lab.onPaperText?.(t);
       } catch (err) {
