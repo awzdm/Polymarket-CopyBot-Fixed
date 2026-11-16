@@ -209,6 +209,25 @@ const TRADE_CFGS: TradeCfg[] = [
       return e.price <= 0.77 + 1e-9;
     },
   },
+  // ══ v8: «НАБОР 2» (18 разных ТС, группа k2). Экспорт 19 строк: №8 и №11 одинаковы (kol9). Каждая ТС: ставка $1.1, дневная цель +$0.25, торговля с 2026-11-17 00:00 UTC. Все остальные ТС выключены (миграция __v8).
+  // Состав: ts15, ts16, ts17, ts19, ts20, ts22 (из «Набора 15»), kol8, kol9, m98 и новые c07…c19 (номер = строка экспорта).
+  {
+    name: "c07", group: "k2", idea: "fair2", combo: "edge 0-2% / 30-60с / 0.97-0.98", label: "Набор 2 №7: СЦ σ120с, edge 0-2%, 30-60с, ask 0.97-0.98 + скачок токена за шаг ≥0.24",
+    size: 1.1, sizeRefPrice: 0.97, cap: 0.98, needPath: true, on: true, goalP: 0.25, goalL: 0, fromDay: "2026-11-17",
+    filter: (_e, _t, x) => inR(x?.jmp, 0.24, null),
+  },
+  {
+    name: "c09", group: "k2", idea: "model", combo: "сила 1-1.5 / до 30с / 0.93-0.96", label: "Набор 2 №9: Модель цены, сила 1-1.5, до 30с, ask 0.93-0.96 + bid токена за 60с −0.07…0.34",
+    size: 1.1, sizeRefPrice: 0.93, cap: 0.96, needTb60: true, on: true, goalP: 0.25, goalL: 0, fromDay: "2026-11-17",
+    filter: (_e, tb60) => inR(tb60, -0.07, 0.34),
+  },
+  { name: "c12", group: "k2", idea: "fair2", combo: "edge 0-2% / 180-240с / 0.93-0.96", label: "Набор 2 №12: СЦ σ120с, edge 0-2%, 180-240с, ask 0.93-0.96 (без фильтров)", size: 1.1, sizeRefPrice: 0.93, cap: 0.96, on: true, goalP: 0.25, goalL: 0, fromDay: "2026-11-17" },
+  { name: "c14", group: "k2", idea: "fair2", combo: "edge 4-6% / 120-180с / 0.90-0.93", label: "Набор 2 №14: СЦ σ120с, edge 4-6%, 120-180с, ask 0.90-0.93 (без фильтров)", size: 1.1, sizeRefPrice: 0.9, cap: 0.93, on: true, goalP: 0.25, goalL: 0, fromDay: "2026-11-17" },
+  { name: "c15", group: "k2", idea: "model", combo: "сила 1-1.5 / 120-180с / 0.90-0.93", label: "Набор 2 №15: Модель цены, сила 1-1.5, 120-180с, ask 0.90-0.93 (без фильтров)", size: 1.1, sizeRefPrice: 0.9, cap: 0.93, on: true, goalP: 0.25, goalL: 0, fromDay: "2026-11-17" },
+  { name: "c16", group: "k2", idea: "fair2", combo: "edge <0 / 180-240с / 0.80-0.85", label: "Набор 2 №16: СЦ σ120с, edge<0, 180-240с, ask 0.80-0.85 (без фильтров)", size: 1.1, sizeRefPrice: 0.8, cap: 0.85, on: true, goalP: 0.25, goalL: 0, fromDay: "2026-11-17" },
+  { name: "c17", group: "k2", idea: "fair2", combo: "edge 2-4% / 60-120с / 0.70-0.80", label: "Набор 2 №17: СЦ σ120с, edge 2-4%, 60-120с, ask 0.70-0.80 + стоп 22%", size: 1.1, sizeRefPrice: 0.7, cap: 0.8, stopPct: 0.22, on: true, goalP: 0.25, goalL: 0, fromDay: "2026-11-17" },
+  { name: "c18", group: "k2", idea: "model", combo: "сила 1-1.5 / 120-180с / 0.80-0.85", label: "Набор 2 №18: Модель цены, сила 1-1.5, 120-180с, ask 0.80-0.85 (без фильтров)", size: 1.1, sizeRefPrice: 0.8, cap: 0.85, on: true, goalP: 0.25, goalL: 0, fromDay: "2026-11-17" },
+  { name: "c19", group: "k2", idea: "fair2", combo: "edge <0 / 60-120с / 0.70-0.80", label: "Набор 2 №19: СЦ σ120с, edge<0, 60-120с, ask 0.70-0.80 (без фильтров)", size: 1.1, sizeRefPrice: 0.7, cap: 0.8, on: true, goalP: 0.25, goalL: 0, fromDay: "2026-11-17" },
   // ══ v7: «НАБОР 15» (19 разных ТС; №1, №5 и №12 — это fz3, fz2 и kol8 ниже). Каждая торгует независимо, 1.1$, дневная цель +$1 у каждой, старт с 2026-11-17 00:00 UTC.
   // Старый коллектив (kol1…kol10) торгует до конца 2026-11-16 (UTC) и потом сам останавливается (untilDay). Все 19: «лаб тс выкл k19», объём: «лаб акций k19 5».
   // Номер в имени (ts03…ts22) — номер строки в экспорте «КОЛЛЕКТИВ (22 ТС)». ts20 стоит ВЫШЕ kol1: у них одна ячейка, а ячейку обслуживает первая найденная ТС.
@@ -264,21 +283,21 @@ const TRADE_CFGS: TradeCfg[] = [
     filter: (e) => inR(R3(e.price), 0.8, 0.9),
   },
   {
-    name: "ts15", group: "k19", idea: "fair2", combo: "edge 0-2% / 180-240с / 0.97-0.98", label: "Набор 15 №15: СЦ σ120с, edge 0-2%, 180-240с, ask 0.97-0.98 + Bitget/поток 0.66…1.48, час UTC ≤20",
-    size: 1.1, sizeRefPrice: 0.97, cap: 0.98, on: true, goalP: 1, goalL: 0, fromDay: "2026-11-17",
+    name: "ts15", group: "k2", idea: "fair2", combo: "edge 0-2% / 180-240с / 0.97-0.98", label: "Набор 15 №15: СЦ σ120с, edge 0-2%, 180-240с, ask 0.97-0.98 + Bitget/поток 0.66…1.48, час UTC ≤20",
+    size: 1.1, sizeRefPrice: 0.97, cap: 0.98, on: true, goalP: 0.25, goalL: 0, fromDay: "2026-11-17",
     filter: (e) => {
       const bg = exRatioOf(e, e.xs?.["bg"]);
       return bg !== null && inR(R2(bg), 0.66, 1.48) && e.hr != null && e.hr <= 20;
     },
   },
   {
-    name: "ts16", group: "k19", idea: "fair2", combo: "edge <0 / 180-240с / 0.97-0.98", label: "Набор 15 №16: СЦ σ120с, edge<0, 180-240с, ask 0.97-0.98 + размах монеты до входа ≥11.9 bps",
-    size: 1.1, sizeRefPrice: 0.97, cap: 0.98, needClo: true, on: true, goalP: 1, goalL: 0, fromDay: "2026-11-17",
+    name: "ts16", group: "k2", idea: "fair2", combo: "edge <0 / 180-240с / 0.97-0.98", label: "Набор 15 №16: СЦ σ120с, edge<0, 180-240с, ask 0.97-0.98 + размах монеты до входа ≥11.9 bps",
+    size: 1.1, sizeRefPrice: 0.97, cap: 0.98, needClo: true, on: true, goalP: 0.25, goalL: 0, fromDay: "2026-11-17",
     filter: (_e, _t, x) => inR(x?.crg, 11.9, null),
   },
   {
-    name: "ts17", group: "k19", idea: "fair1", combo: "edge <0 / 180-240с / 0.97-0.98", label: "Набор 15 №17: СЦ σ60с, edge<0, 180-240с, ask 0.97-0.98 + откат токена от максимума ≤0.10",
-    size: 1.1, sizeRefPrice: 0.97, cap: 0.98, needPath: true, on: true, goalP: 1, goalL: 0, fromDay: "2026-11-17",
+    name: "ts17", group: "k2", idea: "fair1", combo: "edge <0 / 180-240с / 0.97-0.98", label: "Набор 15 №17: СЦ σ60с, edge<0, 180-240с, ask 0.97-0.98 + откат токена от максимума ≤0.10",
+    size: 1.1, sizeRefPrice: 0.97, cap: 0.98, needPath: true, on: true, goalP: 0.25, goalL: 0, fromDay: "2026-11-17",
     filter: (_e, _t, x) => inR(x?.rdd, null, 0.1),
   },
   {
@@ -286,13 +305,13 @@ const TRADE_CFGS: TradeCfg[] = [
     size: 1.1, sizeRefPrice: 0.97, cap: 0.98, on: true, goalP: 1, goalL: 0, fromDay: "2026-11-17",
   },
   {
-    name: "ts19", group: "k19", idea: "margin", combo: "z≥1.0 / 30с", label: "Набор 15 №19: Запас, z≥1.0, 30с + bid токена в начале окна ≥0.36",
-    size: 1.1, sizeRefPrice: 0.97, cap: 0.98, needPath: true, on: true, goalP: 1, goalL: 0, fromDay: "2026-11-17",
+    name: "ts19", group: "k2", idea: "margin", combo: "z≥1.0 / 30с", label: "Набор 15 №19: Запас, z≥1.0, 30с + bid токена в начале окна ≥0.36",
+    size: 1.1, sizeRefPrice: 0.97, cap: 0.98, needPath: true, on: true, goalP: 0.25, goalL: 0, fromDay: "2026-11-17",
     filter: (_e, _t, x) => inR(x?.b0, 0.36, null),
   },
   {
-    name: "ts20", group: "k19", idea: "fair2", combo: "edge <0 / 180-240с / 0.98-0.99", label: "Набор 15 №20: СЦ σ120с, edge<0, 180-240с, ask 0.98-0.99 + пик токена ≥0.95",
-    size: 1.1, sizeRefPrice: 0.98, cap: 0.99, on: true, goalP: 1, goalL: 0, fromDay: "2026-11-17",
+    name: "ts20", group: "k2", idea: "fair2", combo: "edge <0 / 180-240с / 0.98-0.99", label: "Набор 15 №20: СЦ σ120с, edge<0, 180-240с, ask 0.98-0.99 + пик токена ≥0.95",
+    size: 1.1, sizeRefPrice: 0.98, cap: 0.99, on: true, goalP: 0.25, goalL: 0, fromDay: "2026-11-17",
     filter: (e) => e.pk != null && R3(e.pk) >= 0.95 - 1e-9,
   },
   {
@@ -301,8 +320,8 @@ const TRADE_CFGS: TradeCfg[] = [
     filter: (e, _t, x) => inR(x?.chi, 3.1, 14.9) && e.bid0 != null && R3(e.price - e.bid0) <= 0.08 + 1e-9,
   },
   {
-    name: "ts22", group: "k19", idea: "bot1", combo: "профиль", label: "Набор 15 №22: Профиль 1 + bid токена за 60с ≥0.16, корзина OKX 1…4",
-    size: 1.1, sizeRefPrice: 0.97, cap: 0.98, needTb60: true, on: true, goalP: 1, goalL: 0, fromDay: "2026-11-17",
+    name: "ts22", group: "k2", idea: "bot1", combo: "профиль", label: "Набор 15 №22: Профиль 1 + bid токена за 60с ≥0.16, корзина OKX 1…4",
+    size: 1.1, sizeRefPrice: 0.97, cap: 0.98, needTb60: true, on: true, goalP: 0.25, goalL: 0, fromDay: "2026-11-17",
     filter: (e, tb60) => {
       if (!inR(tb60, 0.16, null)) return false;
       const ok = exRatioOf(e, e.xs?.["ok"]);
@@ -351,8 +370,8 @@ const TRADE_CFGS: TradeCfg[] = [
     },
   },
   {
-    name: "kol8", group: "k19", idea: "model", combo: "сила 0.5-1 / 60-120с / 0.85-0.90", label: "Коллектив №8: Модель цены, сила 0.5-1, 60-120с, ask 0.85-0.90 + bid токена за 30с 0.10…0.20 и за 60с 0.16…0.34, пик ≥0.79, edge ≥0.001, σ5м ≥0.30, ask за 15с −0.04…0.28",
-    size: 1.1, sizeRefPrice: 0.85, cap: 0.9, needTb30: true, needTb60: true, on: true, goalP: 0, goalL: 0, fromDay: KOL_FROM,
+    name: "kol8", group: "k2", idea: "model", combo: "сила 0.5-1 / 60-120с / 0.85-0.90", label: "Коллектив №8: Модель цены, сила 0.5-1, 60-120с, ask 0.85-0.90 + bid токена за 30с 0.10…0.20 и за 60с 0.16…0.34, пик ≥0.79, edge ≥0.001, σ5м ≥0.30, ask за 15с −0.04…0.28",
+    size: 1.1, sizeRefPrice: 0.85, cap: 0.9, needTb30: true, needTb60: true, on: true, goalP: 0.25, goalL: 0, fromDay: "2026-11-17",
     filter: (e, tb60, x) => {
       const tb30 = x?.tb30 ?? null;
       if (tb30 === null || tb30 < 0.1 - 1e-9 || tb30 > 0.2 + 1e-9) return false;
@@ -366,8 +385,8 @@ const TRADE_CFGS: TradeCfg[] = [
     },
   },
   {
-    name: "kol9", group: "kol", idea: "fair1", combo: "edge <0 / 60-120с / 0.90-0.93", label: "Коллектив №9: СЦ σ60с, edge<0, 60-120с, ask 0.90-0.93 + до закрытия 79…117с, свеча до входа −5.4…0 bps, скачок токена за шаг ≥0.130",
-    size: 1.1, sizeRefPrice: 0.9, cap: 0.93, needClo: true, needPath: true, on: true, goalP: 0, goalL: 0, fromDay: KOL_FROM, untilDay: KOL_UNTIL,
+    name: "kol9", group: "k2", idea: "fair1", combo: "edge <0 / 60-120с / 0.90-0.93", label: "Коллектив №9: СЦ σ60с, edge<0, 60-120с, ask 0.90-0.93 + до закрытия 79…117с, свеча до входа −5.4…0 bps, скачок токена за шаг ≥0.130",
+    size: 1.1, sizeRefPrice: 0.9, cap: 0.93, needClo: true, needPath: true, on: true, goalP: 0.25, goalL: 0, fromDay: "2026-11-17",
     filter: (e, _t, x) => {
       if (e.sec < 79 || e.sec > 117) return false;
       const clo = x?.clo ?? null;
@@ -393,8 +412,8 @@ const TRADE_CFGS: TradeCfg[] = [
   },
   // v4.3: «Модель цены · сила 3+ / 180-240с / 0.98-0.99». 5 акций, цель дня +$2.5.
   {
-    name: "m98", idea: "model", combo: "сила 3+ / 180-240с / 0.98-0.99", label: "Модель цены, сила 3+, 180-240с, ask 0.98-0.99",
-    size: 5, sizeRefPrice: 0.98, cap: 0.99, shares: 5, on: true, goalP: 2.5, goalL: 0,
+    name: "m98", group: "k2", idea: "model", combo: "сила 3+ / 180-240с / 0.98-0.99", label: "Модель цены, сила 3+, 180-240с, ask 0.98-0.99",
+    size: 1.1, sizeRefPrice: 0.98, cap: 0.99, on: true, goalP: 0.25, goalL: 0, fromDay: "2026-11-17",
   },
   // v4.8: «Справедливая цена (σ 120с) · edge 0-2% / 120-180с / 0.85-0.90» + Bitget/поток 1.23…1.66. 5 акций, цель дня +$2.5, торгует с 7 ноября (UTC).
   {
@@ -538,6 +557,14 @@ async function fetchBids(tokenId: string): Promise<Array<[number, number]> | nul
     clearTimeout(timer);
   }
 }
+
+// v8 (разовая миграция): торгует только «Набор 2» (группа k2, 18 ТС): ставка $1.1, цель дня +$0.25 у каждой, старт 2026-11-17 00:00 UTC. Все остальные ТС выключены.
+function applyV8(): void {
+  for (const c of TRADE_CFGS) {
+    if (c.group === "k2") { c.on = true; c.shares = undefined; c.size = 1.1; c.goalP = 0.25; c.goalL = 0; }
+    else c.on = false;
+  }
+}
 function loadLiveCfg(): void {
   try {
     const o = JSON.parse(fs.readFileSync(LIVE_CFG_FILE, "utf8")) as Record<string, any>;
@@ -605,8 +632,13 @@ function loadLiveCfg(): void {
       }
       v3Pending = true;
     }
+    if (!o.__v8) {
+      applyV8();
+      v3Pending = true;
+    }
   } catch {
     /* файла ещё нет — настройки по умолчанию */
+    applyV8();
   }
   if (v3Pending) saveLiveCfg();
 }
@@ -619,6 +651,7 @@ function saveLiveCfg(): void {
     o.__v5 = true;
     o.__v6 = true;
     o.__v7 = true;
+    o.__v8 = true;
     o.__dip = { ...DIP };
     fs.writeFileSync(LIVE_CFG_FILE, JSON.stringify(o));
   } catch (err) {
