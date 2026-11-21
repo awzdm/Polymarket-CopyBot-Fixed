@@ -127,9 +127,11 @@ interface TradeCfg {
   on: boolean; // v4.0: стратегия торгует (команда «лаб тс вкл/выкл»); выключенная только пишется в статистику
   goalP: number; // v4.0: дневная цель по прибыли, $ (0 = выкл): набрала за день (UTC) — до конца дня не покупает
   goalL: number; // v4.0: дневной стоп по убытку, $ (0 = выкл)
+  goalW?: number; // v11: дневная цель — N прибыльных закрытых сделок за день (UTC), потом до 00:00 UTC не покупает (0/не задано = выкл)
   stopPct?: number; // v5.3: реальный стоп — продаём по рынку, когда bid ≤ цена входа × (1 − stopPct)
   fromDay?: string; // v4.8: начать торговать с этого дня (UTC, «2026-11-07»); до этого только пишет статистику
   untilDay?: string; // v7: торговать ДО конца предыдущего дня (UTC): с 00:00 этого дня только пишет статистику
+  paper?: boolean; // v11: бумажный режим — сделки только виртуально («LAB БЫ»), реальных денег нет; включается «лаб бумага <имя> вкл»
   exact?: boolean; // v7: число акций = ставка ÷ реальная цена входа (для ТС с широким коридором цены); иначе от sizeRefPrice
 }
 const KOL_FROM = "2026-11-15"; // v6: коллектив начинает торговать с этого дня (UTC)
@@ -155,97 +157,31 @@ const nagOf = (e: LabEntry): number | null => {
 const inR = (v: number | null | undefined, lo: number | null, hi: number | null): boolean =>
   v != null && (lo === null || v >= lo - 1e-9) && (hi === null || v <= hi + 1e-9);
 const TRADE_CFGS: TradeCfg[] = [
-  // ══ v10: КОЛЛЕКТИВ 17 ТС (группа k17, имена t01…t17 = номера строк экспорта). ВСЕ прежние ТС удалены. Каждая ТС: ставка $1.1, дневная цель +$0.5, старт 2026-11-20 00:00 UTC (= 07:00 Бангкок). Общий дневной стоп −$4.5 (LAB_TOTAL_STOP).
+  // ══ v11: КОЛЛЕКТИВ POJ (5 ТС, группа poj), только ETH. ВСЕ прежние ТС удалены. Ставка $1.1, дневная цель — 1 прибыльная сделка (goalW), старт 2026-11-22 00:00 UTC (= 07:00 Бангкок). Общий дневной стоп — TOTAL_STOP.
   {
-    name: "t01", group: "k17", idea: "model", combo: "сила 1-1.5 / 120-180с / 0.80-0.85", label: "Коллектив 17 №1: Модель цены, сила 1-1.5, 120-180с, ask 0.80-0.85 (без фильтров)",
-    size: 1.1, on: true, goalP: 0.5, goalL: 0, fromDay: "2026-11-20", sizeRefPrice: 0.8, cap: 0.85,
+    name: "p1", group: "poj", idea: "fair1", combo: "edge <0 / 180-240с / 0.60-0.70", label: "Коллектив POJ №1: СЦ σ60с, edge<0, 180-240с, ask 0.60-0.70, только ETH",
+    size: 1.1, on: true, goalP: 0, goalL: 0, goalW: 1, fromDay: "2026-11-22", sizeRefPrice: 0.6, cap: 0.7,
+    filter: (e) => e.coin === "Ethereum",
   },
   {
-    name: "t02", group: "k17", idea: "fair1", combo: "edge <0 / 180-240с / 0.60-0.70", label: "Коллектив 17 №2: СЦ σ60с, edge<0, 180-240с, ask 0.60-0.70 (без фильтров)",
-    size: 1.1, on: true, goalP: 0.5, goalL: 0, fromDay: "2026-11-20", sizeRefPrice: 0.6, cap: 0.7,
+    name: "p2", group: "poj", idea: "model", combo: "сила 0.5-1 / 120-180с / 0.70-0.80", label: "Коллектив POJ №2: Модель цены, сила 0.5-1, 120-180с, ask 0.70-0.80, только ETH",
+    size: 1.1, on: true, goalP: 0, goalL: 0, goalW: 1, fromDay: "2026-11-22", sizeRefPrice: 0.7, cap: 0.8,
+    filter: (e) => e.coin === "Ethereum",
   },
   {
-    name: "t03", group: "k17", idea: "model", combo: "сила 1-1.5 / 120-180с / 0.90-0.93", label: "Коллектив 17 №3: Модель цены, сила 1-1.5, 120-180с, ask 0.90-0.93 (без фильтров)",
-    size: 1.1, on: true, goalP: 0.5, goalL: 0, fromDay: "2026-11-20", sizeRefPrice: 0.9, cap: 0.93,
+    name: "p3", group: "poj", idea: "model", combo: "сила 2-3 / 120-180с / 0.70-0.80", label: "Коллектив POJ №3: Модель цены, сила 2-3, 120-180с, ask 0.70-0.80, только ETH",
+    size: 1.1, on: true, goalP: 0, goalL: 0, goalW: 1, fromDay: "2026-11-22", sizeRefPrice: 0.7, cap: 0.8,
+    filter: (e) => e.coin === "Ethereum",
   },
   {
-    name: "t04", group: "k17", idea: "fair2", combo: "edge 4-6% / 180-240с / 0.85-0.90", label: "Коллектив 17 №4: СЦ σ120с, edge 4-6%, 180-240с, ask 0.85-0.90 (без фильтров)",
-    size: 1.1, on: true, goalP: 0.5, goalL: 0, fromDay: "2026-11-20", sizeRefPrice: 0.85, cap: 0.9,
+    name: "p4", group: "poj", idea: "fair2", combo: "edge <0 / 180-240с / 0.80-0.85", label: "Коллектив POJ №4: СЦ σ120с, edge<0, 180-240с, ask 0.80-0.85, только ETH",
+    size: 1.1, on: true, goalP: 0, goalL: 0, goalW: 1, fromDay: "2026-11-22", sizeRefPrice: 0.8, cap: 0.85,
+    filter: (e) => e.coin === "Ethereum",
   },
   {
-    name: "t05", group: "k17", idea: "fair2", combo: "edge 0-2% / 30-60с / 0.97-0.98", label: "Коллектив 17 №5: СЦ σ120с, edge 0-2%, 30-60с, ask 0.97-0.98 + скачок токена за шаг ≥0.24",
-    size: 1.1, on: true, goalP: 0.5, goalL: 0, fromDay: "2026-11-20", sizeRefPrice: 0.97, cap: 0.98, needPath: true,
-    filter: (_e, _t, x) => inR(x?.jmp, 0.24, null),
-  },
-  {
-    name: "t06", group: "k17", idea: "fair2", combo: "edge 0-2% / 180-240с / 0.97-0.98", label: "Коллектив 17 №6: СЦ σ120с, edge 0-2%, 180-240с, ask 0.97-0.98 + Bitget/поток 0.66…1.48, час UTC ≤20",
-    size: 1.1, on: true, goalP: 0.5, goalL: 0, fromDay: "2026-11-20", sizeRefPrice: 0.97, cap: 0.98,
-    filter: (e) => {
-      const bg = exRatioOf(e, e.xs?.["bg"]);
-      return bg !== null && inR(R2(bg), 0.66, 1.48) && e.hr != null && e.hr <= 20;
-    },
-  },
-  {
-    name: "t07", group: "k17", idea: "crv", combo: "отрыв в 3-5 раза больше любого отката / 180-240с", label: "Коллектив 17 №7: Монета, отрыв в 3-5 раза больше любого отката, 180-240с + откат токена от максимума ≤0.24, до закрытия ≤209с, спред ≤0.03",
-    size: 1.1, on: true, goalP: 0.5, goalL: 0, fromDay: "2026-11-20", sizeRefPrice: 0.9, cap: 0.99, exact: true, needPath: true,
-    filter: (e, _t, x) => inR(x?.rdd, null, 0.24) && e.sec <= 209 && e.bid0 != null && R3(e.price - e.bid0) <= 0.03 + 1e-9,
-  },
-  {
-    name: "t08", group: "k17", idea: "crv", combo: "отрыв в 5+ раза больше любого отката / 180-240с", label: "Коллектив 17 №8: Монета, отрыв 5+ раз больше любого отката, 180-240с + bid токена за 30с 0.03…0.17, σ5м ≤0.81, соседей с просевшим токеном ≤0",
-    size: 1.1, on: true, goalP: 0.5, goalL: 0, fromDay: "2026-11-20", sizeRefPrice: 0.9, cap: 0.99, exact: true, needTb30: true,
-    filter: (e, _t, x) => inR(x?.tb30 != null ? R2(x.tb30) : null, 0.03, 0.17) && e.rv5 != null && R2(e.rv5) <= 0.81 + 1e-9 && e.cg != null && e.cg <= 0,
-  },
-  {
-    name: "t09", group: "k17", idea: "margin", combo: "z≥1.5 / 30с", label: "Коллектив 17 №9: Запас z≥1.5, до 30с (ask 0.97-0.98, без фильтров)",
-    size: 1.1, on: true, goalP: 0.5, goalL: 0, fromDay: "2026-11-20", sizeRefPrice: 0.97, cap: 0.98,
-  },
-  {
-    name: "t10", group: "k17", idea: "fair2", combo: "edge 4-6% / 30-60с / 0.80-0.85", label: "Коллектив 17 №10: СЦ σ120с, edge 4-6%, 30-60с, ask 0.80-0.85 + свеча до входа −11.4…−2.4 bps, бирж против ≤5, откат токена от максимума ≤0.69",
-    size: 1.1, on: true, goalP: 0.5, goalL: 0, fromDay: "2026-11-20", sizeRefPrice: 0.8, cap: 0.85, needClo: true, needPath: true,
-    filter: (e, _t, x) => {
-      if (!inR(x?.clo, -11.4, -2.4)) return false;
-      const nag = nagOf(e);
-      if (nag === null || nag > 5) return false;
-      return inR(x?.rdd, null, 0.69);
-    },
-  },
-  {
-    name: "t11", group: "k17", idea: "fair2", combo: "edge <0 / 180-240с / 0.97-0.98", label: "Коллектив 17 №11: СЦ σ120с, edge<0, 180-240с, ask 0.97-0.98 + размах монеты до входа ≥11.9 bps",
-    size: 1.1, on: true, goalP: 0.5, goalL: 0, fromDay: "2026-11-20", sizeRefPrice: 0.97, cap: 0.98, needClo: true,
-    filter: (_e, _t, x) => inR(x?.crg, 11.9, null),
-  },
-  {
-    name: "t12", group: "k17", idea: "margin", combo: "z≥1.0 / 30с", label: "Коллектив 17 №12: Запас z≥1.0, до 30с (ask 0.97-0.98) + bid токена в начале окна ≥0.36",
-    size: 1.1, on: true, goalP: 0.5, goalL: 0, fromDay: "2026-11-20", sizeRefPrice: 0.97, cap: 0.98, needPath: true,
-    filter: (_e, _t, x) => inR(x?.b0, 0.36, null),
-  },
-  {
-    name: "t13", group: "k17", idea: "model", combo: "сила 1.5-2 / до 30с / 0.90-0.93", label: "Коллектив 17 №13: Модель цены, сила 1.5-2, до 30с, ask 0.90-0.93 + z 1.52…1.83, σ5м 0.35…1.03",
-    size: 1.1, on: true, goalP: 0.5, goalL: 0, fromDay: "2026-11-20", sizeRefPrice: 0.9, cap: 0.93,
-    filter: (e) => e.z != null && e.rv5 != null && inR(R2(e.z), 1.52, 1.83) && inR(R2(e.rv5), 0.35, 1.03),
-  },
-  {
-    name: "t14", group: "k17", idea: "bot1", combo: "профиль", label: "Коллектив 17 №14: Профиль бота 1 (ask 0.97-0.98) + bid токена за 60с ≥0.16, корзина OKX 1…4",
-    size: 1.1, on: true, goalP: 0.5, goalL: 0, fromDay: "2026-11-20", sizeRefPrice: 0.97, cap: 0.98, needTb60: true,
-    filter: (e, tb60) => {
-      const ok = exRatioOf(e, e.xs?.["ok"]);
-      return inR(tb60, 0.16, null) && ok !== null && inR(bucketIdx(ok), 1, 4);
-    },
-  },
-  {
-    name: "t15", group: "k17", idea: "model", combo: "сила 1-1.5 / до 30с / 0.93-0.96", label: "Коллектив 17 №15: Модель цены, сила 1-1.5, до 30с, ask 0.93-0.96 + bid токена за 60с −0.07…0.34",
-    size: 1.1, on: true, goalP: 0.5, goalL: 0, fromDay: "2026-11-20", sizeRefPrice: 0.93, cap: 0.96, needTb60: true,
-    filter: (_e, tb60) => inR(tb60, -0.07, 0.34),
-  },
-  {
-    name: "t16", group: "k17", idea: "fair1", combo: "edge <0 / 180-240с / 0.97-0.98", label: "Коллектив 17 №16: СЦ σ60с, edge<0, 180-240с, ask 0.97-0.98 + откат токена от максимума ≤0.10",
-    size: 1.1, on: true, goalP: 0.5, goalL: 0, fromDay: "2026-11-20", sizeRefPrice: 0.97, cap: 0.98, needPath: true,
-    filter: (_e, _t, x) => inR(x?.rdd, null, 0.1),
-  },
-  {
-    name: "t17", group: "k17", idea: "cbd", combo: "тело свечи 50-80% · сила 1-2 / 180-240с", label: "Коллектив 17 №17: Монета: тело свечи 50-80%, сила 1-2, 180-240с + цена входа (ask) 0.80…0.95",
-    size: 1.1, on: true, goalP: 0.5, goalL: 0, fromDay: "2026-11-20", sizeRefPrice: 0.8, cap: 0.95, exact: true,
-    filter: (e) => inR(R3(e.price), 0.8, 0.95),
+    name: "p5", group: "poj", idea: "model", combo: "сила 1-1.5 / 180-240с / 0.85-0.90", label: "Коллектив POJ №5: Модель цены, сила 1-1.5, 180-240с, ask 0.85-0.90, только ETH",
+    size: 1.1, on: true, goalP: 0, goalL: 0, goalW: 1, fromDay: "2026-11-22", sizeRefPrice: 0.85, cap: 0.9,
+    filter: (e) => e.coin === "Ethereum",
   },
 ];
 /** v6: стратегии по имени, «все» или имени группы (например «kol»). */
@@ -271,23 +207,23 @@ const MIN_NOTIONAL = 1.05; // биржа: покупка рыночным орд
 const minStakeOf = (c: TradeCfg): number => Math.max(MIN_NOTIONAL, Math.ceil(MIN_SHARES * c.sizeRefPrice * 100) / 100);
 const sharesOf = (c: TradeCfg, price?: number): number => (c.shares !== undefined && c.shares > 0 ? c.shares : c.size / (c.exact && price !== undefined && price > 0.05 ? price : c.sizeRefPrice));
 const stakeTxt = (c: TradeCfg): string => (c.shares !== undefined && c.shares > 0 ? `${c.shares} акций` : `$${c.size}`) + (c.stopPct ? `, стоп ${Math.round(c.stopPct * 100)}%` : "");
-const limitsTxt = (c: TradeCfg): string => `цель ${c.goalP > 0 ? `+$${c.goalP}` : "выкл"}, стоп ${c.goalL > 0 ? `−$${c.goalL}` : "выкл"}`;
+const limitsTxt = (c: TradeCfg): string => `цель ${(c.goalW ?? 0) > 0 ? `${c.goalW} приб. сделк.` : c.goalP > 0 ? `+$${c.goalP}` : "выкл"}, стоп ${c.goalL > 0 ? `−$${c.goalL}` : "выкл"}`;
 const LIVE_CFG_FILE = path.resolve(process.env.LAB_DATA_PATH || process.env.RAILWAY_VOLUME_MOUNT_PATH || process.cwd(), "lab-live-config.json");
 // v9: ОБЩИЙ дневной стоп — сумма закрытых результатов всех ТС за день (UTC) ≤ −$4.5 → никто не покупает до 00:00 UTC (env LAB_TOTAL_STOP, 0 = выкл)
 const TOTAL_STOP = Number(process.env.LAB_TOTAL_STOP ?? "4.5");
 const DAY_STATE_FILE = path.resolve(path.dirname(LIVE_CFG_FILE), "lab-day-state.json");
-function loadDayState(): Map<string, { day: number; real: number; told: boolean }> {
-  const m = new Map<string, { day: number; real: number; told: boolean }>();
+function loadDayState(): Map<string, { day: number; real: number; told: boolean; wins?: number }> {
+  const m = new Map<string, { day: number; real: number; told: boolean; wins?: number }>();
   try {
-    const o = JSON.parse(fs.readFileSync(DAY_STATE_FILE, "utf8")) as Record<string, { day: number; real: number; told?: boolean }>;
+    const o = JSON.parse(fs.readFileSync(DAY_STATE_FILE, "utf8")) as Record<string, { day: number; real: number; told?: boolean; wins?: number }>;
     const today = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
-    for (const [k, v] of Object.entries(o)) if (v && v.day === today && typeof v.real === "number") m.set(k, { day: v.day, real: v.real, told: !!v.told });
+    for (const [k, v] of Object.entries(o)) if (v && v.day === today && typeof v.real === "number") m.set(k, { day: v.day, real: v.real, told: !!v.told, wins: typeof v.wins === "number" ? v.wins : 0 });
   } catch {
     /* файла нет — счётчики с нуля */
   }
   return m;
 }
-function saveDayState(m: Map<string, { day: number; real: number; told: boolean }>): void {
+function saveDayState(m: Map<string, { day: number; real: number; told: boolean; wins?: number }>): void {
   try {
     fs.writeFileSync(DAY_STATE_FILE, JSON.stringify(Object.fromEntries(m)));
   } catch (err) {
@@ -369,13 +305,13 @@ async function fetchBids(tokenId: string): Promise<Array<[number, number]> | nul
 // v8 (разовая миграция): торгует только «Набор 2» (группа k2, 18 ТС): ставка $1.1, цель дня +$0.25 у каждой, старт 2026-11-17 00:00 UTC. Все остальные ТС выключены.
 // v9 (разовая миграция): в боте остался ТОЛЬКО «Набор 1007» (группа k8, s01…s08): ставка $1.1, цель дня +$0.5 у каждой, все включены.
 function applyV9(): void {
-  for (const c of TRADE_CFGS) { c.on = true; c.shares = undefined; c.size = 1.1; c.goalP = 0.5; c.goalL = 0; }
+  for (const c of TRADE_CFGS) { c.on = true; c.shares = undefined; c.size = 1.1; c.goalP = 0; c.goalL = 0; c.goalW = 1; c.paper = false; }
 }
 function loadLiveCfg(): void {
   try {
     const o = JSON.parse(fs.readFileSync(LIVE_CFG_FILE, "utf8")) as Record<string, any>;
     for (const c of TRADE_CFGS) if (typeof o[c.name] === "number" && o[c.name] >= minStakeOf(c) && o[c.name] <= MAX_STAKE) c.size = o[c.name];
-    const v2 = o.__v2 as Record<string, { shares?: number | null; on?: boolean; goalP?: number; goalL?: number }> | undefined;
+    const v2 = o.__v2 as Record<string, { shares?: number | null; on?: boolean; goalP?: number; goalL?: number; goalW?: number; paper?: boolean }> | undefined;
     if (v2 && typeof v2 === "object") {
       for (const c of TRADE_CFGS) {
         const x = v2[c.name];
@@ -385,6 +321,8 @@ function loadLiveCfg(): void {
         else if (typeof x.shares === "number" && x.shares >= MIN_SHARES && x.shares <= MAX_SHARES) c.shares = x.shares;
         if (typeof x.goalP === "number" && x.goalP >= 0) c.goalP = x.goalP;
         if (typeof x.goalL === "number" && x.goalL >= 0) c.goalL = x.goalL;
+        if (typeof x.paper === "boolean") c.paper = x.paper;
+        if (typeof x.goalW === "number" && x.goalW >= 0) c.goalW = x.goalW;
       }
     }
     const dp = o.__dip as Record<string, any> | undefined;
@@ -438,7 +376,7 @@ function loadLiveCfg(): void {
       }
       v3Pending = true;
     }
-    if (!o.__v10) {
+    if (!o.__v11) {
       applyV9();
       v3Pending = true;
     }
@@ -451,7 +389,7 @@ function loadLiveCfg(): void {
 function saveLiveCfg(): void {
   try {
     const o: Record<string, any> = Object.fromEntries(TRADE_CFGS.map((c) => [c.name, c.size]));
-    o.__v2 = Object.fromEntries(TRADE_CFGS.map((c) => [c.name, { shares: c.shares ?? null, on: c.on, goalP: c.goalP, goalL: c.goalL }]));
+    o.__v2 = Object.fromEntries(TRADE_CFGS.map((c) => [c.name, { shares: c.shares ?? null, on: c.on, goalP: c.goalP, goalL: c.goalL, goalW: c.goalW ?? 0, paper: c.paper === true }]));
     o.__v3 = true;
     o.__v4 = true;
     o.__v5 = true;
@@ -460,6 +398,7 @@ function saveLiveCfg(): void {
     o.__v8 = true;
     o.__v9 = true;
     o.__v10 = true;
+    o.__v11 = true;
     o.__dip = { ...DIP };
     fs.writeFileSync(LIVE_CFG_FILE, JSON.stringify(o));
   } catch (err) {
@@ -3496,7 +3435,7 @@ class ResearchLab {
             ds.told = true;
             this.note(`🎯 LAB [${tcfg.name}]: ${dayBlk}. До 00:00 UTC новых покупок нет.`);
           }
-        } else if (this.liveEnabled && this.clob) void this.liveBuy(idea, market, side, entryRec, getRatioOf("b"));
+        } else if (this.liveEnabled && this.clob && !tcfg.paper) void this.liveBuy(idea, market, side, entryRec, getRatioOf("b"));
         else this.paperBuy(idea, market, side, entryRec, getRatioOf("b"));
       }
       // v5.5: «вход после дна» — отдельный наблюдатель на тот же сигнал (спред сигнала ≤2¢, как у fair2s)
@@ -4097,18 +4036,20 @@ class ResearchLab {
 
   // v4.0: дневная цель / дневной стоп (по закрытым сделкам стратегии, день по UTC)
   // v7: дневные счётчики цели/стопа хранятся и на диске (lab-day-state.json рядом с настройками), чтобы деплой/перезапуск посреди дня НЕ обнулял «цель +$1 набрана»
-  private dayPnl: Map<string, { day: number; real: number; told: boolean }> = loadDayState();
-  private dayState(name: string): { day: number; real: number; told: boolean } {
+  private dayPnl: Map<string, { day: number; real: number; told: boolean; wins?: number }> = loadDayState();
+  private dayState(name: string): { day: number; real: number; told: boolean; wins?: number } {
     const d = Math.floor(Date.now() / DAY_MS);
     let st = this.dayPnl.get(name);
     if (!st || st.day !== d) {
-      st = { day: d, real: 0, told: false };
+      st = { day: d, real: 0, told: false, wins: 0 };
       this.dayPnl.set(name, st);
     }
     return st;
   }
   private addDayPnl(name: string, pnl: number): void {
-    this.dayState(name).real += pnl;
+    const ds = this.dayState(name);
+    ds.real += pnl;
+    if (pnl > 1e-9) ds.wins = (ds.wins ?? 0) + 1;
     saveDayState(this.dayPnl);
   }
   private totalDayPnl(): number {
@@ -4123,6 +4064,7 @@ class ResearchLab {
     }
     const st = this.dayState(c.name);
     if (c.goalP > 0 && st.real >= c.goalP - 1e-9) return `дневная цель +$${c.goalP} достигнута (сегодня ${st.real >= 0 ? "+" : "−"}$${Math.abs(st.real).toFixed(2)})`;
+    if ((c.goalW ?? 0) > 0 && (st.wins ?? 0) >= (c.goalW ?? 0)) return `дневная цель: ${c.goalW} приб. сделк. набрана (сегодня ${st.wins})`;
     if (c.goalL > 0 && st.real <= -c.goalL + 1e-9) return `дневной стоп −$${c.goalL} сработал (сегодня −$${Math.abs(st.real).toFixed(2)})`;
     return null;
   }
@@ -4131,7 +4073,7 @@ class ResearchLab {
     const head = TOTAL_STOP > 0 ? `Общий стоп дня: −$${TOTAL_STOP}; все ТС вместе сегодня ${tot >= 0 ? "+" : "−"}$${Math.abs(tot).toFixed(2)}${tot <= -TOTAL_STOP + 1e-9 ? " — ВСЯ ТОРГОВЛЯ ОСТАНОВЛЕНА до 00:00 UTC" : ""}\n` : "";
     return head + TRADE_CFGS.map((c) => {
       const st = this.dayState(c.name);
-      return `• ${c.name} ${c.on ? (ended(c) ? "🏁" : notStarted(c) ? "🕒" : "🟢") : "⏸"} ${stakeTxt(c)}${notStarted(c) ? `, старт ${c.fromDay} 00:00 UTC` : ""}${ended(c) ? `, закончила ${c.untilDay} 00:00 UTC (дальше только статистика)` : ""}, ${limitsTxt(c)}; сегодня закрыто ${st.real >= 0 ? "+" : "−"}$${Math.abs(st.real).toFixed(2)}${this.dayBlock(c) ? " — остановлена на день" : ""}`;
+      return `• ${c.name} ${c.paper ? "📝бумага " : ""}${c.on ? (ended(c) ? "🏁" : notStarted(c) ? "🕒" : "🟢") : "⏸"} ${stakeTxt(c)}${notStarted(c) ? `, старт ${c.fromDay} 00:00 UTC` : ""}${ended(c) ? `, закончила ${c.untilDay} 00:00 UTC (дальше только статистика)` : ""}, ${limitsTxt(c)}; сегодня закрыто ${st.real >= 0 ? "+" : "−"}$${Math.abs(st.real).toFixed(2)}${this.dayBlock(c) ? " — остановлена на день" : ""}`;
     }).join("\n");
   }
 
@@ -6134,6 +6076,7 @@ class ResearchLab {
       "лаб после [дней] — что происходит с токенами после закрытия окна до резолва (замер, без покупок)",
       "лаб тест — бумажные тесты ТС со стопами/входами после дна (без покупок): «лаб тест», «лаб тест T01», «лаб тест сброс»",
       "лаб дно — вход после дна (fair2): цены дна и покупки, вкл/выкл: «лаб дно 75 80»",
+      "лаб бумага — ТС без реальных денег: «лаб бумага t05 вкл», «лаб бумага t05 выкл»",
       "лаб тс — стратегии LAB: список, «лаб тс выкл fair2», «лаб тс вкл cb4»",
       "лаб акций — покупать всегда N акций: «лаб акций cb4 5» (выкл — обратно в $)",
       "лаб лимит — дневная цель/стоп: «лаб лимит cb4 цель 20», «лаб лимит cb4 убыток 15», «лаб лимит все выкл»",
@@ -6588,6 +6531,23 @@ async function pollTelegramCommands(
         }
 
         // v4.0: управление стратегиями — вкл/выкл, ставка в акциях, дневные лимиты
+        if (text === "лаб бумага" || text.startsWith("лаб бумага ")) {
+          const args = text.replace(/^лаб бумага/, "").trim().split(" ").filter(Boolean);
+          const act = args.find((a) => a === "вкл" || a === "выкл");
+          const nm = args.find((a) => a !== "вкл" && a !== "выкл");
+          if (!act || !nm) await telegram?.send(escapeTelegramHtml(`Бумажный режим: ТС считает виртуальные сделки, реальных денег не тратит (чтобы проверить новую ТС на настоящих днях).\nВключить: «лаб бумага t05 вкл» (или имя группы / «все»). Выключить: «лаб бумага t05 выкл».\nСейчас на бумаге: ${TRADE_CFGS.filter((c) => c.paper).map((c) => c.name).join(", ") || "никого"}.`));
+          else {
+            const targets = pickCfgs(nm);
+            if (targets.length === 0) await telegram?.send(escapeTelegramHtml(`Не знаю стратегию «${nm}». Доступны: ${TRADE_CFGS.map((c) => c.name).join(", ")}, все.`));
+            else {
+              for (const c of targets) c.paper = act === "вкл";
+              saveLiveCfg();
+              await telegram?.send(escapeTelegramHtml(`✅ ${act === "вкл" ? "На бумагу (реальных денег нет)" : "Снова реальная торговля"}: ${targets.map((c) => c.name).join(", ")}.`));
+            }
+          }
+          continue;
+        }
+
         if (text === "лаб тс" || text.startsWith("лаб тс ") || text === "/lab_ts" || text.startsWith("/lab_ts ")) {
           const args = text.replace(/^(лаб тс|\/lab_ts)/, "").trim().split(" ").filter(Boolean);
           const act = args.find((a) => a === "вкл" || a === "выкл");
