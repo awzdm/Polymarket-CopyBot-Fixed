@@ -211,7 +211,7 @@ const stakeTxt = (c: TradeCfg): string => (c.shares !== undefined && c.shares > 
 const limitsTxt = (c: TradeCfg): string => `цель ${(c.goalW ?? 0) > 0 ? `${c.goalW} приб. сделк.` : c.goalP > 0 ? `+$${c.goalP}` : "выкл"}, стоп ${c.goalL > 0 ? `−$${c.goalL}` : "выкл"}`;
 const LIVE_CFG_FILE = path.resolve(process.env.LAB_DATA_PATH || process.env.RAILWAY_VOLUME_MOUNT_PATH || process.cwd(), "lab-live-config.json");
 // v9: ОБЩИЙ дневной стоп — сумма закрытых результатов всех ТС за день (UTC) ≤ −$4.5 → никто не покупает до 00:00 UTC (env LAB_TOTAL_STOP, 0 = выкл)
-const TOTAL_STOP = Number(process.env.LAB_TOTAL_STOP ?? "4.5");
+const TOTAL_STOP = Number(process.env.LAB_TOTAL_STOP ?? "9");
 const DAY_STATE_FILE = path.resolve(path.dirname(LIVE_CFG_FILE), "lab-day-state.json");
 function loadDayState(): Map<string, { day: number; real: number; told: boolean; wins?: number; wq?: number[]; stopW?: boolean; virt?: number }> {
   const m = new Map<string, { day: number; real: number; told: boolean; wins?: number; wq?: number[]; stopW?: boolean; virt?: number }>();
@@ -343,6 +343,11 @@ function loadLiveCfg(): void {
         if (typeof x.goalW === "number" && x.goalW >= 0) c.goalW = x.goalW;
       }
     }
+    // v12: разовая смена ставки всех ТС коллектива POJ на $1.65 (дальше «лаб объем» работает как обычно)
+    if (!o.__v12) {
+      for (const c of TRADE_CFGS) c.size = 1.65;
+      v3Pending = true;
+    }
     const dp = o.__dip as Record<string, any> | undefined;
     if (dp && typeof dp === "object") {
       if (typeof dp.on === "boolean") DIP.on = dp.on;
@@ -417,6 +422,7 @@ function saveLiveCfg(): void {
     o.__v9 = true;
     o.__v10 = true;
     o.__v11 = true;
+    o.__v12 = true;
     o.__dip = { ...DIP };
     fs.writeFileSync(LIVE_CFG_FILE, JSON.stringify(o));
   } catch (err) {
