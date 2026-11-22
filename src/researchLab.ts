@@ -212,18 +212,18 @@ const LIVE_CFG_FILE = path.resolve(process.env.LAB_DATA_PATH || process.env.RAIL
 // v9: ОБЩИЙ дневной стоп — сумма закрытых результатов всех ТС за день (UTC) ≤ −$4.5 → никто не покупает до 00:00 UTC (env LAB_TOTAL_STOP, 0 = выкл)
 const TOTAL_STOP = Number(process.env.LAB_TOTAL_STOP ?? "4.5");
 const DAY_STATE_FILE = path.resolve(path.dirname(LIVE_CFG_FILE), "lab-day-state.json");
-function loadDayState(): Map<string, { day: number; real: number; told: boolean; wins?: number }> {
-  const m = new Map<string, { day: number; real: number; told: boolean; wins?: number }>();
+function loadDayState(): Map<string, { day: number; real: number; told: boolean; wins?: number; wq?: number[]; stopW?: boolean }> {
+  const m = new Map<string, { day: number; real: number; told: boolean; wins?: number; wq?: number[]; stopW?: boolean }>();
   try {
-    const o = JSON.parse(fs.readFileSync(DAY_STATE_FILE, "utf8")) as Record<string, { day: number; real: number; told?: boolean; wins?: number }>;
+    const o = JSON.parse(fs.readFileSync(DAY_STATE_FILE, "utf8")) as Record<string, { day: number; real: number; told?: boolean; wins?: number; wq?: number[]; stopW?: boolean }>;
     const today = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
-    for (const [k, v] of Object.entries(o)) if (v && v.day === today && typeof v.real === "number") m.set(k, { day: v.day, real: v.real, told: !!v.told, wins: typeof v.wins === "number" ? v.wins : 0 });
+    for (const [k, v] of Object.entries(o)) if (v && v.day === today && typeof v.real === "number") m.set(k, { day: v.day, real: v.real, told: !!v.told, wins: typeof v.wins === "number" ? v.wins : 0, wq: Array.isArray(v.wq) ? v.wq : [], stopW: typeof v.stopW === "boolean" ? v.stopW : (v.wins ?? 0) > 0 && v.real > 1e-9 });
   } catch {
     /* файла нет — счётчики с нуля */
   }
   return m;
 }
-function saveDayState(m: Map<string, { day: number; real: number; told: boolean; wins?: number }>): void {
+function saveDayState(m: Map<string, { day: number; real: number; told: boolean; wins?: number; wq?: number[]; stopW?: boolean }>): void {
   try {
     fs.writeFileSync(DAY_STATE_FILE, JSON.stringify(Object.fromEntries(m)));
   } catch (err) {
@@ -4036,12 +4036,12 @@ class ResearchLab {
 
   // v4.0: дневная цель / дневной стоп (по закрытым сделкам стратегии, день по UTC)
   // v7: дневные счётчики цели/стопа хранятся и на диске (lab-day-state.json рядом с настройками), чтобы деплой/перезапуск посреди дня НЕ обнулял «цель +$1 набрана»
-  private dayPnl: Map<string, { day: number; real: number; told: boolean; wins?: number }> = loadDayState();
-  private dayState(name: string): { day: number; real: number; told: boolean; wins?: number } {
+  private dayPnl: Map<string, { day: number; real: number; told: boolean; wins?: number; wq?: number[]; stopW?: boolean }> = loadDayState();
+  private dayState(name: string): { day: number; real: number; told: boolean; wins?: number; wq?: number[]; stopW?: boolean } {
     const d = Math.floor(Date.now() / DAY_MS);
     let st = this.dayPnl.get(name);
     if (!st || st.day !== d) {
-      st = { day: d, real: 0, told: false, wins: 0 };
+      st = { day: d, real: 0, told: false, wins: 0, wq: [], stopW: false };
       this.dayPnl.set(name, st);
     }
     return st;
@@ -4049,7 +4049,17 @@ class ResearchLab {
   private addDayPnl(name: string, pnl: number): void {
     const ds = this.dayState(name);
     ds.real += pnl;
-    if (pnl > 1e-9) ds.wins = (ds.wins ?? 0) + 1;
+    if (pnl > 1e-9) {
+      ds.wins = (ds.wins ?? 0) + 1;
+      // цель «N приб. сделок сверху» (как на странице): после закрытия победы берём сумму последних N побед; если итог дня (по закрытым) не меньше этой суммы — стоп до конца дня
+      const W = TRADE_CFGS.find((c) => c.name === name)?.goalW ?? 0;
+      if (W > 0) {
+        const wq = (ds.wq ??= []);
+        wq.push(pnl);
+        if (wq.length > W) wq.shift();
+        if (wq.length >= W && ds.real >= wq.reduce((a, b) => a + b, 0) - 1e-9) ds.stopW = true;
+      }
+    }
     saveDayState(this.dayPnl);
   }
   private totalDayPnl(): number {
@@ -4064,7 +4074,7 @@ class ResearchLab {
     }
     const st = this.dayState(c.name);
     if (c.goalP > 0 && st.real >= c.goalP - 1e-9) return `дневная цель +$${c.goalP} достигнута (сегодня ${st.real >= 0 ? "+" : "−"}$${Math.abs(st.real).toFixed(2)})`;
-    if ((c.goalW ?? 0) > 0 && (st.wins ?? 0) >= (c.goalW ?? 0)) return `дневная цель: ${c.goalW} приб. сделк. набрана (сегодня ${st.wins})`;
+    if ((c.goalW ?? 0) > 0 && st.stopW) return `дневная цель: ${c.goalW} приб. сделк. сверху набрана (итог дня ${st.real >= 0 ? "+" : "−"}$${Math.abs(st.real).toFixed(2)} не меньше суммы последних ${c.goalW} побед)`;
     if (c.goalL > 0 && st.real <= -c.goalL + 1e-9) return `дневной стоп −$${c.goalL} сработал (сегодня −$${Math.abs(st.real).toFixed(2)})`;
     return null;
   }
