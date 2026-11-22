@@ -131,6 +131,7 @@ interface TradeCfg {
   stopPct?: number; // v5.3: реальный стоп — продаём по рынку, когда bid ≤ цена входа × (1 − stopPct)
   fromDay?: string; // v4.8: начать торговать с этого дня (UTC, «2026-11-07»); до этого только пишет статистику
   untilDay?: string; // v7: торговать ДО конца предыдущего дня (UTC): с 00:00 этого дня только пишет статистику
+  groupOne?: boolean; // v12: «одна сделка на рынок и сторону» на ВЕСЬ коллектив (как на странице): если на этот рынок/сторону уже купила другая ТС группы — эта считается виртуально (в её цель идёт, денег не тратит)
   paper?: boolean; // v11: бумажный режим — сделки только виртуально («LAB БЫ»), реальных денег нет; включается «лаб бумага <имя> вкл»
   exact?: boolean; // v7: число акций = ставка ÷ реальная цена входа (для ТС с широким коридором цены); иначе от sizeRefPrice
 }
@@ -160,27 +161,27 @@ const TRADE_CFGS: TradeCfg[] = [
   // ══ v11: КОЛЛЕКТИВ POJ (5 ТС, группа poj), только ETH. ВСЕ прежние ТС удалены. Ставка $1.1, дневная цель — 1 прибыльная сделка (goalW), старт 2026-11-22 00:00 UTC (= 07:00 Бангкок). Общий дневной стоп — TOTAL_STOP.
   {
     name: "p1", group: "poj", idea: "fair1", combo: "edge <0 / 180-240с / 0.60-0.70", label: "Коллектив POJ №1: СЦ σ60с, edge<0, 180-240с, ask 0.60-0.70, только ETH",
-    size: 1.1, on: true, goalP: 0, goalL: 0, goalW: 1, fromDay: "2026-11-22", sizeRefPrice: 0.6, cap: 0.7,
+    size: 1.1, on: true, goalP: 0, goalL: 0, goalW: 1, groupOne: true, fromDay: "2026-11-22", sizeRefPrice: 0.6, cap: 0.7,
     filter: (e) => e.coin === "Ethereum",
   },
   {
     name: "p2", group: "poj", idea: "model", combo: "сила 0.5-1 / 120-180с / 0.70-0.80", label: "Коллектив POJ №2: Модель цены, сила 0.5-1, 120-180с, ask 0.70-0.80, только ETH",
-    size: 1.1, on: true, goalP: 0, goalL: 0, goalW: 1, fromDay: "2026-11-22", sizeRefPrice: 0.7, cap: 0.8,
+    size: 1.1, on: true, goalP: 0, goalL: 0, goalW: 1, groupOne: true, fromDay: "2026-11-22", sizeRefPrice: 0.7, cap: 0.8,
     filter: (e) => e.coin === "Ethereum",
   },
   {
     name: "p3", group: "poj", idea: "model", combo: "сила 2-3 / 120-180с / 0.70-0.80", label: "Коллектив POJ №3: Модель цены, сила 2-3, 120-180с, ask 0.70-0.80, только ETH",
-    size: 1.1, on: true, goalP: 0, goalL: 0, goalW: 1, fromDay: "2026-11-22", sizeRefPrice: 0.7, cap: 0.8,
+    size: 1.1, on: true, goalP: 0, goalL: 0, goalW: 1, groupOne: true, fromDay: "2026-11-22", sizeRefPrice: 0.7, cap: 0.8,
     filter: (e) => e.coin === "Ethereum",
   },
   {
     name: "p4", group: "poj", idea: "fair2", combo: "edge <0 / 180-240с / 0.80-0.85", label: "Коллектив POJ №4: СЦ σ120с, edge<0, 180-240с, ask 0.80-0.85, только ETH",
-    size: 1.1, on: true, goalP: 0, goalL: 0, goalW: 1, fromDay: "2026-11-22", sizeRefPrice: 0.8, cap: 0.85,
+    size: 1.1, on: true, goalP: 0, goalL: 0, goalW: 1, groupOne: true, fromDay: "2026-11-22", sizeRefPrice: 0.8, cap: 0.85,
     filter: (e) => e.coin === "Ethereum",
   },
   {
     name: "p5", group: "poj", idea: "model", combo: "сила 1-1.5 / 180-240с / 0.85-0.90", label: "Коллектив POJ №5: Модель цены, сила 1-1.5, 180-240с, ask 0.85-0.90, только ETH",
-    size: 1.1, on: true, goalP: 0, goalL: 0, goalW: 1, fromDay: "2026-11-22", sizeRefPrice: 0.85, cap: 0.9,
+    size: 1.1, on: true, goalP: 0, goalL: 0, goalW: 1, groupOne: true, fromDay: "2026-11-22", sizeRefPrice: 0.85, cap: 0.9,
     filter: (e) => e.coin === "Ethereum",
   },
 ];
@@ -212,18 +213,18 @@ const LIVE_CFG_FILE = path.resolve(process.env.LAB_DATA_PATH || process.env.RAIL
 // v9: ОБЩИЙ дневной стоп — сумма закрытых результатов всех ТС за день (UTC) ≤ −$4.5 → никто не покупает до 00:00 UTC (env LAB_TOTAL_STOP, 0 = выкл)
 const TOTAL_STOP = Number(process.env.LAB_TOTAL_STOP ?? "4.5");
 const DAY_STATE_FILE = path.resolve(path.dirname(LIVE_CFG_FILE), "lab-day-state.json");
-function loadDayState(): Map<string, { day: number; real: number; told: boolean; wins?: number; wq?: number[]; stopW?: boolean }> {
-  const m = new Map<string, { day: number; real: number; told: boolean; wins?: number; wq?: number[]; stopW?: boolean }>();
+function loadDayState(): Map<string, { day: number; real: number; told: boolean; wins?: number; wq?: number[]; stopW?: boolean; virt?: number }> {
+  const m = new Map<string, { day: number; real: number; told: boolean; wins?: number; wq?: number[]; stopW?: boolean; virt?: number }>();
   try {
-    const o = JSON.parse(fs.readFileSync(DAY_STATE_FILE, "utf8")) as Record<string, { day: number; real: number; told?: boolean; wins?: number; wq?: number[]; stopW?: boolean }>;
+    const o = JSON.parse(fs.readFileSync(DAY_STATE_FILE, "utf8")) as Record<string, { day: number; real: number; told?: boolean; wins?: number; wq?: number[]; stopW?: boolean; virt?: number }>;
     const today = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
-    for (const [k, v] of Object.entries(o)) if (v && v.day === today && typeof v.real === "number") m.set(k, { day: v.day, real: v.real, told: !!v.told, wins: typeof v.wins === "number" ? v.wins : 0, wq: Array.isArray(v.wq) ? v.wq : [], stopW: typeof v.stopW === "boolean" ? v.stopW : (v.wins ?? 0) > 0 && v.real > 1e-9 });
+    for (const [k, v] of Object.entries(o)) if (v && v.day === today && typeof v.real === "number") m.set(k, { day: v.day, real: v.real, told: !!v.told, wins: typeof v.wins === "number" ? v.wins : 0, wq: Array.isArray(v.wq) ? v.wq : [], stopW: typeof v.stopW === "boolean" ? v.stopW : (v.wins ?? 0) > 0 && v.real > 1e-9, virt: typeof v.virt === "number" ? v.virt : 0 });
   } catch {
     /* файла нет — счётчики с нуля */
   }
   return m;
 }
-function saveDayState(m: Map<string, { day: number; real: number; told: boolean; wins?: number; wq?: number[]; stopW?: boolean }>): void {
+function saveDayState(m: Map<string, { day: number; real: number; told: boolean; wins?: number; wq?: number[]; stopW?: boolean; virt?: number }>): void {
   try {
     fs.writeFileSync(DAY_STATE_FILE, JSON.stringify(Object.fromEntries(m)));
   } catch (err) {
@@ -3435,8 +3436,17 @@ class ResearchLab {
             ds.told = true;
             this.note(`🎯 LAB [${tcfg.name}]: ${dayBlk}. До 00:00 UTC новых покупок нет.`);
           }
-        } else if (this.liveEnabled && this.clob && !tcfg.paper) void this.liveBuy(idea, market, side, entryRec, getRatioOf("b"));
-        else this.paperBuy(idea, market, side, entryRec, getRatioOf("b"));
+        } else {
+          // v12: общий дедуп коллектива, как на странице («одна сделка на рынок и сторону»): первая по времени ТС покупает, остальные — виртуально (их результат идёт только в их дневную цель)
+          const gk = tcfg.groupOne && tcfg.group ? `${tcfg.group}|${market.eventSlug}|${side}` : null;
+          if (gk !== null && this.groupTaken.has(gk)) {
+            this.paperBuy(idea, market, side, entryRec, getRatioOf("b"), tcfg, "виртуально: на этот рынок и сторону уже купила другая ТС коллектива (общий дедуп, как на странице); результат идёт только в цель этой ТС");
+          } else {
+            if (gk !== null) this.groupTaken.add(gk);
+            if (this.liveEnabled && this.clob && !tcfg.paper) void this.liveBuy(idea, market, side, entryRec, getRatioOf("b"));
+            else this.paperBuy(idea, market, side, entryRec, getRatioOf("b"));
+          }
+        }
       }
       // v5.5: «вход после дна» — отдельный наблюдатель на тот же сигнал (спред сигнала ≤2¢, как у fair2s)
       if (idea === DIP_IDEA && combo === DIP_COMBO && DIP.on && entryRec.bid0 != null && entryRec.price - entryRec.bid0 <= 0.02 + 1e-9) {
@@ -4036,8 +4046,9 @@ class ResearchLab {
 
   // v4.0: дневная цель / дневной стоп (по закрытым сделкам стратегии, день по UTC)
   // v7: дневные счётчики цели/стопа хранятся и на диске (lab-day-state.json рядом с настройками), чтобы деплой/перезапуск посреди дня НЕ обнулял «цель +$1 набрана»
-  private dayPnl: Map<string, { day: number; real: number; told: boolean; wins?: number; wq?: number[]; stopW?: boolean }> = loadDayState();
-  private dayState(name: string): { day: number; real: number; told: boolean; wins?: number; wq?: number[]; stopW?: boolean } {
+  private groupTaken = new Set<string>(); // v12: «группа|рынок|сторона», где коллектив уже купил
+  private dayPnl: Map<string, { day: number; real: number; told: boolean; wins?: number; wq?: number[]; stopW?: boolean; virt?: number }> = loadDayState();
+  private dayState(name: string): { day: number; real: number; told: boolean; wins?: number; wq?: number[]; stopW?: boolean; virt?: number } {
     const d = Math.floor(Date.now() / DAY_MS);
     let st = this.dayPnl.get(name);
     if (!st || st.day !== d) {
@@ -4046,9 +4057,10 @@ class ResearchLab {
     }
     return st;
   }
-  private addDayPnl(name: string, pnl: number): void {
+  private addDayPnl(name: string, pnl: number, virtual = false): void {
     const ds = this.dayState(name);
     ds.real += pnl;
+    if (virtual) ds.virt = (ds.virt ?? 0) + pnl; // виртуальные (бумажные) сделки идут в цель ТС, но не в общий стоп дня (там только реальные деньги)
     if (pnl > 1e-9) {
       ds.wins = (ds.wins ?? 0) + 1;
       // цель «N приб. сделок сверху» (как на странице): после закрытия победы берём сумму последних N побед; если итог дня (по закрытым) не меньше этой суммы — стоп до конца дня
@@ -4064,7 +4076,7 @@ class ResearchLab {
   }
   private totalDayPnl(): number {
     let t = 0;
-    for (const c of TRADE_CFGS) t += this.dayState(c.name).real;
+    for (const c of TRADE_CFGS) { const d = this.dayState(c.name); t += d.real - (d.virt ?? 0); }
     return t;
   }
   private dayBlock(c: TradeCfg): string | null {
@@ -4381,6 +4393,7 @@ class ResearchLab {
 
   private paperSettle(p: PendingMarket, slug: string, winner: "Up" | "Down"): void {
     const boughtNames = this.liveSettle(slug, winner);
+    for (const k of [...this.groupTaken]) if (k.indexOf(`|${slug}|`) >= 0) this.groupTaken.delete(k);
     for (const sd of ["Up", "Down"] as const) {
       this.dipWatch.delete(`${slug}|${sd}`);
       const dp = this.dipPaper.get(`${slug}|${sd}`);
@@ -4410,7 +4423,7 @@ class ResearchLab {
       }
       const shares = sharesOf(cfg);
       const pnl = won ? shares * (1 - e.price) : -shares * e.price;
-      this.addDayPnl(cfg.name, pnl);
+      this.addDayPnl(cfg.name, pnl, true);
       const text = `${won ? "✅" : "❌"} LAB БЫ: итог [${e.idea}] ${COIN_SHORT[e.coin] ?? e.coin} ${e.side} по ${e.price.toFixed(3)}: ${won ? "победа" : "проигрыш"} ${pnl >= 0 ? "+" : "−"}$${Math.abs(pnl).toFixed(2)} (${slug})`;
       console.log(text);
       this.onPaperText?.(text);
