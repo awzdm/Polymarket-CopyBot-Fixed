@@ -222,6 +222,23 @@ function loadDayState(): Map<string, { day: number; real: number; told: boolean;
   } catch {
     /* файла нет — счётчики с нуля */
   }
+  // v12 (разовая правка 2026-11-22): после перезапуска в счётчики дня попали несуществующие результаты; возвращаем настоящие значения из Telegram-сообщений (все 7 реальных сделок дня)
+  try {
+    const FIX = path.resolve(path.dirname(DAY_STATE_FILE), "lab-day-fix-20261122.flag");
+    const today = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
+    if (today === Math.floor(Date.UTC(2026, 10, 22) / (24 * 60 * 60 * 1000)) && !fs.existsSync(FIX)) {
+      const mk = (real: number, wq: number[], stopW: boolean) => ({ day: today, real, told: stopW, wins: 1, wq, stopW, virt: 0 });
+      m.set("p1", mk(0.57, [0.57], true));
+      m.set("p2", mk(-0.83, [0.38], false));
+      m.set("p3", mk(0.38, [0.38], true));
+      m.set("p4", mk(0.31, [0.31], true));
+      m.set("p5", mk(-0.86, [0.24], false));
+      fs.writeFileSync(DAY_STATE_FILE, JSON.stringify(Object.fromEntries(m)));
+      fs.writeFileSync(FIX, "1");
+    }
+  } catch {
+    /* не получилось — счётчики остаются как есть */
+  }
   return m;
 }
 function saveDayState(m: Map<string, { day: number; real: number; told: boolean; wins?: number; wq?: number[]; stopW?: boolean; virt?: number }>): void {
@@ -4046,6 +4063,7 @@ class ResearchLab {
 
   // v4.0: дневная цель / дневной стоп (по закрытым сделкам стратегии, день по UTC)
   // v7: дневные счётчики цели/стопа хранятся и на диске (lab-day-state.json рядом с настройками), чтобы деплой/перезапуск посреди дня НЕ обнулял «цель +$1 набрана»
+  private paperBought = new Set<string>(); // v12: «ТС|рынок|сторона» — виртуальные покупки, сделанные в ЭТОМ запуске (только их результат идёт в дневные счётчики)
   private groupTaken = new Set<string>(); // v12: «группа|рынок|сторона», где коллектив уже купил
   private dayPnl: Map<string, { day: number; real: number; told: boolean; wins?: number; wq?: number[]; stopW?: boolean; virt?: number }> = loadDayState();
   private dayState(name: string): { day: number; real: number; told: boolean; wins?: number; wq?: number[]; stopW?: boolean; virt?: number } {
@@ -4101,6 +4119,7 @@ class ResearchLab {
 
   private paperBuy(idea: string, market: CryptoUpDownMarket, side: "Up" | "Down", e: LabEntry, ratio: number | null, cfgIn?: TradeCfg, extra?: string): void {
     const cfg = cfgIn ?? cfgFor(idea, e.combo)!;
+    this.paperBought.add(`${cfg.name}|${market.eventSlug}|${side}`);
     const shares = sharesOf(cfg, e.price);
     const t = new Date(e.ts).toISOString().slice(11, 23);
     const text =
@@ -4421,6 +4440,8 @@ class ResearchLab {
         }
         continue;
       }
+      // v12: результат считаем только у виртуальных сделок, реально открытых в этом запуске (после перезапуска старые записи рынка не должны попадать в счётчики дня)
+      if (!this.paperBought.delete(`${cfg.name}|${slug}|${e.side}`)) continue;
       const shares = sharesOf(cfg);
       const pnl = won ? shares * (1 - e.price) : -shares * e.price;
       this.addDayPnl(cfg.name, pnl, true);
