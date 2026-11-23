@@ -43,6 +43,7 @@ import "dotenv/config";
 import * as fs from "fs";
 import * as path from "path";
 import * as http from "http";
+import { spawn } from "child_process";
 import { discoverCryptoUpDownMarkets, CryptoUpDownMarket } from "./cryptoMarketDiscovery.js";
 import { PriceWatcher, PriceUpdate } from "./priceWatcher.js";
 import { btcPriceFeed } from "./btcPriceFeed.js";
@@ -6293,6 +6294,31 @@ function startPageServer(): void {
         if (parts[0] !== "page" || parts[1] !== PAGE_TOKEN) {
           res.statusCode = 404;
           res.end("not found");
+          return;
+        }
+        // v13: скачать ВСЁ, что лежит на диске (volume): /page/<токен>/backup — архив .tar.gz; ?part=small — только настройки и счётчики (маленькие .json в корне)
+        if (parts[2] === "backup") {
+          const dir = path.resolve(STORAGE_DIR);
+          const small = url.searchParams.get("part") === "small";
+          const day = new Date().toISOString().slice(0, 10);
+          let files: string[] = ["."];
+          if (small) files = fs.readdirSync(dir).filter((f) => f.endsWith(".json") && fs.statSync(path.join(dir, f)).isFile());
+          if (files.length === 0) {
+            res.statusCode = 404;
+            res.end("нет файлов");
+            return;
+          }
+          res.setHeader("Content-Type", "application/gzip");
+          res.setHeader("Content-Disposition", `attachment; filename="lab-backup${small ? "-small" : ""}-${day}.tar.gz"`);
+          const tar = spawn("tar", ["czf", "-", "-C", dir, ...files]);
+          tar.stdout.pipe(res);
+          tar.stderr.on("data", (d) => console.log("[backup] tar:", String(d).slice(0, 200)));
+          tar.on("error", (e) => {
+            console.log("[backup] не запустился tar:", e.message);
+            if (!res.headersSent) res.statusCode = 500;
+            res.end();
+          });
+          req.on("close", () => tar.kill());
           return;
         }
         const p = (url.searchParams.get("p") ?? "all").toLowerCase();
