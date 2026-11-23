@@ -134,6 +134,7 @@ interface TradeCfg {
   untilDay?: string; // v7: торговать ДО конца предыдущего дня (UTC): с 00:00 этого дня только пишет статистику
   groupOne?: boolean; // v12: «одна сделка на рынок и сторону» на ВЕСЬ коллектив (как на странице): если на этот рынок/сторону уже купила другая ТС группы — эта считается виртуально (в её цель идёт, денег не тратит)
   paper?: boolean; // v11: бумажный режим — сделки только виртуально («LAB БЫ»), реальных денег нет; включается «лаб бумага <имя> вкл»
+  entryPx?: number; // v14: «особый вход» как на странице: сигнал по условиям ТС, а покупаем, только когда bid токена дойдёт до (entryPx − спред сигнала); цена входа на странице = entryPx
   exact?: boolean; // v7: число акций = ставка ÷ реальная цена входа (для ТС с широким коридором цены); иначе от sizeRefPrice
 }
 const KOL_FROM = "2026-11-15"; // v6: коллектив начинает торговать с этого дня (UTC)
@@ -158,6 +159,9 @@ const nagOf = (e: LabEntry): number | null => {
 };
 const inR = (v: number | null | undefined, lo: number | null, hi: number | null): boolean =>
   v != null && (lo === null || v >= lo - 1e-9) && (hi === null || v <= hi + 1e-9);
+// v14: потолок цены для «особого входа»: страница считает вход ровно по цене входа, живой ask в момент касания может быть выше — разрешаем на LAB_EN_SLIP центов (по умолчанию 1¢) выше
+const EN_SLIP = Number(process.env.LAB_EN_SLIP ?? "1");
+const EN_CAP = Math.min(0.99, Math.round((0.85 + EN_SLIP / 100) * 100) / 100);
 const TRADE_CFGS: TradeCfg[] = [
   // ══ v11: КОЛЛЕКТИВ POJ (5 ТС, группа poj), только ETH. ВСЕ прежние ТС удалены. Ставка $1.1, дневная цель — 1 прибыльная сделка (goalW), старт 2026-11-22 00:00 UTC (= 07:00 Бангкок). Общий дневной стоп — TOTAL_STOP.
   {
@@ -184,6 +188,11 @@ const TRADE_CFGS: TradeCfg[] = [
     name: "p5", group: "poj", idea: "model", combo: "сила 1-1.5 / 180-240с / 0.85-0.90", label: "Коллектив POJ №5: Модель цены, сила 1-1.5, 180-240с, ask 0.85-0.90, только ETH",
     size: 1.1, on: true, goalP: 0, goalL: 0, goalW: 1, groupOne: true, fromDay: "2026-11-22", sizeRefPrice: 0.85, cap: 0.9,
     filter: (e) => e.coin === "Ethereum",
+  },
+  // ══ v14: ТС «e1» — «особый вход по 0.85» (БУМАГА, все монеты): Справедливая цена σ120с, edge<0, 180-240с, ask 0.70-0.80; покупка, только когда цена дойдёт до 0.85 (как «Особые новые условия» на странице). Цели дня нет.
+  {
+    name: "e1", idea: "fair2", combo: "edge <0 / 180-240с / 0.70-0.80", label: "ТС e1: СЦ σ120с, edge<0, 180-240с, сигнал ask 0.70-0.80, ОСОБЫЙ ВХОД по 0.85 (все монеты), бумага",
+    size: 1.65, on: true, goalP: 0, goalL: 0, goalW: 0, paper: true, entryPx: 0.85, exact: true, sizeRefPrice: 0.85, cap: EN_CAP,
   },
 ];
 /** v6: стратегии по имени, «все» или имени группы (например «kol»). */
@@ -2393,6 +2402,7 @@ class ResearchLab {
     this.paperStopCheck(market.eventSlug, side, hasBid ? (update.bestBid as number) : null, now);
     this.liveStopCheck(market, side, hasBid ? (update.bestBid as number) : null, now);
     this.dipCheck(market, side, hasBid ? (update.bestBid as number) : q.bid, q.ask, now);
+    this.enCheck(market, side, hasBid ? (update.bestBid as number) : q.bid, q.ask, now);
     try {
       this.test.onTick(market, side, hasBid ? (update.bestBid as number) : q.bid, q.ask, now);
     } catch (err) {
@@ -3460,6 +3470,10 @@ class ResearchLab {
             ds.told = true;
             this.note(`🎯 LAB [${tcfg.name}]: ${dayBlk}. До 00:00 UTC новых покупок нет.`);
           }
+        } else if (tcfg.entryPx !== undefined && Math.abs(tcfg.entryPx - entryRec.price) >= 0.0049) {
+          // v14: «особый вход» (как на странице): не покупаем сразу — ждём, пока bid дойдёт до (цена входа − спред сигнала); дальше слежение в enCheck
+          const ek = `${tcfg.name}|${market.eventSlug}|${side}`;
+          if (!this.enWatch.has(ek)) this.enWatch.set(ek, { cfg: tcfg, market, side, e: entryRec, done: false });
         } else {
           // v12: общий дедуп коллектива, как на странице («одна сделка на рынок и сторону»): первая по времени ТС покупает, остальные — виртуально (их результат идёт только в их дневную цель)
           const gk = tcfg.groupOne && tcfg.group ? `${tcfg.group}|${market.eventSlug}|${side}` : null;
@@ -4313,6 +4327,39 @@ class ResearchLab {
       this.dipPaper.set(`${market.eventSlug}|${side}`, { slug: market.eventSlug, coin: market.coin, side, price: ask, shares: sharesOf(cfg) });
     }
   }
+  // v14 «Особый вход» (как «Особые новые условия» на странице, applyEntry): сигнал по ТС, покупка — когда цена дойдёт до entryPx.
+  // Страница: P = цена входа; если P выше цены сигнала px0 — нужен подъём bid до P − spr (spr = спред сигнала, если нет данных — 0.01); если P ниже — падение bid до P − spr; если почти равна — вход сразу.
+  // Вход на странице считается ровно по P; бот платит живой ask (не выше cfg.cap) — разницу видно в сообщении «LAB БЫ КУПИЛ».
+  private enWatch = new Map<string, { cfg: TradeCfg; market: CryptoUpDownMarket; side: "Up" | "Down"; e: LabEntry; done: boolean }>();
+  private enBought = new Map<string, { price: number; shares: number }>(); // «ТС|рынок|сторона» → реальная (бумажная) цена и число акций
+  private enCheck(market: CryptoUpDownMarket, side: "Up" | "Down", bid: number | null, ask: number | null, now: number): void {
+    if (this.enWatch.size === 0 || bid === null) return;
+    for (const [k, w] of this.enWatch) {
+      if (w.done || w.market.eventSlug !== market.eventSlug || w.side !== side) continue;
+      const cfg = w.cfg;
+      const P = cfg.entryPx as number;
+      const px0 = w.e.price;
+      const spr = w.e.bid0 != null ? Math.max(0, Math.round((px0 - w.e.bid0) * 100) / 100) : 0.01; // спред сигнала, до 0.01 (как столбец spr на странице)
+      const left = (market.closeTimeMs - now) / 1000;
+      if (left <= 0) { w.done = true; continue; }
+      const rise = P > px0 + 0.0049;
+      // как на странице: если P − спред ≤ цены сигнала (g ≤ 0) — подъёма bid не требуется, вход сразу; иначе нужен подъём bid до P − спред (а при P ниже сигнала — падение bid до P − спред)
+      const hit = rise ? (P - spr - px0 <= 0 || bid >= P - spr - 1e-9) : bid <= P - spr + 1e-9;
+      if (!hit || ask === null) continue;
+      if (ask > cfg.cap + 1e-9) continue; // ask убежал выше потолка — ждём, вдруг вернётся (как «Вход после дна»)
+      if (!cfg.on || notStarted(cfg) || ended(cfg)) { w.done = true; continue; }
+      const blk = this.dayBlock(cfg);
+      if (blk !== null) { w.done = true; continue; }
+      w.done = true;
+      const e2: LabEntry = { ...w.e, price: ask, bid0: bid, ts: now, sec: Math.round(left) };
+      const extra = `особый вход: сигнал был на ${px0.toFixed(2)}, bid дошёл до ${bid.toFixed(2)} через ${Math.round((now - w.e.ts) / 1000)}с (на странице вход считается по ${P.toFixed(2)})`;
+      if (this.liveEnabled && this.clob && !cfg.paper) void this.liveBuy(w.e.idea, market, side, e2, null, cfg, extra);
+      else {
+        this.enBought.set(k, { price: ask, shares: sharesOf(cfg, ask) });
+        this.paperBuy(w.e.idea, market, side, e2, null, cfg, extra);
+      }
+    }
+  }
   dipStatusText(): string {
     return (
       `📉 Вход после дна [${DIP_NAME}] — ${DIP.on ? "🟢 включён" : "⏸ выключен"}\n` +
@@ -4432,6 +4479,7 @@ class ResearchLab {
         this.onPaperText?.(text);
       }
     }
+    for (const k of [...this.enWatch.keys()]) if (k.indexOf(`|${slug}|`) >= 0) this.enWatch.delete(k);
     for (const e of p.entries) {
       const cfg = cfgFor(e.idea, e.combo);
       if (cfg === undefined) continue;
@@ -4449,10 +4497,13 @@ class ResearchLab {
       }
       // v12: результат считаем только у виртуальных сделок, реально открытых в этом запуске (после перезапуска старые записи рынка не должны попадать в счётчики дня)
       if (!this.paperBought.delete(`${cfg.name}|${slug}|${e.side}`)) continue;
-      const shares = sharesOf(cfg);
-      const pnl = won ? shares * (1 - e.price) : -shares * e.price;
+      const enb = cfg.entryPx !== undefined ? this.enBought.get(`${cfg.name}|${slug}|${e.side}`) : undefined; // v14: у «особого входа» цена/акции — реальные на момент касания, а не цена сигнала
+      this.enBought.delete(`${cfg.name}|${slug}|${e.side}`);
+      const buyPx = enb ? enb.price : e.price;
+      const shares = enb ? enb.shares : sharesOf(cfg);
+      const pnl = won ? shares * (1 - buyPx) : -shares * buyPx;
       this.addDayPnl(cfg.name, pnl, true);
-      const text = `${won ? "✅" : "❌"} LAB БЫ: итог [${e.idea}] ${COIN_SHORT[e.coin] ?? e.coin} ${e.side} по ${e.price.toFixed(3)}: ${won ? "победа" : "проигрыш"} ${pnl >= 0 ? "+" : "−"}$${Math.abs(pnl).toFixed(2)} (${slug})`;
+      const text = `${won ? "✅" : "❌"} LAB БЫ: итог [${e.idea}${cfg.entryPx !== undefined ? `/${cfg.name}` : ""}] ${COIN_SHORT[e.coin] ?? e.coin} ${e.side} по ${buyPx.toFixed(3)}: ${won ? "победа" : "проигрыш"} ${pnl >= 0 ? "+" : "−"}$${Math.abs(pnl).toFixed(2)} (${slug})`;
       console.log(text);
       this.onPaperText?.(text);
     }
