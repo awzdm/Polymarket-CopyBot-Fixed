@@ -189,10 +189,11 @@ const TRADE_CFGS: TradeCfg[] = [
     size: 1.1, on: true, goalP: 0, goalL: 0, goalW: 1, groupOne: true, fromDay: "2026-11-22", sizeRefPrice: 0.85, cap: 0.9,
     filter: (e) => e.coin === "Ethereum",
   },
-  // ══ v14: ТС «e1» — «особый вход по 0.85» (БУМАГА, все монеты): Справедливая цена σ120с, edge<0, 180-240с, ask 0.70-0.80; покупка, только когда цена дойдёт до 0.85 (как «Особые новые условия» на странице). Цели дня нет.
+  // ══ v14: ТС «e1» — «особый вход по 0.85» (только BTC+ETH): Справедливая цена σ120с, edge<0, 180-240с, ask 0.70-0.80; покупка, только когда цена дойдёт до 0.85 (как «Особые новые условия» на странице). Цели дня нет.
   {
-    name: "e1", idea: "fair2", combo: "edge <0 / 180-240с / 0.70-0.80", label: "ТС e1: СЦ σ120с, edge<0, 180-240с, сигнал ask 0.70-0.80, ОСОБЫЙ ВХОД по 0.85 (все монеты), бумага",
+    name: "e1", idea: "fair2", combo: "edge <0 / 180-240с / 0.70-0.80", label: "ТС e1: СЦ σ120с, edge<0, 180-240с, сигнал ask 0.70-0.80, ОСОБЫЙ ВХОД по 0.85, только BTC+ETH",
     size: 1.65, on: true, goalP: 0, goalL: 0, goalW: 0, paper: true, entryPx: 0.85, exact: true, sizeRefPrice: 0.85, cap: EN_CAP,
+    filter: (e) => e.coin === "Bitcoin" || e.coin === "Ethereum", // v14: только BTC+ETH — на SOL/XRP биржа отвергает подпись ордера («invalid POLY_1271 signature»)
   },
 ];
 /** v6: стратегии по имени, «все» или имени группы (например «kol»). */
@@ -447,6 +448,8 @@ const LIVE_MAX_OPEN = Number(process.env.LAB_MAX_OPEN ?? "30");
 const LIVE_QUOTA_PER_HOUR = Number(process.env.LAB_QUOTA_PER_HOUR ?? "200");
 const LIVE_ATTEMPTS = 3; // сколько раз пробуем купить, если ордер не исполнился (FAK без встречных заявок)
 const LIVE_RETRY_DELAY_MS = 700;
+const SIG_RETRIES = 6; // v14: сколько раз повторить заказ, если биржа отвергла подпись (ничего не куплено — безопасно)
+const SIG_RETRY_DELAY_MS = 150;
 const LIVE_MIN_SEC_LEFT = 3; // не пытаемся покупать, если до закрытия меньше стольких секунд
 
 function resolveFillLive(rawA: number, rawB: number, expectedPrice: number): { filledSize: number; avgPrice: number } {
@@ -1884,12 +1887,12 @@ class ResearchLab {
   }
 
   /** «лаб проба да»: РЕАЛЬНАЯ покупка на ~$1 (меньше 5 акций) и сразу продажа обратно — узнать, пропускает ли биржа ордера меньше минимума. */
-  async probeSmallText(confirmed: boolean, wantShares: number | null): Promise<string> {
+  async probeSmallText(confirmed: boolean, wantShares: number | null, coinOnly: string | null = null): Promise<string> {
     if (!this.clob) return "Торговый клиент не подключён — проба невозможна.";
     if (!confirmed) {
       return "⚠️ «лаб проба» — РЕАЛЬНАЯ сделка на деньги: купит на ~$1 (меньше 5 акций) токен на живом рынке и сразу продаст обратно. Потеря обычно несколько центов (спред). Цель — узнать, принимает ли биржа ордер меньше 5 акций. Чтобы выполнить, напиши: лаб проба да (или «лаб проба да 2» — столько акций, от 1 до 4.9)";
     }
-    const list = [...this.activeMarkets.values()].filter((m) => m.closeTimeMs - Date.now() > 100000);
+    const list = [...this.activeMarkets.values()].filter((m) => m.closeTimeMs - Date.now() > 100000 && (coinOnly === null || m.coin === coinOnly)); // v14: можно проверить конкретную монету («лаб проба да sol»)
     let pick: { m: CryptoUpDownMarket; tok: string; side: string; ask: number; bid: number | null } | null = null;
     for (const m of list) {
       for (const [sd, tok] of [["Up", m.upTokenId], ["Down", m.downTokenId]] as const) {
@@ -4218,6 +4221,8 @@ class ResearchLab {
     const size = Math.max(size0, Math.ceil((MIN_NOTIONAL / Math.max(0.05, e.price)) * 100) / 100); // меньше $1 по сумме биржа не берёт
     const errors: string[] = [];
     const t0 = Date.now();
+    let sigRetries = 0; // v14: биржа иногда отвергает подпись ордера («invalid POLY_1271 signature»); ничего при этом не куплено, поэтому такие отказы повторяем отдельно (не тратя обычные попытки)
+    let sigFirst = "";
     try {
       for (let attempt = 1; attempt <= LIVE_ATTEMPTS; attempt++) {
         const left = (market.closeTimeMs - Date.now()) / 1000;
@@ -4239,6 +4244,7 @@ class ResearchLab {
             minBidPrice: cfg.minBid,
             snapshot: attempt === 1 && e.bid0 != null && snapAge <= 1500 ? { bid: e.bid0, ask: e.price, ageMs: snapAge } : undefined,
             priceAtCap: true,
+            cleanAmount: sigRetries % 2 === 1, // v14: после отказа подписи каждая вторая попытка идёт с «чистой» суммой (до центов) — вдруг дело в округлении
             allowBelowMin: true, // v6: меньше 5 акций биржа принимает (проверено), блок только в старом clob.ts
           };
           const resp: any = await this.clob.placeLimitOrder(orderParams);
@@ -4254,15 +4260,24 @@ class ResearchLab {
             this.liveStats.bought++;
             this.note(
               `💰 LAB КУПИЛ ${head}\n` +
-                `${filledSize.toFixed(2)} акций по ${avgPrice.toFixed(4)} (≈$${usd.toFixed(2)}), попытка ${attempt}/${LIVE_ATTEMPTS}, ордер ${Date.now() - tAttempt} мс, от сигнала ${Date.now() - e.ts} мс${resp.timing ? `, путь ${resp.timing.path === "fast" ? "быстрый" : "обычный"}` : ""}\n${slug}`,
+                `${filledSize.toFixed(2)} акций по ${avgPrice.toFixed(4)} (≈$${usd.toFixed(2)}), попытка ${attempt}/${LIVE_ATTEMPTS}, ордер ${Date.now() - tAttempt} мс, от сигнала ${Date.now() - e.ts} мс${resp.timing ? `, путь ${resp.timing.path === "fast" ? "быстрый" : "обычный"}` : ""}${sigRetries > 0 ? `\n⚠️ прошло после ${sigRetries} отказ(ов) подписи (чистая сумма: ${sigRetries % 2 === 1 ? "да" : "нет"})` : ""}\n${slug}`,
             );
             return;
           }
         } catch (err) {
-          errors.push(`попытка ${attempt}: ${(err as Error).message}`);
+          const em = (err as Error).message ?? String(err);
+          if (/signature/i.test(em) && sigRetries < SIG_RETRIES) {
+            sigRetries++;
+            if (!sigFirst) sigFirst = em;
+            attempt--; // эта попытка не считается
+            await new Promise((r) => setTimeout(r, SIG_RETRY_DELAY_MS));
+            continue;
+          }
+          errors.push(`попытка ${attempt}: ${em}`);
         }
         if (attempt < LIVE_ATTEMPTS) await new Promise((r) => setTimeout(r, LIVE_RETRY_DELAY_MS));
       }
+      if (sigRetries > 0) errors.push(`подпись отвергнута ${sigRetries} раз(а) подряд (повторял): ${sigFirst}`);
       this.liveStats.failed++;
       this.liveWindowCount.set(market.closeTimeMs, Math.max(0, (this.liveWindowCount.get(market.closeTimeMs) ?? 1) - 1));
       this.note(`🚫 LAB НЕ СМОГ КУПИТЬ ${head}\nПотрачено ${Date.now() - t0} мс, причины:\n${errors.map((x) => `• ${x}`).join("\n")}\n${slug}`);
@@ -6174,7 +6189,7 @@ class ResearchLab {
       "лаб объем — ставки торговых стратегий LAB; «лаб объем bot7b0 6», «лаб объем fair2 5», «лаб объем все 5»",
       "лаб лимитки — бумажная проверка идей про прострелы по живому стакану: «лаб лимитки», «лаб лимитки C01», «лаб лимитки сброс»",
       "лаб минимум — бесплатно: какой минимальный размер ордера объявляет биржа",
-      "лаб проба — проверка покупки меньше 5 акций (РЕАЛЬНЫЕ ~$1, спросит подтверждение)",
+      "лаб проба — проверка покупки меньше 5 акций (РЕАЛЬНЫЕ ~$1, спросит подтверждение); «лаб проба да sol» — то же на конкретной монете (btc/eth/sol/xrp/doge)",
       "лаб после [дней] — что происходит с токенами после закрытия окна до резолва (замер, без покупок)",
       "лаб тест — бумажные тесты ТС со стопами/входами после дна (без покупок): «лаб тест», «лаб тест T01», «лаб тест сброс»",
       "лаб дно — вход после дна (fair2): цены дна и покупки, вкл/выкл: «лаб дно 75 80»",
@@ -6552,8 +6567,10 @@ async function pollTelegramCommands(
         }
 
         if (text === "лаб проба" || text.startsWith("лаб проба ")) {
-          const m = text.match(/^лаб проба да(?:\s+([\d.,]+))?$/);
-          await telegram?.send(escapeTelegramHtml(await lab.probeSmallText(!!m, m && m[1] ? Number(m[1].replace(",", ".")) : null)));
+          const m = text.match(/^лаб проба да(?:\s+([\d.,]+))?(?:\s+([a-zа-я]+))?$/);
+          const cw = m && m[2] ? PAGE_COIN_WORDS[m[2]] : undefined; // v14: монета после «да» (btc / eth / sol / xrp / doge)
+          if (m && m[2] && !cw) { await telegram?.send(escapeTelegramHtml(`Не знаю монету «${m[2]}». Пиши: btc, eth, sol, xrp или doge.`)); continue; }
+          await telegram?.send(escapeTelegramHtml(await lab.probeSmallText(!!m, m && m[1] ? Number(m[1].replace(",", ".")) : null, cw ?? null)));
           continue;
         }
 
