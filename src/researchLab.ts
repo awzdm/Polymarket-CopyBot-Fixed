@@ -2405,7 +2405,7 @@ class ResearchLab {
     this.paperStopCheck(market.eventSlug, side, hasBid ? (update.bestBid as number) : null, now);
     this.liveStopCheck(market, side, hasBid ? (update.bestBid as number) : null, now);
     this.dipCheck(market, side, hasBid ? (update.bestBid as number) : q.bid, q.ask, now);
-    this.enCheck(market, side, hasBid ? (update.bestBid as number) : q.bid, q.ask, now);
+    this.enCheck(market, side, hasBid ? (update.bestBid as number) : q.bid, q.ask, now); // тик: только мгновенный вход (g ≤ 0); подъём/падение — в sampleTape
     try {
       this.test.onTick(market, side, hasBid ? (update.bestBid as number) : q.bid, q.ask, now);
     } catch (err) {
@@ -4347,7 +4347,7 @@ class ResearchLab {
   // Вход на странице считается ровно по P; бот платит живой ask (не выше cfg.cap) — разницу видно в сообщении «LAB БЫ КУПИЛ».
   private enWatch = new Map<string, { cfg: TradeCfg; market: CryptoUpDownMarket; side: "Up" | "Down"; e: LabEntry; done: boolean }>();
   private enBought = new Map<string, { price: number; shares: number }>(); // «ТС|рынок|сторона» → реальная (бумажная) цена и число акций
-  private enCheck(market: CryptoUpDownMarket, side: "Up" | "Down", bid: number | null, ask: number | null, now: number): void {
+  private enCheck(market: CryptoUpDownMarket, side: "Up" | "Down", bid: number | null, ask: number | null, now: number, sampled = false): void {
     if (this.enWatch.size === 0 || bid === null) return;
     for (const [k, w] of this.enWatch) {
       if (w.done || w.market.eventSlug !== market.eventSlug || w.side !== side) continue;
@@ -4359,7 +4359,11 @@ class ResearchLab {
       if (left <= 0) { w.done = true; continue; }
       const rise = P > px0 + 0.0049;
       // как на странице: если P − спред ≤ цены сигнала (g ≤ 0) — подъёма bid не требуется, вход сразу; иначе нужен подъём bid до P − спред (а при P ниже сигнала — падение bid до P − спред)
-      const hit = rise ? (P - spr - px0 <= 0 || bid >= P - spr - 1e-9) : bid <= P - spr + 1e-9;
+      // v15: страница видит цену только по ленте раз в 5с (замер bid), а не по каждому тику. Поэтому «цена дошла» (подъём/падение) бот проверяет ТОЛЬКО в момент замера ленты (sampled=true),
+      // иначе он покупает на мгновенный всплеск bid, которого страница не видит (и такие сделки почти всегда проигрышные). Исключение: g ≤ 0 — вход сразу, как на странице.
+      const immediate = rise && P - spr - px0 <= 0;
+      if (!sampled && !immediate) continue;
+      const hit = rise ? (immediate || bid >= P - spr - 1e-9) : bid <= P - spr + 1e-9;
       if (!hit || ask === null) continue;
       if (ask > cfg.cap + 1e-9) continue; // ask убежал выше потолка — ждём, вдруг вернётся (как «Вход после дна»)
       if (!cfg.on || notStarted(cfg) || ended(cfg)) { w.done = true; continue; }
@@ -4568,6 +4572,11 @@ class ResearchLab {
         else this.wicks.delete(tok);
       }
       (p.tape ??= []).push(row);
+      // v15: проверка «особого входа» по замеру ленты — как считает страница (bid в момент замера, раз в 5с)
+      if (this.enWatch.size > 0) {
+        this.enCheck(m, "Up", qu?.bid ?? null, qu?.ask ?? null, now, true);
+        this.enCheck(m, "Down", qd?.bid ?? null, qd?.ask ?? null, now, true);
+      }
     }
   }
 
