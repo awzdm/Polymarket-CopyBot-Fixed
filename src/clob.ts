@@ -275,6 +275,7 @@ export class ClobService {
     minBidPrice?: number; // для BUY — не входить, если живой bid ниже этой цены (или bid нет)
     snapshot?: OrderSnapshot; // v4: свежий снимок стакана из потока — позволяет пропустить REST-запрос стакана (быстрый путь, только BUY)
     priceAtCap?: boolean; // v4: ставить цену FAK-ордера ровно на maxBuyPrice (а не на live ask + буфер)
+    cleanAmount?: boolean; // v9: сумма ордера в долларах округляется до центов (диагностика/обход отказа подписи)
     allowBelowMin?: boolean; // v5: ТОЛЬКО для «лаб проба» — не блокировать ордер меньше минимального размера у нас (пусть решает биржа). В обычной торговле не используется.
   }): Promise<{ status: string; filledSize?: string; filledUsdc?: string; orderId?: string | null; timing?: OrderTiming }> {
     const { tokenId, side, size } = params;
@@ -362,7 +363,9 @@ export class ClobService {
      */
     const amount =
       side === Side.BUY
-        ? liveRef * size
+        ? params.cleanAmount
+          ? Math.round(liveRef * size * 100) / 100
+          : liveRef * size
         : size;
 
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -397,6 +400,8 @@ export class ClobService {
     } catch (err) {
       const msg = (err as Error).message ?? String(err);
       if (path === "fast" && META_ERR.test(msg)) return retrySlow(msg);
+      // v8: при отказе подписи добавляем в текст параметры ордера — чтобы найти закономерность (только текст ошибки, на торговлю не влияет)
+      if (/signature/i.test(msg)) throw new Error(`${msg} [сумма ${amount}, цена ордера ${cappedPrice}, акций ${size}, ask ${liveRef}, путь ${path}, тик ${book.tickSize}, negRisk ${book.negRisk}]`);
       throw err;
     }
     const postMs = Date.now() - tPost;
@@ -439,6 +444,7 @@ export class ClobService {
     if (respAny.success !== true) {
       const reason = respAny.error || respAny.errorMsg || `CLOB rejected the order (status: ${respAny.status})`;
       if (path === "fast" && META_ERR.test(reason)) return retrySlow(reason);
+      if (/signature/i.test(reason)) throw new Error(`${reason} [сумма ${amount}, цена ордера ${cappedPrice}, акций ${size}, ask ${liveRef}, путь ${path}, тик ${book.tickSize}, negRisk ${book.negRisk}]`);
       throw new Error(reason);
     }
     if (respAny.status !== "matched") {
