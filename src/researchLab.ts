@@ -43,6 +43,7 @@ import "dotenv/config";
 import * as fs from "fs";
 import * as path from "path";
 import * as http from "http";
+import * as os from "os";
 import { spawn } from "child_process";
 import { discoverCryptoUpDownMarkets, CryptoUpDownMarket } from "./cryptoMarketDiscovery.js";
 import { PriceWatcher, PriceUpdate } from "./priceWatcher.js";
@@ -436,6 +437,7 @@ function saveLiveCfg(): void {
     o.__v12 = true;
     o.__dip = { ...DIP };
     fs.writeFileSync(LIVE_CFG_FILE, JSON.stringify(o));
+    tgbSettingsSoon(); // v15: копия настроек в Telegram (если нет тома)
   } catch (err) {
     console.log("[live-cfg] не удалось сохранить настройки:", (err as Error).message);
   }
@@ -3461,13 +3463,16 @@ class ResearchLab {
           pass = tcfg.filter(entryRec, tb60, ext);
         }
         const tkey = `${tcfg.name}|${market.eventSlug}|${side}`;
+        const tj = this.tjEnsure(tcfg, market, side, entryRec);
         const dayBlk = pass && tcfg.on ? this.dayBlock(tcfg) : null;
-        if (!pass) this.tradeSkipped.add(tkey);
+        if (!pass) { this.tradeSkipped.add(tkey); tj.st = "skip"; tj.why = "не прошла фильтр ТС (монеты/условия)"; }
         else if (!tcfg.on || notStarted(tcfg) || ended(tcfg)) {
+          tj.st = "skip"; tj.why = !tcfg.on ? "ТС выключена" : "ТС ещё не стартовала / уже закончила";
           /* стратегия выключена командой «лаб тс выкл» (или ещё не наступил день старта / он уже закончился): в статистику пишем, не торгуем */
           if (tcfg.on) this.tradeSkipped.add(tkey); // v7: без «LAB БЫ» сообщений для ещё не стартовавших и уже закончивших ТС
         } else if (dayBlk !== null) {
           this.tradeSkipped.add(tkey);
+          tj.st = "skip"; tj.why = dayBlk;
           const ds = this.dayState(tcfg.name);
           if (!ds.told) {
             ds.told = true;
@@ -3477,6 +3482,7 @@ class ResearchLab {
           // v14: «особый вход» (как на странице): не покупаем сразу — ждём, пока bid дойдёт до (цена входа − спред сигнала); дальше слежение в enCheck
           const ek = `${tcfg.name}|${market.eventSlug}|${side}`;
           if (!this.enWatch.has(ek)) this.enWatch.set(ek, { cfg: tcfg, market, side, e: entryRec, done: false });
+          tj.st = "watch"; tj.why = undefined;
         } else {
           // v12: общий дедуп коллектива, как на странице («одна сделка на рынок и сторону»): первая по времени ТС покупает, остальные — виртуально (их результат идёт только в их дневную цель)
           const gk = tcfg.groupOne && tcfg.group ? `${tcfg.group}|${market.eventSlug}|${side}` : null;
@@ -4141,8 +4147,64 @@ class ResearchLab {
     }).join("\n");
   }
 
+  // ───── v16: журнал сделок (методы) ─────
+  private tj = new Map<string, Tj>();
+  private tjDirty = false;
+  private tjKey(cfg: string, slug: string, side: string): string { return `${cfg}|${slug}|${side}`; }
+  private tjEnsure(cfg: TradeCfg, market: CryptoUpDownMarket, side: "Up" | "Down", e: LabEntry): Tj {
+    const k = this.tjKey(cfg.name, market.eventSlug, side);
+    let c = this.tj.get(k);
+    if (!c) {
+      c = { k, cfg: cfg.name, coin: COIN_SHORT[market.coin] ?? market.coin, side, slug: market.eventSlug, close: market.closeTimeMs, sig: e.ts, sigPx: e.price, want: cfg.entryPx, cap: cfg.entryPx !== undefined ? cfg.cap : undefined, st: "skip", why: "сигнал без действия", created: Date.now() };
+      this.tj.set(k, c);
+    }
+    this.tjDirty = true;
+    return c;
+  }
+  private tjSet(cfg: TradeCfg, market: CryptoUpDownMarket, side: "Up" | "Down", e: LabEntry, st: TjSt, why?: string): void {
+    try { const c = this.tjEnsure(cfg, market, side, e); c.st = st; c.why = why; } catch { /* журнал best-effort */ }
+  }
+  private tjLoad(): void {
+    try {
+      const arr = JSON.parse(fs.readFileSync(TJ_FILE, "utf8")) as Tj[];
+      for (const c of arr) if (c && c.k) this.tj.set(c.k, c);
+    } catch { /* файла ещё нет */ }
+  }
+  private tjSave(): void {
+    if (!this.tjDirty) return;
+    try {
+      const cut = Date.now() - TJ_KEEP_MS;
+      let arr = [...this.tj.values()].filter((c) => c.created >= cut);
+      if (arr.length > TJ_MAX) arr = arr.sort((a, b) => a.created - b.created).slice(arr.length - TJ_MAX);
+      if (arr.length !== this.tj.size) { this.tj.clear(); for (const c of arr) this.tj.set(c.k, c); }
+      fs.writeFileSync(TJ_FILE, JSON.stringify(arr));
+      this.tjDirty = false;
+    } catch (err) {
+      console.log("[tj] не удалось сохранить журнал:", (err as Error).message);
+    }
+  }
+  /** «лаб сделки [ТС] [N ч|N д] [все]» */
+  tradesText(arg: string): string[] {
+    const toks = arg.split(/\s+/).filter(Boolean);
+    let cfg: string | null = null, hours = 24, all = false;
+    for (const t of toks) {
+      const m = t.match(/^(\d+)\s*(ч|час|h|д|дн|d)?$/);
+      if (/^(все|all)$/.test(t)) all = true;
+      else if (m) { const n = Number(m[1]); hours = m[2] && /^(д|дн|d)$/.test(m[2]) ? n * 24 : n; }
+      else if (TRADE_CFGS.some((c) => c.name.toLowerCase() === t)) cfg = t;
+    }
+    hours = Math.max(1, Math.min(72, hours));
+    return tjFormat([...this.tj.values()], { cfg, hours, all, now: Date.now() });
+  }
+
   private paperBuy(idea: string, market: CryptoUpDownMarket, side: "Up" | "Down", e: LabEntry, ratio: number | null, cfgIn?: TradeCfg, extra?: string): void {
     const cfg = cfgIn ?? cfgFor(idea, e.combo)!;
+    try {
+      const tj = this.tjEnsure(cfg, market, side, e);
+      tj.st = extra && extra.startsWith("виртуально") ? "virtual" : "paper";
+      tj.why = tj.st === "virtual" ? "виртуально: уже купила другая ТС коллектива" : undefined;
+      tj.at = e.ts; tj.px = e.price; tj.sh = sharesOf(cfg, e.price);
+    } catch { /* журнал best-effort */ }
     this.paperBought.add(`${cfg.name}|${market.eventSlug}|${side}`);
     const shares = sharesOf(cfg, e.price);
     const t = new Date(e.ts).toISOString().slice(11, 23);
@@ -4208,6 +4270,7 @@ class ResearchLab {
     if (limit !== null) {
       this.liveSlugs.add(lk);
       this.liveStats.skipped++;
+      this.tjSet(cfg, market, side, e, "limit", `лимит: ${limit}`);
       this.note(`⛔ LAB НЕ КУПИЛ (лимит: ${limit})\n${head}\n${slug}`);
       return;
     }
@@ -4258,6 +4321,7 @@ class ResearchLab {
             this.liveFills.set(lk, { slug, idea: cfg.name, coin: e.coin, side, shares: filledSize, avg: avgPrice, usd, tokenId, stopPct: cfg.stopPct });
             this.liveTimes.push(Date.now());
             this.liveStats.bought++;
+            try { const tj = this.tjEnsure(cfg, market, side, e); tj.st = "bought"; tj.why = undefined; tj.at = Date.now(); tj.px = avgPrice; tj.sh = filledSize; tj.usd = usd; } catch { /* журнал */ }
             this.note(
               `💰 LAB КУПИЛ ${head}\n` +
                 `${filledSize.toFixed(2)} акций по ${avgPrice.toFixed(4)} (≈$${usd.toFixed(2)}), попытка ${attempt}/${LIVE_ATTEMPTS}, ордер ${Date.now() - tAttempt} мс, от сигнала ${Date.now() - e.ts} мс${resp.timing ? `, путь ${resp.timing.path === "fast" ? "быстрый" : "обычный"}` : ""}${sigRetries > 0 ? `\n⚠️ прошло после ${sigRetries} отказ(ов) подписи (чистая сумма: ${sigRetries % 2 === 1 ? "да" : "нет"})` : ""}\n${slug}`,
@@ -4279,10 +4343,12 @@ class ResearchLab {
       }
       if (sigRetries > 0) errors.push(`подпись отвергнута ${sigRetries} раз(а) подряд (повторял): ${sigFirst}`);
       this.liveStats.failed++;
+      this.tjSet(cfg, market, side, e, "failed", errors.length ? `${errors[0].replace(/^попытка \d+: /, "").slice(0, 140)}${errors.length > 1 ? ` (+ещё ${errors.length - 1})` : ""}` : "нет ответа");
       this.liveWindowCount.set(market.closeTimeMs, Math.max(0, (this.liveWindowCount.get(market.closeTimeMs) ?? 1) - 1));
       this.note(`🚫 LAB НЕ СМОГ КУПИТЬ ${head}\nПотрачено ${Date.now() - t0} мс, причины:\n${errors.map((x) => `• ${x}`).join("\n")}\n${slug}`);
     } catch (err) {
       this.liveStats.failed++;
+      this.tjSet(cfg, market, side, e, "failed", `ошибка: ${(err as Error).message.slice(0, 140)}`);
       this.note(`🚫 LAB: ошибка при покупке ${head}\n${(err as Error).message}\n${slug}`);
     } finally {
       this.pendingLive--;
@@ -4365,7 +4431,12 @@ class ResearchLab {
       if (!sampled && !immediate) continue;
       const hit = rise ? (immediate || bid >= P - spr - 1e-9) : bid <= P - spr + 1e-9;
       if (!hit || ask === null) continue;
-      if (ask > cfg.cap + 1e-9) continue; // ask убежал выше потолка — ждём, вдруг вернётся (как «Вход после дна»)
+      if (ask > cfg.cap + 1e-9) {
+        // v16: запоминаем для «лаб сделки»: цена дошла, но ask выше потолка (раньше такой пропуск не оставлял следов)
+        const tjm = this.tj.get(this.tjKey(cfg.name, market.eventSlug, side));
+        if (tjm) { if (tjm.miss === undefined) { tjm.miss = ask; tjm.missAt = now; } tjm.missN = (tjm.missN ?? 0) + 1; tjm.cap = cfg.cap; this.tjDirty = true; }
+        continue; // ask убежал выше потолка — ждём, вдруг вернётся (как «Вход после дна»)
+      }
       if (!cfg.on || notStarted(cfg) || ended(cfg)) { w.done = true; continue; }
       const blk = this.dayBlock(cfg);
       if (blk !== null) { w.done = true; continue; }
@@ -4476,6 +4547,7 @@ class ResearchLab {
       const pnl = (f.soldUsd ?? 0) - sold * f.avg + (f.side === winner ? rest * (1 - f.avg) : -rest * f.avg);
       this.liveStats.pnl += pnl;
       this.addDayPnl(f.idea, pnl);
+      { const tjf = this.tj.get(this.tjKey(f.idea, slug, f.side)); if (tjf) { tjf.pnl = pnl; tjf.won = f.side === winner; if (sold > 0) tjf.stop = true; this.tjDirty = true; } }
       if (pnl >= 0) this.liveStats.wins++;
       else this.liveStats.losses++;
       this.note(`${pnl >= 0 ? "✅" : "❌"} LAB итог [${f.idea}] ${COIN_SHORT[f.coin] ?? f.coin} ${f.side} по ${f.avg.toFixed(3)}: ${sold > 0 ? `закрыто стопом (${sold.toFixed(1)} акций)` : won ? "победа" : "проигрыш"} ${pnl >= 0 ? "+" : "−"}$${Math.abs(pnl).toFixed(2)} (всего ${this.liveStats.pnl >= 0 ? "+" : "−"}$${Math.abs(this.liveStats.pnl).toFixed(2)}) ${slug}`);
@@ -4485,6 +4557,7 @@ class ResearchLab {
 
   private paperSettle(p: PendingMarket, slug: string, winner: "Up" | "Down"): void {
     const boughtNames = this.liveSettle(slug, winner);
+    try { tjSettleCards(this.tj.values(), slug, winner, TRADE_CFGS); this.tjDirty = true; } catch { /* журнал */ }
     for (const k of [...this.groupTaken]) if (k.indexOf(`|${slug}|`) >= 0) this.groupTaken.delete(k);
     for (const sd of ["Up", "Down"] as const) {
       this.dipWatch.delete(`${slug}|${sd}`);
@@ -4522,6 +4595,7 @@ class ResearchLab {
       const shares = enb ? enb.shares : sharesOf(cfg);
       const pnl = won ? shares * (1 - buyPx) : -shares * buyPx;
       this.addDayPnl(cfg.name, pnl, true);
+      { const tjp = this.tj.get(this.tjKey(cfg.name, slug, e.side)); if (tjp) { tjp.pnl = pnl; tjp.won = won; this.tjDirty = true; } }
       const text = `${won ? "✅" : "❌"} LAB БЫ: итог [${e.idea}${cfg.entryPx !== undefined ? `/${cfg.name}` : ""}] ${COIN_SHORT[e.coin] ?? e.coin} ${e.side} по ${buyPx.toFixed(3)}: ${won ? "победа" : "проигрыш"} ${pnl >= 0 ? "+" : "−"}$${Math.abs(pnl).toFixed(2)} (${slug})`;
       console.log(text);
       this.onPaperText?.(text);
@@ -6197,6 +6271,8 @@ class ResearchLab {
       "лаб страница — страница-разбор файлом: все идеи и ячейки, чем победы отличаются от поражений (без периода — всё время; можно: «лаб страница 24ч», «3д», «7д», «30д», «15», «btc»)",
       "лаб объем — ставки торговых стратегий LAB; «лаб объем bot7b0 6», «лаб объем fair2 5», «лаб объем все 5»",
       "лаб лимитки — бумажная проверка идей про прострелы по живому стакану: «лаб лимитки», «лаб лимитки C01», «лаб лимитки сброс»",
+      "лаб сделки — журнал сделок для сверки со страницей: во сколько купили, что не купили (цена убежала / ошибка биржи), что не дошло до цены; «лаб сделки e1», «лаб сделки e1 12ч», «лаб сделки все» (с пропусками по фильтрам)",
+      "лаб бэкап — копия данных и настроек в Telegram прямо сейчас (когда нет тома Railway; сама делается каждые 3 часа). Перед деплоем: «лаб бэкап»",
       "лаб минимум — бесплатно: какой минимальный размер ордера объявляет биржа",
       "лаб проба — проверка покупки меньше 5 акций (РЕАЛЬНЫЕ ~$1, спросит подтверждение); «лаб проба да sol» — то же на конкретной монете (btc/eth/sol/xrp/doge)",
       "лаб после [дней] — что происходит с токенами после закрытия окна до резолва (замер, без покупок)",
@@ -6213,6 +6289,8 @@ class ResearchLab {
 
   start(): void {
     this.loadState();
+    this.tjLoad();
+    setInterval(() => this.tjSave(), 30 * 1000);
     this.postWatch.start();
     htfTracker.load();
     htfTracker.sample();
@@ -6302,6 +6380,343 @@ async function sendDocumentToTelegram(botToken: string, chatId: string, filename
     console.error("[page] ошибка отправки файла:", (err as Error).message);
     return false;
   }
+}
+
+// ───── v15: резервная копия в Telegram (когда нет постоянного диска Railway) ─────
+// Бот раз в LAB_TG_BACKUP_HOURS (3 ч) сжимает данные за последние LAB_TG_KEEP_DAYS (7) дней, режет на куски по 19 МБ (бот может скачать из Telegram не больше 20 МБ)
+// и шлёт в чат; последнее сообщение со списком кусков закрепляется. После перезапуска (чистый диск) бот находит закреплённое сообщение, скачивает куски и разворачивает данные.
+// Настройки торговли (lab-live-config.json) — отдельный маленький файл, отправляется сразу после каждого изменения. Выключить: LAB_TG_BACKUP=off. По умолчанию включено, только если нет тома (LAB_DATA_PATH / RAILWAY_VOLUME_MOUNT_PATH).
+const TGB_ENABLED = (() => {
+  const v = (process.env.LAB_TG_BACKUP ?? "auto").toLowerCase();
+  if (v === "off" || v === "0" || v === "выкл") return false;
+  if (v === "on" || v === "1" || v === "вкл") return true;
+  return !process.env.LAB_DATA_PATH && !process.env.RAILWAY_VOLUME_MOUNT_PATH;
+})();
+const TGB_KEEP_DAYS = Math.max(1, Math.floor(Number(process.env.LAB_TG_KEEP_DAYS ?? "7")) || 7);
+const TGB_HOURS = Math.max(0.25, Number(process.env.LAB_TG_BACKUP_HOURS ?? "3") || 3);
+const TGB_PART = 19 * 1024 * 1024;
+const TGB_MAX_PARTS = 12;
+const TGB_TAG = "LABBACKUP1 ";
+const TGB_DIRS = ["lab-data", "lab-tape", "lab-post"];
+interface TgbRef { i: string; m: number } // file_id и номер сообщения
+interface TgbManifest { t: number; s: TgbRef | null; p: TgbRef[]; d: number; b: number }
+const tgb: { token: string; chat: string; man: TgbManifest | null; manMsg: number | null; busy: boolean; setHash: string; setTimer: NodeJS.Timeout | null } = {
+  token: "", chat: "", man: null, manMsg: null, busy: false, setHash: "", setTimer: null,
+};
+let tgbOn = false;
+
+async function tgbApi(method: string, body: Record<string, unknown>): Promise<any> {
+  const r = await fetch(`https://api.telegram.org/bot${tgb.token}/${method}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  const j = (await r.json().catch(() => null)) as any;
+  if (!r.ok || !j?.ok) throw new Error(`${method}: ${j?.description ?? r.status}`);
+  return j.result;
+}
+async function tgbSendDoc(filename: string, buf: Buffer, caption: string): Promise<TgbRef> {
+  const form = new FormData();
+  form.append("chat_id", tgb.chat);
+  form.append("disable_notification", "true");
+  form.append("caption", caption.slice(0, 900));
+  form.append("document", new Blob([new Uint8Array(buf)], { type: "application/octet-stream" }), filename);
+  const r = await fetch(`https://api.telegram.org/bot${tgb.token}/sendDocument`, { method: "POST", body: form });
+  const j = (await r.json().catch(() => null)) as any;
+  if (!r.ok || !j?.ok) throw new Error(`sendDocument: ${j?.description ?? r.status}`);
+  return { i: j.result.document.file_id as string, m: j.result.message_id as number };
+}
+async function tgbDelete(ids: (number | null | undefined)[]): Promise<void> {
+  for (const m of ids) {
+    if (m === null || m === undefined) continue;
+    try { await tgbApi("deleteMessage", { chat_id: tgb.chat, message_id: m }); } catch { /* старше 48 ч или уже удалено — не страшно */ }
+  }
+}
+async function tgbDownload(fileId: string): Promise<Buffer> {
+  const f = await tgbApi("getFile", { file_id: fileId });
+  const r = await fetch(`https://api.telegram.org/file/bot${tgb.token}/${f.file_path}`);
+  if (!r.ok) throw new Error(`скачивание: ${r.status}`);
+  return Buffer.from(await r.arrayBuffer());
+}
+function tgbRun(cmd: string, args: string[], stdin?: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const p = spawn(cmd, args, { stdio: ["pipe", "ignore", "pipe"] });
+    let err = "";
+    p.stderr.on("data", (d) => { err += String(d); });
+    p.on("error", reject);
+    p.on("close", (code) => (code === 0 ? resolve() : reject(new Error(`${cmd} код ${code}: ${err.slice(0, 200)}`))));
+    p.stdin.on("error", () => { /* закрылся раньше */ });
+    p.stdin.end(stdin ?? "");
+  });
+}
+/** Какие файлы класть в архив: корневые lab-*.json и research-lab-state.json (кроме настроек торговли — они отдельно) + файлы папок данных за последние N дней. */
+function tgbFiles(keepDays: number): { names: string[]; bytes: number } {
+  const names: string[] = [];
+  let bytes = 0;
+  const cutoffDay = new Date(Date.now() - keepDays * 86400_000).toISOString().slice(0, 10);
+  const cutoffMs = Date.now() - keepDays * 86400_000;
+  const add = (rel: string, st: fs.Stats) => { names.push(rel); bytes += st.size; };
+  for (const n of fs.readdirSync(STORAGE_DIR)) {
+    if (n === "lab-live-config.json") continue;
+    if (!(/^lab-.*\.json$/.test(n) || n === "research-lab-state.json")) continue;
+    try { const st = fs.statSync(path.join(STORAGE_DIR, n)); if (st.isFile()) add(n, st); } catch { /* пропуск */ }
+  }
+  const walk = (rel: string) => {
+    let list: string[] = [];
+    try { list = fs.readdirSync(path.join(STORAGE_DIR, rel)); } catch { return; }
+    for (const n of list) {
+      const r2 = `${rel}/${n}`;
+      let st: fs.Stats;
+      try { st = fs.statSync(path.join(STORAGE_DIR, r2)); } catch { continue; }
+      if (st.isDirectory()) { walk(r2); continue; }
+      const dm = n.match(/(\d{4}-\d{2}-\d{2})/);
+      if (dm ? dm[1] >= cutoffDay : st.mtimeMs >= cutoffMs) add(r2, st);
+    }
+  };
+  for (const d of TGB_DIRS) walk(d);
+  return { names, bytes };
+}
+function tgbManText(m: TgbManifest): string { return TGB_TAG + JSON.stringify(m); }
+async function tgbPostManifest(m: TgbManifest): Promise<number> {
+  const sent = await tgbApi("sendMessage", { chat_id: tgb.chat, text: tgbManText(m), disable_notification: true });
+  try { await tgbApi("pinChatMessage", { chat_id: tgb.chat, message_id: sent.message_id, disable_notification: true }); }
+  catch (e) { console.log("[tg-backup] не удалось закрепить сообщение:", (e as Error).message); throw new Error("не удалось закрепить сообщение со списком (в группе боту нужно право закреплять сообщения)"); }
+  return sent.message_id as number;
+}
+
+/** Полная копия: настройки + данные за N дней. Возвращает текст для чата. */
+async function tgbBackup(why: string): Promise<string> {
+  if (!tgbOn) return "Копия в Telegram выключена (есть постоянный диск или LAB_TG_BACKUP=off).";
+  if (tgb.busy) return "Копия уже делается — подожди пару минут.";
+  tgb.busy = true;
+  const tmp = path.join(os.tmpdir(), `lab-bk-${Date.now()}.tar.gz`);
+  const uploaded: TgbRef[] = [];
+  try {
+    let keep = TGB_KEEP_DAYS, size = 0, names: string[] = [];
+    for (;;) {
+      const f = tgbFiles(keep);
+      names = f.names;
+      if (names.length === 0) return "Копия: пока нет файлов данных.";
+      await tgbRun("tar", ["czf", tmp, "-C", STORAGE_DIR, "-T", "-"], names.join("\n"));
+      size = fs.statSync(tmp).size;
+      if (size <= TGB_PART * TGB_MAX_PARTS || keep <= 1) break;
+      keep--; // слишком много — берём на день меньше
+    }
+    if (size > TGB_PART * TGB_MAX_PARTS) return `Копия не отправлена: даже за 1 день архив ${(size / 1048576).toFixed(0)} МБ — больше лимита.`;
+    const fd = fs.openSync(tmp, "r");
+    const parts: TgbRef[] = [];
+    try {
+      const n = Math.ceil(size / TGB_PART);
+      for (let k = 0; k < n; k++) {
+        const len = Math.min(TGB_PART, size - k * TGB_PART);
+        const buf = Buffer.alloc(len);
+        fs.readSync(fd, buf, 0, len, k * TGB_PART);
+        const ref = await tgbSendDoc(`lab-backup-${k + 1}-of-${n}.bin`, buf, `LAB копия: часть ${k + 1}/${n} (${why})`);
+        uploaded.push(ref);
+        parts.push(ref);
+      }
+    } finally { fs.closeSync(fd); }
+    let settings: TgbRef | null = null;
+    try {
+      const sb = fs.readFileSync(LIVE_CFG_FILE);
+      settings = await tgbSendDoc("lab-live-config.json", sb, "LAB копия: настройки торговли");
+      uploaded.push(settings);
+      tgb.setHash = sb.toString("utf8");
+    } catch { /* файла настроек ещё нет */ }
+    const man: TgbManifest = { t: Date.now(), s: settings, p: parts, d: keep, b: size };
+    const manMsg = await tgbPostManifest(man);
+    const old = tgb.man, oldMan = tgb.manMsg;
+    tgb.man = man;
+    tgb.manMsg = manMsg;
+    if (old) await tgbDelete([oldMan, old.s?.m, ...old.p.map((x) => x.m)]);
+    return `💾 Копия в Telegram готова (${why}): ${names.length} файлов за ${keep} дн., ${(size / 1048576).toFixed(1)} МБ, частей: ${parts.length}${settings ? ", настройки отдельно" : ""}. Закреплено сообщение со списком.`;
+  } catch (e) {
+    await tgbDelete(uploaded.map((x) => x.m));
+    console.log("[tg-backup] ошибка:", (e as Error).message);
+    return `⚠️ Копия в Telegram не удалась: ${(e as Error).message}`;
+  } finally {
+    tgb.busy = false;
+    try { fs.unlinkSync(tmp); } catch { /* нет файла */ }
+  }
+}
+
+/** Только настройки (после «лаб объем», «лаб тс», «лаб лимит» и т.п.): маленький файл + новое закреплённое сообщение. */
+function tgbSettingsSoon(): void {
+  if (!tgbOn) return;
+  if (tgb.setTimer) clearTimeout(tgb.setTimer);
+  tgb.setTimer = setTimeout(() => { tgb.setTimer = null; void tgbSettingsNow(); }, 30_000);
+}
+async function tgbSettingsNow(): Promise<void> {
+  if (!tgbOn) return;
+  if (tgb.busy) { tgb.setTimer = setTimeout(() => { tgb.setTimer = null; void tgbSettingsNow(); }, 20_000); return; }
+  tgb.busy = true;
+  let ref: TgbRef | null = null;
+  try {
+    const sb = fs.readFileSync(LIVE_CFG_FILE);
+    if (sb.toString("utf8") === tgb.setHash) return;
+    ref = await tgbSendDoc("lab-live-config.json", sb, "LAB копия: настройки торговли");
+    const man: TgbManifest = { t: Date.now(), s: ref, p: tgb.man?.p ?? [], d: tgb.man?.d ?? 0, b: tgb.man?.b ?? 0 };
+    const manMsg = await tgbPostManifest(man);
+    const old = tgb.man, oldMan = tgb.manMsg;
+    tgb.man = man;
+    tgb.manMsg = manMsg;
+    tgb.setHash = sb.toString("utf8");
+    await tgbDelete([oldMan, old?.s?.m]);
+  } catch (e) {
+    if (ref) await tgbDelete([ref.m]);
+    console.log("[tg-backup] настройки не отправились:", (e as Error).message);
+  } finally { tgb.busy = false; }
+}
+
+/** При старте на чистом диске: достать закреплённое сообщение, скачать куски и развернуть. Возвращает текст для чата или null. */
+async function tgbRestore(): Promise<string | null> {
+  if (!tgbOn) return null;
+  if (fs.existsSync(STATE_FILE) || fs.existsSync(LIVE_CFG_FILE) || fs.existsSync(path.join(STORAGE_DIR, "lab-data"))) return null; // диск не пустой — ничего не трогаем
+  try {
+    const chat = await tgbApi("getChat", { chat_id: tgb.chat });
+    const pm = chat?.pinned_message;
+    const text: string = pm?.text ?? "";
+    if (!text.startsWith(TGB_TAG)) return null;
+    const man = JSON.parse(text.slice(TGB_TAG.length)) as TgbManifest;
+    const tmp = path.join(os.tmpdir(), `lab-restore-${Date.now()}.tar.gz`);
+    let n = 0;
+    if (man.p.length > 0) {
+      const bufs: Buffer[] = [];
+      for (const ref of man.p) bufs.push(await tgbDownload(ref.i));
+      fs.writeFileSync(tmp, Buffer.concat(bufs));
+      fs.mkdirSync(STORAGE_DIR, { recursive: true });
+      await tgbRun("tar", ["xzf", tmp, "-C", STORAGE_DIR]);
+      try { fs.unlinkSync(tmp); } catch { /* нет файла */ }
+      n = man.p.length;
+    }
+    let setTxt = "настроек в копии не было";
+    if (man.s) {
+      const sb = await tgbDownload(man.s.i);
+      fs.writeFileSync(LIVE_CFG_FILE, sb);
+      tgb.setHash = sb.toString("utf8");
+      setTxt = "настройки торговли восстановлены";
+    }
+    tgb.man = man;
+    tgb.manMsg = pm.message_id as number;
+    return `♻️ Диск был пустой — восстановил данные из копии в Telegram (от ${new Date(man.t).toISOString().replace("T", " ").slice(0, 16)} UTC): частей ${n}, ${(man.b / 1048576).toFixed(1)} МБ, ${setTxt}.`;
+  } catch (e) {
+    console.log("[tg-backup] восстановление не удалось:", (e as Error).message);
+    return `⚠️ Диск пустой, но восстановить из Telegram не вышло: ${(e as Error).message}`;
+  }
+}
+function tgbInit(token: string | undefined, chat: string | undefined): void {
+  if (!TGB_ENABLED || !token || !chat) return;
+  tgb.token = token;
+  tgb.chat = chat;
+  tgbOn = true;
+}
+function tgbStart(): void {
+  if (!tgbOn) return;
+  setTimeout(() => void tgbBackup("по расписанию").then((t) => console.log("[tg-backup]", t)), 10 * 60 * 1000);
+  setInterval(() => void tgbBackup("по расписанию").then((t) => console.log("[tg-backup]", t)), TGB_HOURS * 3600 * 1000);
+}
+
+// ───── v16: журнал сделок («лаб сделки») ─────
+// По каждому сигналу ТС с торговлей хранится «карточка»: что было с сигналом (купили / цена убежала / ошибка биржи / цена не дошла / пропущено) и чем кончился рынок.
+// Нужен, чтобы сверять бота со страницей по строкам. Ничего не меняет в торговле: только записи. Файл lab-trades-log.json (попадает и в копию Telegram).
+type TjSt = "skip" | "watch" | "nohit" | "miss" | "paper" | "virtual" | "bought" | "failed" | "limit";
+interface Tj {
+  k: string; cfg: string; coin: string; side: "Up" | "Down"; slug: string; close: number;
+  sig: number; sigPx: number; want?: number; cap?: number;
+  st: TjSt; why?: string;
+  at?: number; px?: number; sh?: number; usd?: number; // покупка (реальная или бумажная)
+  miss?: number; missAt?: number; missN?: number; // цена дошла, но ask был выше потолка (первый случай)
+  won?: boolean; pnl?: number; wp?: number; stop?: boolean; // итог рынка; pnl — по купленному, wp — «что было бы» по непокупленному
+  created: number;
+}
+const TJ_FILE = path.resolve(path.dirname(LIVE_CFG_FILE), "lab-trades-log.json");
+const TJ_KEEP_MS = 72 * 3600_000;
+const TJ_MAX = 4000;
+const TJ_TZ = Number(process.env.LAB_TZ_HOURS ?? "7"); // часовой пояс для времени в «лаб сделки» (по умолчанию Бангкок, UTC+7)
+
+function tjTime(ms: number): string {
+  return new Date(ms + TJ_TZ * 3600_000).toISOString().slice(11, 19);
+}
+const tjMoney = (x: number): string => `${x >= 0 ? "+" : "−"}$${Math.abs(x).toFixed(2)}`;
+
+/** Что стало с рынком для карточек этого рынка: исход, «что было бы», окончание слежения. */
+function tjSettleCards(cards: Iterable<Tj>, slug: string, winner: "Up" | "Down", cfgs: TradeCfg[]): void {
+  for (const c of cards) {
+    if (c.slug !== slug) continue;
+    c.won = c.side === winner;
+    if (c.st === "watch") c.st = c.miss !== undefined ? "miss" : "nohit";
+    if (c.st === "bought" || c.st === "paper") continue;
+    const cfg = cfgs.find((x) => x.name === c.cfg);
+    if (!cfg) continue;
+    const px = c.want ?? c.sigPx;
+    const sh = sharesOf(cfg, px);
+    c.wp = c.won ? sh * (1 - px) : -sh * px;
+  }
+}
+
+/** Текст «лаб сделки»: строки по времени (как на странице: время покупки / момент, когда цена дошла) + сводка. */
+function tjFormat(cards: Tj[], opts: { cfg: string | null; hours: number; all: boolean; now: number }): string[] {
+  const from = opts.now - opts.hours * 3600_000;
+  let list = cards.filter((c) => c.sig >= from && (opts.cfg === null || c.cfg.toLowerCase() === opts.cfg));
+  const hidden = list.filter((c) => c.st === "skip").length;
+  if (!opts.all) list = list.filter((c) => c.st !== "skip");
+  const when = (c: Tj): number => c.at ?? c.missAt ?? c.sig;
+  list.sort((a, b) => when(a) - when(b));
+  const per = new Map<string, Tj[]>();
+  for (const c of list) { if (!per.has(c.cfg)) per.set(c.cfg, []); per.get(c.cfg)!.push(c); }
+  const head: string[] = [];
+  head.push(`📒 LAB сделки за ${opts.hours >= 48 ? `${Math.round(opts.hours / 24)} дн.` : `${opts.hours} ч`}${opts.cfg ? ` · ТС ${opts.cfg}` : ""} (время: UTC${TJ_TZ >= 0 ? "+" : ""}${TJ_TZ})`);
+  if (list.length === 0) { head.push(hidden > 0 ? `Сделок нет (скрыто ${hidden} сигналов без покупки: фильтр/выкл/лимит — «лаб сделки все»).` : "Сделок за этот период нет."); return [head.join("\n")]; }
+  for (const [name, cs] of per) {
+    const bought = cs.filter((c) => c.st === "bought" || c.st === "paper");
+    const settled = bought.filter((c) => c.pnl !== undefined);
+    const w = settled.filter((c) => (c.pnl as number) >= 0).length;
+    const pnl = settled.reduce((a, c) => a + (c.pnl as number), 0);
+    const pend = bought.length - settled.length;
+    const px = bought.length ? bought.reduce((a, c) => a + (c.px ?? 0), 0) / bought.length : null;
+    const missed = cs.filter((c) => c.st === "miss" || c.st === "failed" || c.st === "limit");
+    const mw = missed.filter((c) => c.won === true).reduce((a, c) => a + (c.wp ?? 0), 0); // упущено
+    const ml = missed.filter((c) => c.won === false).reduce((a, c) => a + (c.wp ?? 0), 0); // избежали (отрицательное)
+    const nohit = cs.filter((c) => c.st === "nohit").length;
+    const other = cs.filter((c) => c.st === "virtual" || c.st === "skip").length;
+    head.push(
+      `\n▸ ${name}: сигналов ${cs.length}\n` +
+        `  купили ${bought.length}${px !== null ? ` (ср. цена ${px.toFixed(3)})` : ""}: ${w} побед / ${settled.length - w} проигр., итог ${tjMoney(pnl)}${pend ? `, ещё идёт ${pend}` : ""}\n` +
+        `  не купили из-за цены/ошибки: ${missed.length} (упущено ${tjMoney(mw)}, избежали ${tjMoney(ml)}); цена не дошла: ${nohit}${other ? `; прочее: ${other}` : ""}`,
+    );
+  }
+  if (hidden > 0 && !opts.all) head.push(`\n(скрыто ${hidden} сигналов без покупки: фильтр/выкл/лимит — «лаб сделки все»)`);
+  const lines: string[] = [];
+  for (const c of list) {
+    const t = tjTime(when(c));
+    const base = `${t} ${c.coin} ${c.side}${opts.cfg ? "" : ` [${c.cfg}]`}`;
+    const outcome = (c.won === undefined ? "⏳ рынок идёт" : c.won ? "рынок выиграл" : "рынок проиграл");
+    const wasTxt = c.wp !== undefined ? (c.won ? `упущено ${tjMoney(c.wp)}` : `избежали ${tjMoney(c.wp)}`) : outcome;
+    let s: string;
+    if (c.st === "bought" || c.st === "paper") {
+      const res = c.pnl === undefined ? "⏳ идёт" : `${c.pnl >= 0 ? "✅" : "❌"} ${tjMoney(c.pnl)}${c.stop ? " (стоп)" : ""}`;
+      const slip = c.want !== undefined && c.px !== undefined ? ` (на странице ${c.want.toFixed(2)})` : "";
+      s = `${base} · ${c.st === "paper" ? "📝" : "💰"} купили по ${(c.px ?? 0).toFixed(3)}${slip}, ${(c.sh ?? 0).toFixed(2)} акц. → ${res} · сигнал ${tjTime(c.sig)} @${c.sigPx.toFixed(2)}`;
+    } else if (c.st === "miss") {
+      s = `${base} · 🚫 цена дошла до ${(c.want ?? 0).toFixed(2)}, но ask ${(c.miss ?? 0).toFixed(2)} выше потолка ${(c.cap ?? 0).toFixed(2)} → ${wasTxt}`;
+    } else if (c.st === "failed") {
+      s = `${base} · 🚫 не вышло: ${c.why ?? "ошибка"} → ${wasTxt}`;
+    } else if (c.st === "limit") {
+      s = `${base} · ⛔ ${c.why ?? "лимит"} → ${wasTxt}`;
+    } else if (c.st === "nohit") {
+      s = `${base} · ⚪ цена не дошла до ${(c.want ?? 0).toFixed(2)} (сигнал @${c.sigPx.toFixed(2)}) · ${outcome}`;
+    } else if (c.st === "watch") {
+      s = `${base} · 👀 ждём цену ${(c.want ?? 0).toFixed(2)} (сигнал @${c.sigPx.toFixed(2)})`;
+    } else {
+      s = `${base} · ➖ ${c.why ?? "не торговали"} → ${wasTxt}`;
+    }
+    lines.push(s);
+  }
+  // режем на сообщения до ~3500 символов
+  const out: string[] = [];
+  let cur = head.join("\n");
+  for (const ln of lines) {
+    if (cur.length + ln.length + 1 > 3500) { out.push(cur); cur = ""; }
+    cur += (cur ? "\n" : "") + ln;
+  }
+  if (cur) out.push(cur);
+  return out;
 }
 
 const PAGE_COIN_WORDS: Record<string, string> = {
@@ -6567,6 +6982,18 @@ async function pollTelegramCommands(
           const arg = text.replace(/^лаб лимитки/, "").trim();
           if (arg === "сброс") { lab.limReset(); await telegram?.send("🪤 Бумажные лимитки сброшены."); }
           else await telegram?.send(escapeTelegramHtml(lab.limText(arg || undefined)));
+          continue;
+        }
+
+        if (text === "лаб бэкап" || text === "лаб бекап" || text === "лаб копия") {
+          await telegram?.send("⏳ Делаю копию данных в Telegram… (может занять минуту-две)");
+          await telegram?.send(escapeTelegramHtml(await tgbBackup("вручную")));
+          continue;
+        }
+
+        if (text === "лаб сделки" || text.startsWith("лаб сделки ")) {
+          const arg = text.replace(/^лаб сделки/, "").trim();
+          for (const part of lab.tradesText(arg)) await telegram?.send(escapeTelegramHtml(part));
           continue;
         }
 
@@ -6903,6 +7330,11 @@ async function main() {
   const chatId = process.env.LAB_TELEGRAM_CHAT_ID ?? process.env.TELEGRAM_CHAT_ID;
   const telegram = createTelegramNotifier(botToken, chatId, logger);
 
+  // v15: на чистом диске (нет тома) — сначала восстановить данные и настройки из закреплённой копии в Telegram, до чтения файлов
+  tgbInit(botToken, chatId);
+  const restoredTxt = await tgbRestore();
+  if (restoredTxt) { console.log(restoredTxt); void telegram?.send(escapeTelegramHtml(restoredTxt)); }
+
   startPageServer();
   const lab = new ResearchLab();
   if (telegram) lab.onPaperText = (text) => void telegram.send(escapeTelegramHtml(text));
@@ -6950,6 +7382,7 @@ async function main() {
     }
   }
   lab.start();
+  tgbStart();
 
   if (telegram && botToken && chatId) {
     console.log('Telegram включён. Команды начинаются со слова "лаб" (список: "лаб помощь").');
