@@ -4411,7 +4411,7 @@ class ResearchLab {
   // v14 «Особый вход» (как «Особые новые условия» на странице, applyEntry): сигнал по ТС, покупка — когда цена дойдёт до entryPx.
   // Страница: P = цена входа; если P выше цены сигнала px0 — нужен подъём bid до P − spr (spr = спред сигнала, если нет данных — 0.01); если P ниже — падение bid до P − spr; если почти равна — вход сразу.
   // Вход на странице считается ровно по P; бот платит живой ask (не выше cfg.cap) — разницу видно в сообщении «LAB БЫ КУПИЛ».
-  private enWatch = new Map<string, { cfg: TradeCfg; market: CryptoUpDownMarket; side: "Up" | "Down"; e: LabEntry; done: boolean }>();
+  private enWatch = new Map<string, { cfg: TradeCfg; market: CryptoUpDownMarket; side: "Up" | "Down"; e: LabEntry; done: boolean; n1?: number; s1?: boolean }>();
   private enBought = new Map<string, { price: number; shares: number }>(); // «ТС|рынок|сторона» → реальная (бумажная) цена и число акций
   private enCheck(market: CryptoUpDownMarket, side: "Up" | "Down", bid: number | null, ask: number | null, now: number, sampled = false): void {
     if (this.enWatch.size === 0 || bid === null) return;
@@ -4430,7 +4430,12 @@ class ResearchLab {
       const immediate = rise && P - spr - px0 <= 0;
       if (!sampled && !immediate) continue;
       const hit = rise ? (immediate || bid >= P - spr - 1e-9) : bid <= P - spr + 1e-9;
-      if (!hit || ask === null) continue;
+      if (!hit) continue;
+      if (ask === null) { // v17: цена дошла, но у рынка нет цены продажи — раньше это было не видно
+        const t0 = this.tj.get(this.tjKey(cfg.name, market.eventSlug, side));
+        if (t0) { t0.nA = (t0.nA ?? 0) + 1; this.tjDirty = true; }
+        continue;
+      }
       if (ask > cfg.cap + 1e-9) {
         // v16: запоминаем для «лаб сделки»: цена дошла, но ask выше потолка (раньше такой пропуск не оставлял следов)
         const tjm = this.tj.get(this.tjKey(cfg.name, market.eventSlug, side));
@@ -4448,6 +4453,38 @@ class ResearchLab {
         this.enBought.set(k, { price: ask, shares: sharesOf(cfg, ask) });
         this.paperBuy(w.e.idea, market, side, e2, null, cfg, extra);
       }
+    }
+  }
+  /** v17: «теневая» проверка входа раз в секунду: вход, если цена на уровне 2 замера подряд. НИЧЕГО НЕ ПОКУПАЕТ — только пишет в журнал «лаб сделки», чтобы сравнить с обычной проверкой раз в 5с. */
+  private shadowCheck(): void {
+    if (this.enWatch.size === 0) return;
+    const now = Date.now();
+    for (const w of this.enWatch.values()) {
+      try {
+        const m = w.market;
+        const left = (m.closeTimeMs - now) / 1000;
+        if (left <= -2) continue;
+        const tj = this.tj.get(this.tjKey(w.cfg.name, m.eventSlug, w.side));
+        if (!tj) continue;
+        const q = this.quotes.get(w.side === "Up" ? m.upTokenId : m.downTokenId);
+        const bid = q?.bid ?? null;
+        const ask = q?.ask ?? null;
+        tj.s1on = true;
+        if (bid !== null) { tj.mb = Math.max(tj.mb ?? 0, bid); tj.lb = bid; tj.la = ask ?? undefined; tj.lt = now; }
+        if (w.s1 || left <= 0 || bid === null) continue;
+        const cfg = w.cfg;
+        const P = cfg.entryPx as number;
+        const px0 = w.e.price;
+        const spr = w.e.bid0 != null ? Math.max(0, Math.round((px0 - w.e.bid0) * 100) / 100) : 0.01;
+        const rise = P > px0 + 0.0049;
+        const hit = rise ? (P - spr - px0 <= 0 || bid >= P - spr - 1e-9) : bid <= P - spr + 1e-9;
+        if (!hit) { w.n1 = 0; continue; }
+        if (ask === null) { tj.nA1 = (tj.nA1 ?? 0) + 1; w.n1 = 0; continue; }
+        w.n1 = (w.n1 ?? 0) + 1;
+        if (w.n1 < 2) continue;
+        if (ask > cfg.cap + 1e-9) { if (tj.s1Miss === undefined) tj.s1Miss = ask; continue; }
+        w.s1 = true; tj.s1 = ask; tj.s1At = now; this.tjDirty = true;
+      } catch { /* журнал best-effort */ }
     }
   }
   dipStatusText(): string {
@@ -6301,6 +6338,7 @@ class ResearchLab {
     setInterval(() => this.checkResolutions(), 30 * 1000);
     setInterval(() => this.sampleArb(), ARB_SAMPLE_MS);
     setInterval(() => this.sampleTape(), TAPE_MS);
+    setInterval(() => this.shadowCheck(), 1000); // v17: теневая проверка входа раз в секунду (только журнал)
     void compressOldDays(LAB_DATA_DIR);
     void compressOldDays(LAB_TAPE_DIR);
     setInterval(() => void compressOldDays(LAB_DATA_DIR), 60 * 60 * 1000);
@@ -6623,6 +6661,9 @@ interface Tj {
   at?: number; px?: number; sh?: number; usd?: number; // покупка (реальная или бумажная)
   miss?: number; missAt?: number; missN?: number; // цена дошла, но ask был выше потолка (первый случай)
   won?: boolean; pnl?: number; wp?: number; stop?: boolean; // итог рынка; pnl — по купленному, wp — «что было бы» по непокупленному
+  // v17: «теневая» проверка раз в секунду (вход после 2 замеров подряд), без покупки — только для сравнения
+  s1on?: boolean; s1?: number; s1At?: number; s1p?: number; s1Miss?: number; nA1?: number; // s1 — по какой цене она бы купила, s1p — итог
+  nA?: number; mb?: number; lb?: number; la?: number; lt?: number; // nA — сколько замеров «цена дошла, но нет цены продажи»; mb — макс. bid; lb/la/lt — последний замер
   created: number;
 }
 const TJ_FILE = path.resolve(path.dirname(LIVE_CFG_FILE), "lab-trades-log.json");
@@ -6641,8 +6682,9 @@ function tjSettleCards(cards: Iterable<Tj>, slug: string, winner: "Up" | "Down",
     if (c.slug !== slug) continue;
     c.won = c.side === winner;
     if (c.st === "watch") c.st = c.miss !== undefined ? "miss" : "nohit";
-    if (c.st === "bought" || c.st === "paper") continue;
     const cfg = cfgs.find((x) => x.name === c.cfg);
+    if (cfg && c.s1 !== undefined) { const sh1 = sharesOf(cfg, c.s1); c.s1p = c.won ? sh1 * (1 - c.s1) : -sh1 * c.s1; }
+    if (c.st === "bought" || c.st === "paper") continue;
     if (!cfg) continue;
     const px = c.want ?? c.sigPx;
     const sh = sharesOf(cfg, px);
@@ -6680,6 +6722,28 @@ function tjFormat(cards: Tj[], opts: { cfg: string | null; hours: number; all: b
         `  купили ${bought.length}${px !== null ? ` (ср. цена ${px.toFixed(3)})` : ""}: ${w} побед / ${settled.length - w} проигр., итог ${tjMoney(pnl)}${pend ? `, ещё идёт ${pend}` : ""}\n` +
         `  не купили из-за цены/ошибки: ${missed.length} (упущено ${tjMoney(mw)}, избежали ${tjMoney(ml)}); цена не дошла: ${nohit}${other ? `; прочее: ${other}` : ""}`,
     );
+    const nNoAsk = cs.filter((c) => (c.st === "nohit" || c.st === "watch") && (c.nA ?? 0) > 0).length;
+    if (nNoAsk > 0) head.push(`  ⚠️ из «цена не дошла» у ${nNoAsk} цена на деле дошла, но у рынка не было цены продажи (ask)`);
+    if (cs.some((c) => c.s1on)) {
+      const shS = cs.filter((c) => c.s1 !== undefined && c.s1p !== undefined);
+      const isBot = (c: Tj): boolean => c.st === "bought" || c.st === "paper";
+      const extra = shS.filter((c) => !isBot(c)); // бот не купил, а проверка раз в секунду купила бы
+      const exW = extra.filter((c) => (c.s1p as number) >= 0);
+      const exSum = extra.reduce((a, c) => a + (c.s1p as number), 0);
+      const lostBy = cs.filter((c) => isBot(c) && c.pnl !== undefined && c.s1on && c.s1 === undefined); // бот купил, проверка раз в секунду не купила бы
+      const lbSum = lostBy.reduce((a, c) => a + (c.pnl as number), 0);
+      const both = shS.filter((c) => isBot(c) && c.pnl !== undefined);
+      const diff = both.reduce((a, c) => a + ((c.s1p as number) - (c.pnl as number)), 0);
+      head.push(
+        `  🔬 Проверка раз в секунду (2 замера подряд, без покупки): купила бы ${shS.length}, итог ${tjMoney(shS.reduce((a, c) => a + (c.s1p as number), 0))}
+` +
+          `     вернула бы пропущенное ботом: ${extra.length} (${exW.length} побед / ${extra.length - exW.length} проигр., ${tjMoney(exSum)})
+` +
+          `     не взяла бы то, что бот купил: ${lostBy.length} (бот на них ${tjMoney(lbSum)})
+` +
+          `     там, где купили обе: ${both.length}, разница цены входа в её пользу/против ${tjMoney(diff)}`,
+      );
+    }
   }
   if (hidden > 0 && !opts.all) head.push(`\n(скрыто ${hidden} сигналов без покупки: фильтр/выкл/лимит — «лаб сделки все»)`);
   const lines: string[] = [];
@@ -6700,12 +6764,17 @@ function tjFormat(cards: Tj[], opts: { cfg: string | null; hours: number; all: b
     } else if (c.st === "limit") {
       s = `${base} · ⛔ ${c.why ?? "лимит"} → ${wasTxt}`;
     } else if (c.st === "nohit") {
-      s = `${base} · ⚪ цена не дошла до ${(c.want ?? 0).toFixed(2)} (сигнал @${c.sigPx.toFixed(2)}) · ${outcome}`;
+      if ((c.nA ?? 0) > 0) s = `${base} · ⚠️ цена дошла до ${(c.want ?? 0).toFixed(2)}, но у рынка не было цены продажи (ask), замеров ${c.nA} · ${outcome}`;
+      else {
+        const lastTxt = c.lb !== undefined && c.lt !== undefined ? `, последний замер bid ${c.lb.toFixed(2)}${c.la !== undefined ? `/ask ${c.la.toFixed(2)}` : "/ask нет"} за ${Math.max(0, Math.round((c.close - c.lt) / 1000))}с до конца` : "";
+        s = `${base} · ⚪ цена не дошла до ${(c.want ?? 0).toFixed(2)} (сигнал @${c.sigPx.toFixed(2)}${c.mb !== undefined ? `, макс. bid ${c.mb.toFixed(2)}` : ""}${lastTxt}) · ${outcome}`;
+      }
     } else if (c.st === "watch") {
       s = `${base} · 👀 ждём цену ${(c.want ?? 0).toFixed(2)} (сигнал @${c.sigPx.toFixed(2)})`;
     } else {
       s = `${base} · ➖ ${c.why ?? "не торговали"} → ${wasTxt}`;
     }
+    if (c.s1 !== undefined) s += ` · 🔬 раз в сек: купила бы по ${c.s1.toFixed(3)}${c.s1At !== undefined ? ` в ${tjTime(c.s1At)}` : ""}${c.s1p !== undefined ? ` → ${tjMoney(c.s1p)}` : ""}`;
     lines.push(s);
   }
   // режем на сообщения до ~3500 символов
