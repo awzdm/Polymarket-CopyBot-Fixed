@@ -163,6 +163,7 @@ const inR = (v: number | null | undefined, lo: number | null, hi: number | null)
 // v14: потолок цены для «особого входа»: страница считает вход ровно по цене входа, живой ask в момент касания может быть выше — разрешаем на LAB_EN_SLIP центов (по умолчанию 1¢) выше
 const EN_SLIP = Number(process.env.LAB_EN_SLIP ?? "1");
 const EN_CAP = Math.min(0.99, Math.round((0.85 + EN_SLIP / 100) * 100) / 100);
+const enCapOf = (p: number): number => Math.min(0.99, Math.round((p + EN_SLIP / 100) * 100) / 100); // v19: потолок для ТС с другим «особым входом»
 const TRADE_CFGS: TradeCfg[] = [
   // ══ v11: КОЛЛЕКТИВ POJ (5 ТС, группа poj), только ETH. ВСЕ прежние ТС удалены. Ставка $1.1, дневная цель — 1 прибыльная сделка (goalW), старт 2026-11-22 00:00 UTC (= 07:00 Бангкок). Общий дневной стоп — TOTAL_STOP.
   {
@@ -195,6 +196,17 @@ const TRADE_CFGS: TradeCfg[] = [
     name: "e1", idea: "fair2", combo: "edge <0 / 180-240с / 0.70-0.80", label: "ТС e1: СЦ σ120с, edge<0, 180-240с, сигнал ask 0.70-0.80, ОСОБЫЙ ВХОД по 0.85, только BTC+ETH",
     size: 1.65, on: true, goalP: 0, goalL: 0, goalW: 0, paper: true, entryPx: 0.85, exact: true, sizeRefPrice: 0.85, cap: EN_CAP,
     filter: (e) => e.coin === "Bitcoin" || e.coin === "Ethereum", // v14: только BTC+ETH — на SOL/XRP биржа отвергает подпись ордера («invalid POLY_1271 signature»)
+  },
+  // ══ v19: два БУМАЖНЫХ замера (реальных денег нет) — найдены «перебором коллективов» на странице: проверка на новых днях. Живут рядом с e1, ничего не трогают.
+  {
+    name: "x1", idea: "model", combo: "сила 0.5-1 / 30-60с / 0.60-0.70", label: "Замер x1: Модель цены, сила 0.5-1, 30-60с, ask 0.60-0.70, ОСОБЫЙ ВХОД по 0.80, только ETH (бумага)",
+    size: 1.1, on: true, goalP: 0, goalL: 0, goalW: 0, paper: true, entryPx: 0.80, exact: true, sizeRefPrice: 0.80, cap: enCapOf(0.80),
+    filter: (e) => e.coin === "Ethereum",
+  },
+  {
+    name: "x2", idea: "fair1", combo: "edge 0-2% / 180-240с / 0.70-0.80", label: "Замер x2: СЦ σ60с, edge 0-2%, 180-240с, ask 0.70-0.80, ОСОБЫЙ ВХОД по 0.82, только SOL (бумага)",
+    size: 1.1, on: true, goalP: 0, goalL: 0, goalW: 0, paper: true, entryPx: 0.82, exact: true, sizeRefPrice: 0.82, cap: enCapOf(0.82),
+    filter: (e) => e.coin === "Solana",
   },
 ];
 /** v6: стратегии по имени, «все» или имени группы (например «kol»). */
