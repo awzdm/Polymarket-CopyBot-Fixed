@@ -163,6 +163,8 @@ const inR = (v: number | null | undefined, lo: number | null, hi: number | null)
 // v14: потолок цены для «особого входа»: страница считает вход ровно по цене входа, живой ask в момент касания может быть выше — разрешаем на LAB_EN_SLIP центов (по умолчанию 1¢) выше
 const EN_SLIP = Number(process.env.LAB_EN_SLIP ?? "1");
 const EN_CAP = Math.min(0.99, Math.round((0.85 + EN_SLIP / 100) * 100) / 100);
+// v20: проверка «цена дошла» раз в секунду в ТОРГОВЛЕ (2 замера подряд на уровне) — дополнительно к проверке по ленте раз в 5с; кто сработает раньше, тот и покупает. Выключить: LAB_EN_1S=0
+const EN_1S = (process.env.LAB_EN_1S ?? "1") !== "0";
 const enCapOf = (p: number): number => Math.min(0.99, Math.round((p + EN_SLIP / 100) * 100) / 100); // v19: потолок для ТС с другим «особым входом»
 const TRADE_CFGS: TradeCfg[] = [
   // ══ v11: КОЛЛЕКТИВ POJ (5 ТС, группа poj), только ETH. ВСЕ прежние ТС удалены. Ставка $1.1, дневная цель — 1 прибыльная сделка (goalW), старт 2026-11-22 00:00 UTC (= 07:00 Бангкок). Общий дневной стоп — TOTAL_STOP.
@@ -4496,6 +4498,18 @@ class ResearchLab {
         if (w.n1 < 2) continue;
         if (ask > cfg.cap + 1e-9) { if (tj.s1Miss === undefined) tj.s1Miss = ask; continue; }
         w.s1 = true; tj.s1 = ask; tj.s1At = now; this.tjDirty = true;
+        if (EN_1S && !w.done) { // v20: настоящая покупка по проверке раз в секунду (те же условия и потолок, что в enCheck)
+          w.done = true;
+          if (!cfg.on || notStarted(cfg) || ended(cfg) || this.dayBlock(cfg) !== null) continue;
+          const k1 = `${cfg.name}|${m.eventSlug}|${w.side}`;
+          const e2: LabEntry = { ...w.e, price: ask, bid0: bid, ts: now, sec: Math.round(left) };
+          const extra1 = `особый вход (проверка раз в секунду): сигнал был на ${px0.toFixed(2)}, bid дошёл до ${bid.toFixed(2)} через ${Math.round((now - w.e.ts) / 1000)}с (на странице вход считается по ${P.toFixed(2)})`;
+          if (this.liveEnabled && this.clob && !cfg.paper) void this.liveBuy(w.e.idea, m, w.side, e2, null, cfg, extra1);
+          else {
+            this.enBought.set(k1, { price: ask, shares: sharesOf(cfg, ask) });
+            this.paperBuy(w.e.idea, m, w.side, e2, null, cfg, extra1);
+          }
+        }
       } catch { /* журнал best-effort */ }
     }
   }
