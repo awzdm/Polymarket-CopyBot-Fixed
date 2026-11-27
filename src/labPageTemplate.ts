@@ -1,2 +1,7539 @@
-// Автогенерируется из labPage2.html. Не править руками.
-export const PAGE_TEMPLATE: string = "<!doctype html>\n<html lang=\"ru\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n<title>LAB — разбор сделок</title>\n<style>\n:root{--bg:#fafaf9;--card:#ffffff;--fg:#1c1b19;--mut:#6b6a66;--line:#e4e2dc;--acc:#2f6fed;--good:#16794a;--bad:#b3261e;--warn:#9a6a00;--w:#16794a;--l:#b3261e;--chip:#f0eee8}\n@media (prefers-color-scheme:dark){:root:not([data-theme=\"light\"]){--bg:#151514;--card:#1d1d1b;--fg:#ecebe6;--mut:#9b9a94;--line:#33322f;--acc:#6b9bff;--good:#4cc38a;--bad:#f2766d;--warn:#e0b04a;--w:#4cc38a;--l:#f2766d;--chip:#2a2a27}}\n:root[data-theme=\"dark\"]{--bg:#151514;--card:#1d1d1b;--fg:#ecebe6;--mut:#9b9a94;--line:#33322f;--acc:#6b9bff;--good:#4cc38a;--bad:#f2766d;--warn:#e0b04a;--w:#4cc38a;--l:#f2766d;--chip:#2a2a27}\n*{box-sizing:border-box}\nbody{margin:0;background:var(--bg);color:var(--fg);font:14px/1.45 system-ui,-apple-system,\"Segoe UI\",Roboto,sans-serif}\n.wrap{max-width:1180px;margin:0 auto;padding:12px 16px 60px}\nh1{font-size:19px;margin:6px 0 2px}\nh2{font-size:16px;margin:20px 0 8px}\nh3{font-size:14px;margin:16px 0 6px}\n.mut{color:var(--mut)}\n.small{font-size:12px}\n.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0}\nselect,input[type=text],input[type=number],button{font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 9px}\ninput[type=number]{width:92px}\ninput[type=date]{font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:5px 8px}\nbutton{cursor:pointer}\nbutton.on,.chip.on{background:var(--acc);color:#fff;border-color:var(--acc)}\nbutton.pri{background:var(--acc);color:#fff;border-color:var(--acc)}\n.chip{display:inline-block;background:var(--chip);border:1px solid var(--line);border-radius:999px;padding:3px 10px;margin:2px 4px 2px 0;cursor:pointer;font-size:12.5px}\n.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:10px 0}\n.fl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line)}\n.fl:last-child{border-bottom:0}\n.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin:8px 0}\n.kpi{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 10px}\n.kpi b{display:block;font-size:18px}\n.kpi span{color:var(--mut);font-size:12px}\n.tw{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--card)}\ntable{border-collapse:collapse;width:100%;font-size:13px}\nth,td{padding:5px 8px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}\nth{position:sticky;top:0;background:var(--card);cursor:pointer;color:var(--mut);font-weight:600;user-select:none}\nth.ns{cursor:default}\ntd.l,th.l{text-align:left}\ntr.click{cursor:pointer}\ntr.click:hover{background:var(--chip)}\n.pos{color:var(--good)}.neg{color:var(--bad)}.wr{color:var(--warn)}\n.note{background:var(--chip);border-radius:10px;padding:9px 12px;font-size:13px;margin:8px 0}\n.warn{border-left:3px solid var(--warn)}\n.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}\n@media(max-width:760px){.grid2{grid-template-columns:1fr}}\nsvg text{fill:var(--mut);font-size:11px}\na{color:var(--acc)}\n.x{border:0;background:transparent;color:var(--mut);padding:2px 6px;font-size:16px}\ndetails summary{cursor:pointer;color:var(--acc)}\n.tabs{display:flex;gap:4px;margin:14px 0 6px;border-bottom:1px solid var(--line)}\n.tab{padding:9px 16px;border:0;border-bottom:3px solid transparent;border-radius:8px 8px 0 0;background:transparent;font-weight:600;color:var(--mut);font-size:14px}\n.tab:hover{color:var(--fg)}\n.tab.on{background:transparent;color:var(--acc);border-bottom-color:var(--acc)}\n.pg{display:flex;flex-wrap:wrap;align-items:center;gap:2px 0;margin:3px 0}\n.pgl{display:inline-block;min-width:104px;color:var(--mut);font-size:12px;margin-right:6px}\n.hero{border-color:var(--acc)}\n.goal{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}\n.goal label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--mut)}\n.goal input,.goal select{width:100%;color:var(--fg)}\n.top .th{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;margin-bottom:8px}\n.top .th b{font-size:15px}\ntd.nm{white-space:normal;min-width:230px;max-width:340px;font-weight:500}\n.spark{display:block}\n.kpi b.pos{color:var(--good)}.kpi b.neg{color:var(--bad)}\ntr.click td:first-child{font-size:15px}\n.card{box-shadow:0 1px 2px rgba(0,0,0,.04)}\n\n.star{border:0;background:transparent;color:var(--warn);font-size:16px;padding:0 4px;cursor:pointer}\n.badge{display:inline-block;border-radius:999px;padding:1px 8px;font-size:11px;font-weight:600;background:var(--chip);border:1px solid var(--line)}\n.badge.live{color:var(--good);border-color:var(--good)}\n.tg{padding:3px 10px;font-size:12.5px;border-radius:999px}\n.cum{margin:12px 0}\n.cumsvg{display:block;margin:4px 0;background:var(--card);border:1px solid var(--line);border-radius:10px}\n.cumtip{min-height:18px;margin:2px 0 4px}\n.top td .mut.small{white-space:normal}\n\n/* ===== v4.4: оформление ===== */\n:root{--r:14px;--sh:0 1px 2px rgba(20,20,30,.05),0 6px 18px -8px rgba(20,20,30,.12);--acc2:#7c5cff}\n@media (prefers-color-scheme:dark){:root:not([data-theme=\"light\"]){--sh:0 1px 2px rgba(0,0,0,.4),0 8px 22px -10px rgba(0,0,0,.6)}}\n:root[data-theme=\"dark\"]{--sh:0 1px 2px rgba(0,0,0,.4),0 8px 22px -10px rgba(0,0,0,.6)}\nbody{background:var(--bg);background-image:radial-gradient(900px 300px at 85% -80px,color-mix(in srgb,var(--acc) 12%,transparent),transparent)}\n.wrap{max-width:1240px}\n.hd{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 0 4px}\n.hd h1{font-size:22px;letter-spacing:-.01em;margin:0;display:flex;align-items:center;gap:10px}\n.hd h1 .lg{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--acc),var(--acc2));color:#fff;font-size:16px}\n.hd h1 small{font-weight:500;color:var(--mut);font-size:14px}\n#meta{margin:2px 0 6px}\n.theme{border-radius:999px;padding:5px 12px;font-size:13px}\n.card{border-radius:var(--r);box-shadow:var(--sh);padding:14px 16px}\nh3{font-size:15px;margin:18px 0 8px;display:flex;align-items:center;gap:6px}\nbutton{transition:background .12s,border-color .12s,transform .05s}\nbutton:hover{border-color:var(--acc)}\nbutton:active{transform:translateY(1px)}\nbutton:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:1px}\nbutton.pri{background:linear-gradient(135deg,var(--acc),var(--acc2));border-color:transparent;font-weight:600}\nbutton.pri:hover{filter:brightness(1.07)}\nselect,input[type=text],input[type=number],input[type=date]{border-radius:9px}\n.tabs{gap:6px;border-bottom:0;background:var(--chip);padding:4px;border-radius:12px;width:fit-content;max-width:100%;overflow-x:auto;margin:14px 0 10px}\n.tab{padding:8px 16px;border:0;border-radius:9px;color:var(--mut);white-space:nowrap}\n.tab.on{background:var(--card);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.12);border-bottom-color:transparent}\n.kpis{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}\n.kpi{border-radius:12px;padding:10px 12px;box-shadow:var(--sh);border-top:3px solid var(--line)}\n.kpi b{font-size:20px;letter-spacing:-.01em}\n.kpi b.pos{}\n.kpi:has(b.pos){border-top-color:var(--good)}\n.kpi:has(b.neg){border-top-color:var(--bad)}\n.tw{border-radius:12px;box-shadow:var(--sh)}\nth{text-transform:none;font-size:12px;letter-spacing:.01em;background:color-mix(in srgb,var(--card) 92%,var(--mut))}\ntbody tr:nth-child(even) td,table tr:nth-child(even) td{background:color-mix(in srgb,var(--card) 97%,var(--mut))}\ntr.click:hover td{background:color-mix(in srgb,var(--acc) 9%,var(--card))}\n.note{border-radius:12px;border:1px solid var(--line);background:color-mix(in srgb,var(--acc) 6%,var(--card))}\n.note.warn{border-left:4px solid var(--warn);background:color-mix(in srgb,var(--warn) 9%,var(--card))}\n.chip{transition:background .12s}\n.chip:hover{border-color:var(--acc)}\n.snav{position:sticky;top:0;z-index:20;display:flex;gap:6px;overflow-x:auto;padding:8px 2px;margin:8px 0;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}\n.snav button{border-radius:999px;padding:5px 13px;font-size:13px;white-space:nowrap;background:var(--card)}\n.snav button:hover{background:var(--acc);color:#fff;border-color:var(--acc)}\n.sec{scroll-margin-top:56px}\ndetails>summary{font-weight:600}\n@media(max-width:760px){.wrap{padding:8px 10px 50px}.kpis{grid-template-columns:repeat(2,1fr)}.hd h1{font-size:19px}}\n\n.xp .xh{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:4px}\n.xr{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}\n.xr:last-of-type{border-bottom:0}\n.xr .xt{min-width:110px;font-weight:600}\n.xr input[type=number]{width:78px}\n.xr:not(.on) .xt{color:var(--mut);font-weight:500}\n.swt{position:relative;display:inline-block;width:38px;height:22px;flex:none}\n.swt input{opacity:0;width:0;height:0;position:absolute}\n.swt i{position:absolute;inset:0;background:var(--line);border-radius:999px;cursor:pointer;transition:background .15s}\n.swt i:before{content:\"\";position:absolute;left:3px;top:3px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .15s;box-shadow:0 1px 2px rgba(0,0,0,.3)}\n.swt input:checked+i{background:var(--acc)}\n.swt input:checked+i:before{transform:translateX(16px)}\n.xsteps{display:flex;flex-direction:column;gap:6px;align-items:flex-start}\n.xs{display:flex;flex-wrap:wrap;align-items:center;gap:8px}\n.xadd{border-style:dashed;color:var(--acc);background:transparent;font-size:13px;padding:4px 12px}\n.xres{display:flex;flex-wrap:wrap;gap:22px;align-items:center;margin-top:10px;padding:10px 14px;background:var(--chip);border-radius:12px}\n.xres div{display:flex;flex-direction:column}\n.xres b{font-size:20px}\n.xres .xar{font-size:20px;color:var(--mut)}\n.pch{display:block;background:var(--card);border:1px solid var(--line);border-radius:12px}\n.tm{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:100;display:flex;align-items:flex-start;justify-content:center;overflow:auto;padding:24px 12px}\n.tmc{background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.4);width:min(1080px,100%);padding:14px 16px}\n.tmh{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:16px}\n.kvs{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:6px 18px;margin-top:10px}\n.kv{display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--line);padding:3px 0;font-size:13px}\n.kv span{color:var(--mut)}\n.dm .tmc{width:min(1100px,100%)}\n.dmh{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}\n.dmh .dt{font-size:22px;font-weight:800}\n.dmh .dsub{color:var(--mut);font-size:13px}\n.dnav{margin-left:auto;display:flex;gap:6px;align-items:center}\n.dhero{display:flex;flex-wrap:wrap;gap:12px 26px;align-items:flex-end;padding:14px 18px;border-radius:14px;background:var(--chip);margin-bottom:10px}\n.dhero .big{font-size:34px;font-weight:800;line-height:1.05}\n.dhero b{font-size:20px}\n.dgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin:8px 0}\n.dc{border:1px solid var(--line);border-radius:12px;padding:8px 11px;background:var(--card)}\n.dc b{display:block;font-size:17px}\n.dc span{font-size:12px;color:var(--mut)}\n.dchart{position:relative}\n.dtip{position:absolute;pointer-events:none;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-size:12px;box-shadow:0 6px 22px rgba(0,0,0,.3);display:none;white-space:nowrap;z-index:2}\n.d2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}\n.dscroll{max-height:360px;overflow:auto;border:1px solid var(--line);border-radius:10px}\n.dscroll thead th{position:sticky;top:0;background:var(--card)}\n.dsvg{cursor:pointer}\n.dcon{border:1px solid var(--acc);background:var(--chip);border-radius:12px;padding:10px 14px;margin:10px 0}\n.dcon ul{margin:6px 0 0 18px;padding:0}\n.dcon li{margin:5px 0;line-height:1.45}\n</style>\n</head>\n<body>\n<div class=\"wrap\">\n<div class=\"hd\"><h1><span class=\"lg\">🧪</span>LAB <small>разбор сделок</small></h1><button class=\"theme\" id=\"themebtn\" type=\"button\">🌓 Тема</button></div>\n<div class=\"mut small\" id=\"meta\"></div>\n<div id=\"app\"><div class=\"note\">Загрузка…</div></div>\n</div>\n\n<script>\nconst D = /*__DATA__*/null;\nconst ROWS_B64 = \"/*__ROWS__*/\";\n// Строки сделок лежат в файле сжатыми (gzip+base64): так в файл помещаются ВСЕ сделки, а не выборка.\nasync function __loadRows(){\n  if(!ROWS_B64){return;}\n  var v=document.getElementById('app');if(v)v.innerHTML='<div class=\"note\">Распаковка данных…</div>';\n  if(typeof DecompressionStream==='undefined')throw new Error('браузер не поддерживает распаковку (нужен свежий Chrome/Edge/Safari/Firefox)');\n  var parts=ROWS_B64.split('|'),rr=[],o=null,legacy=false;\n  for(var pi=0;pi<parts.length;pi++){\n    var bin=atob(parts[pi]),n=bin.length,u=new Uint8Array(n);\n    for(var i=0;i<n;i++)u[i]=bin.charCodeAt(i);\n    bin=null;\n    var stream=new Blob([u]).stream().pipeThrough(new DecompressionStream('gzip'));\n    var txt=await new Response(stream).text();\n    o=JSON.parse(txt);txt=null;\n    if(o&&o.c){var cc=o.c,nr=o.n,nc=cc.length;for(var i2=0;i2<nr;i2++){var r=new Array(nc);for(var j=0;j<nc;j++)r[j]=cc[j][i2];rr.push(r);}}\n    else{legacy=true;rr=o;}\n    if(parts.length>1&&pi<parts.length-1){v=document.getElementById('app');if(v)v.innerHTML='<div class=\"note\">Распаковка данных… '+(pi+1)+' из '+parts.length+'</div>';}\n  }\n  D.rows=rr;\n  D.paths=(o&&o.p)||D.paths||{};\n  D.pm=(o&&o.pm)||D.pm||{};\n}\n__loadRows().then(function(){\n\"use strict\";\nconst NI=D.idCols.length, COLS=D.cols, CI={};\nCOLS.forEach((c,i)=>{CI[c.k]=NI+i;});\nconst C={ts:0,coin:1,side:2,won:3,idea:4,combo:5,wm:6,mk:7};\nconst OFF=D.offsets;\nconst COIN_SHORT={Bitcoin:'BTC',Ethereum:'ETH',Solana:'SOL',XRP:'XRP',Dogecoin:'DOGE'};\nconst TEMKA=new Set();D.ideas.forEach((id,i)=>{if(id.indexOf('temka:')===0)TEMKA.add(i);});\nconst ROWS=TEMKA.size?D.rows.filter(r=>!TEMKA.has(r[C.idea])):D.rows, N=ROWS.length;\n\nconst esc=s=>String(s).replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c]));\nconst fmt=(x,d)=>(x===null||x===undefined||!isFinite(x))?'—':x.toFixed(d);\nconst pct=(x,d)=>(x===null||x===undefined||!isFinite(x))?'—':(x*100).toFixed(d===undefined?1:d)+'%';\nconst sgn=(x,d)=>(x===null||x===undefined||!isFinite(x))?'—':(x>0?'+':'')+x.toFixed(d);\nconst cls=x=>x>0?'pos':(x<0?'neg':'');\nconst money=x=>(x<0?'−':'+')+'$'+Math.abs(x).toFixed(Math.abs(x)>=100?0:2);\n\n// ---------- названия ----------\nfunction ideaTitle(id){\n  let m;\n  if(id==='model')return 'Модель цены';\n  if(id==='cdx')return 'Монета: прямой отрыв (без возврата к открытию)';\n  if(id==='cbk')return 'Монета: пробой максимума';\n  if(id==='cac')return 'Монета: рывок / разгон';\n  if(id==='cpb')return 'Монета: откат и возврат';\n  if(id==='cbd')return 'Монета: тело свечи';\n  if(id==='crv')return 'Монета: отрыв больше любого отката';\n  if(id==='fair1')return 'Справедливая цена (σ 60с)';\n  if(id==='fair2')return 'Справедливая цена (σ 120с)';\n  if((m=id.match(/^bot(\\d+)$/)))return 'Профиль бота '+m[1];\n  if((m=id.match(/^bot(\\d+)hi$/)))return 'Профиль '+m[1]+': ask ВЫШЕ потолка';\n  if(id==='margin')return 'Запас (z)';\n  if(id==='cheap')return 'Недооценка';\n  if(id==='panic')return 'Паника без разворота';\n  if(id==='impulse')return 'Импульс';\n  if(id==='psolo')return 'Соло пары BTC+ETH';\n  if(id.indexOf('temka:')===0){\n    const md=id.slice(6);\n    if(md==='m')return 'Темка: по рынку на открытии';\n    if((m=md.match(/^l([\\d.]+)w(\\d+)$/)))return 'Темка: лимит '+m[1]+', ждём '+m[2]+'с';\n    if((m=md.match(/^ct([\\d.]+)z([\\d.]+)$/)))return 'Темка: контртренд ≤'+m[1]+', рывок ≥'+m[2]+'σ';\n    return 'Темка: '+md;\n  }\n  return id;\n}\nconst famCache={};\nfunction famOf(id){\n  if(famCache[id])return famCache[id];\n  let f='Другое';\n  if(id==='model')f='Модель';\n  else if(id.indexOf('fair')===0)f='Справедливая';\n  else if(/^bot\\d+$/.test(id))f='Профили бота';\n  else if(/^bot\\d+hi$/.test(id))f='Выше потолка';\n  else if(id.indexOf('temka:')===0)f='Темка';\n  else if(id==='margin')f='Запас';\n  else if(id==='cheap')f='Недооценка';\n  else if(id==='panic')f='Паника';\n  else if(id==='impulse')f='Импульс';\n  else if(id==='psolo')f='Соло пары';\n  famCache[id]=f;return f;\n}\nconst FAMS=[...new Set(D.ideas.filter(id=>id.indexOf('temka:')!==0).map(famOf))];\n\n// ---------- справочник показателей для фильтров ----------\nconst NUMF=COLS.filter(c=>c.g==='entry'||c.g==='pre'||c.k==='mfe'||c.k==='mae').map(c=>({col:c.k,label:(c.k==='mfe'||c.k==='mae')?'⚠ '+c.label+' (знание задним числом — для анализа)':c.label,d:c.d,hint:c.hint}));\nconst NUMF_BY={};NUMF.forEach(f=>{NUMF_BY[f.col]=f;});\nconst CATF={\n  coin:{label:'Монета',vals:D.coins.map((c,i)=>[i,COIN_SHORT[c]||c]),get:r=>r[C.coin]},\n  side:{label:'Сторона',vals:[[0,'Up'],[1,'Down']],get:r=>r[C.side]},\n  wm:{label:'Окно',vals:[[5,'5 мин'],[15,'15 мин']],get:r=>r[C.wm]},\n  fam:{label:'Семейство идей',vals:FAMS.map(f=>[f,f]),get:r=>famOf(D.ideas[r[C.idea]])},\n  res:{label:'Итог сделки (задним числом — для анализа)',vals:[[1,'победа'],[0,'проигрыш']],get:r=>r[C.won]},\n  idea:{label:'Идея',vals:D.ideas.map((s,i)=>[i,ideaTitle(s)]).filter(v=>!TEMKA.has(v[0])),get:r=>r[C.idea]},\n};\n\n// ---------- состояние ----------\nconst S={rg:[],sqm:'',sqn:1,sqc:0,minSm:0,goalP:0,goalL:0,goalN:0,goalK:0,goalZ:0,goalW:0,flt:[],by:'idea',minN:30,stake:5,sort:'roi',dir:-1,show:150,sel:null,bucket:'z',tradeN:100,fit:null,showAll:false,one:true,tab:'an',back:null,dFrom:'',dTo:'',q:'',cumMode:'trade',favSort:'manual',ch:{steps:[{kind:'band',lo:0.6,hi:0.7,fam:''},{kind:'band',lo:0.8,hi:0.9,fam:''}],gap:''},top:{best:false,plim:false,fscan:false,gscan:false,lscan:false,scan:false,stopOk:false,reliable:false,by:'cell',goal:5,maxLoss:0,cover:50,minN:20,trim:true,needOos:false,sort:'usdd',team:3,minSm:0,show:{}}};\ntry{const h=decodeURIComponent((location.hash||'').slice(1));if(h){const o=JSON.parse(h);if(Array.isArray(o.flt))S.flt=o.flt;if(o.by)S.by=o.by;if(o.minN)S.minN=o.minN;if(o.stake)S.stake=o.stake;if(o.one===false)S.one=false;if(['top','fav','chain'].indexOf(o.tab)>=0)S.tab=o.tab;if(typeof o.dFrom==='string')S.dFrom=o.dFrom;if(typeof o.dTo==='string')S.dTo=o.dTo;if(typeof o.q==='string')S.q=o.q;if(o.top&&typeof o.top==='object'){for(const k in o.top){if(k!=='show'&&k in S.top)S.top[k]=o.top[k];}}}}catch(e){}\ntry{const h2=decodeURIComponent((location.hash||'').slice(1));if(h2){const o2=JSON.parse(h2);if(o2.goalP>0)S.goalP=+o2.goalP;if(o2.goalL>0)S.goalL=+o2.goalL;if(o2.goalN>0)S.goalN=+o2.goalN;if(o2.goalK>0)S.goalK=+o2.goalK;if(o2.goalZ>0)S.goalZ=+o2.goalZ;if(o2.goalW>0)S.goalW=+o2.goalW;if(o2.sqm==='loss'||o2.sqm==='win'){S.sqm=o2.sqm;S.sqn=Math.max(1,+o2.sqn||1);S.sqc=o2.sqc?1:0;}if(o2.minSm>0)S.minSm=+o2.minSm;if(Array.isArray(o2.rg))S.rg=o2.rg.map(Number).filter(v=>v>=1&&v<=5);}}catch(e){}\nfunction saveHash(){try{history.replaceState(null,'','#'+encodeURIComponent(JSON.stringify({rg:S.rg,sqm:S.sqm,sqn:S.sqn,sqc:S.sqc,goalP:S.goalP,goalL:S.goalL,goalN:S.goalN,goalK:S.goalK,goalZ:S.goalZ,goalW:S.goalW,minSm:S.minSm,flt:S.flt,by:S.by,minN:S.minN,stake:S.stake,one:S.one,tab:S.tab,dFrom:S.dFrom,dTo:S.dTo,q:S.q,top:(function(){const t=Object.assign({},S.top);delete t.show;return t;})()})));}catch(e){}}\n\nlet rowsF=ROWS,rowsF0=ROWS;\nconst AFC={key:'',f0:null,f:null};\nfunction applyFilters(){\n  const afk=JSON.stringify([S.flt,S.dFrom,S.dTo,enKey(),(S.sel&&S.sel.flip)?1:0]);\n  if(AFC.key===afk&&AFC.f){rowsF0=AFC.f0;rowsF=AFC.f;return;}\n  applyFilters0();\n  rowsF0=rowsF;\n  if(entryOn()&&!(S.sel&&S.sel.flip))rowsF=applyEntry(rowsF0);\n  AFC.key=afk;AFC.f0=rowsF0;AFC.f=rowsF;\n}\nfunction applyFilters0(){\n  const num=S.flt.filter(f=>f.t==='num'&&CI[f.col]!==undefined).map(f=>({ci:CI[f.col],lo:f.lo,hi:f.hi,neg:!!f.neg,nul:!!f.nul}));\n  const cat=S.flt.filter(f=>f.t==='cat'&&CATF[f.f]&&f.vals.length).map(f=>({get:CATF[f.f].get,set:new Set(f.vals)}));\n  let tlo=null,thi=null;\n  if(S.dFrom){const t=Date.parse(S.dFrom+'T00:00:00Z');if(isFinite(t))tlo=t/1000;}\n  if(S.dTo){const t=Date.parse(S.dTo+'T00:00:00Z');if(isFinite(t))thi=t/1000+86400;}\n  if(!num.length&&!cat.length&&tlo===null&&thi===null){rowsF=ROWS;return;}\n  rowsF=ROWS.filter(r=>{\n    if(tlo!==null&&r[C.ts]<tlo)return false;\n    if(thi!==null&&r[C.ts]>=thi)return false;\n    for(let i=0;i<cat.length;i++)if(!cat[i].set.has(cat[i].get(r)))return false;\n    for(let i=0;i<num.length;i++){\n      const f=num[i],v=r[f.ci];\n      if(v===null){if(f.nul)continue;return false;}\n      const inr=(f.lo===null||v>=f.lo)&&(f.hi===null||v<=f.hi);\n      if(f.neg?inr:!inr)return false;\n    }\n    return true;\n  });\n}\n\n// ---------- статистика ----------\nconst XI=NI+COLS.length;\nlet ESLIP=0;try{ESLIP=+localStorage.getItem('lab-eslip')||0;}catch(e){} // проскальзывание входа, ¢: считаем, что купили на N¢ дороже (не действует на сделки с моделью выхода)\nconst pxe=r=>ESLIP>0?Math.min(0.995,r[CI.px]+ESLIP/100):r[CI.px];\nconst roiOf=r=>{const x=r[XI];if(x!==undefined&&x!==null)return x;if(!r[C.won])return -1;const q=pxe(r);return(1-q)/q;};\nfunction withE(v,fn){const o=ESLIP;ESLIP=v;try{return fn();}finally{ESLIP=o;}}\nfunction wilson(w,n){if(!n)return[0,1];const z=1.96,p=w/n,d=1+z*z/n,c=p+z*z/(2*n),m=z*Math.sqrt(p*(1-p)/n+z*z/(4*n*n));return[(c-m)/d,(c+m)/d];}\nfunction stats(rs){\n  const n=rs.length;let w=0,roi=0,px=0;const mk=new Set();\n  for(let i=0;i<n;i++){const r=rs[i];w+=r[C.won];px+=pxe(r);roi+=roiOf(r);mk.add(r[C.mk]);}\n  const wr=n?w/n:0,apx=n?px/n:0,wl=wilson(w,n);\n  let verdict='мало';\n  if(n>=30)verdict=wl[0]>apx?'✅':(wl[1]<apx?'❌':'⚠️');\n  if(exOn())verdict='—';\n  return{n,w,wr,apx,roi:n?roi/n:0,edge:wr-apx,lo:wl[0],hi:wl[1],mk:mk.size,verdict,loss:n-w};\n}\n// стабильность: ROI в первой и второй половине (по времени)\nfunction halves(rs){\n  if(rs.length<10)return null;\n  const s=rs.slice().sort((a,b)=>a[C.ts]-b[C.ts]),h=s.length>>1;\n  const a=s.slice(0,h),b=s.slice(h);\n  const f=x=>{let t=0;for(const r of x)t+=roiOf(r);return t/x.length;};\n  return[f(a),f(b)];\n}\n\n// серии и ровность роста: самый частый винстрик, макс/средний, ровность кумулятивной (R² прямой линии при росте)\nfunction seqInfo(rs,sorted){\n  const n=rs.length;\n  const a=(sorted||n<2)?rs:rs.slice().sort((x,y)=>x[C.ts]-y[C.ts]);\n  const cnt=new Map();let cur=0,lcur=0,lmax=0,runs=0,sumRun=0,wmax=0;\n  let sx=0,sy=0,sxx=0,syy=0,sxy=0,cum=0;\n  const endRun=()=>{if(cur>0){cnt.set(cur,(cnt.get(cur)||0)+1);runs++;sumRun+=cur;if(cur>wmax)wmax=cur;}cur=0;};\n  for(let i=0;i<n;i++){\n    const r=a[i];\n    if(r[C.won]){cur++;lcur=0;}else{endRun();lcur++;if(lcur>lmax)lmax=lcur;}\n    cum+=roiOf(r);\n    sx+=i;sy+=cum;sxx+=i*i;syy+=cum*cum;sxy+=i*cum;\n  }\n  endRun();\n  let wmode=0,wmodeN=0;\n  cnt.forEach((c,len)=>{if(c>wmodeN||(c===wmodeN&&len>wmode)){wmode=len;wmodeN=c;}});\n  const dist=[...cnt.entries()].sort((x,y)=>x[0]-y[0]);\n  let wmed=0;\n  if(runs){let acc=0;const half=runs/2;for(const e of dist){acc+=e[1];if(acc>=half){wmed=e[0];break;}}}\n  let smooth=null;\n  if(n>=10){\n    const num=n*sxy-sx*sy,den=(n*sxx-sx*sx)*(n*syy-sy*sy);\n    smooth=(den>1e-12&&num>0)?(num*num)/den:0;\n  }\n  return{wmode:wmode,wmodeN:wmodeN,wmax:wmax,wavg:runs?sumRun/runs:0,wmed:wmed,wruns:runs,lmax:lmax,smooth:smooth,dist:dist};\n}\n\n// ---------- группировка ----------\nconst REGN={1:'📉 дамп (резко вниз за 30с)',2:'↘ падение (15м вниз)',3:'↔ боковик',4:'↗ рост (15м вверх)',5:'🚀 памп (резко вверх за 30с)'};\nconst BY={\n  idea:{label:'Идея',key:r=>r[C.idea],name:k=>ideaTitle(D.ideas[k])},\n  cell:{label:'Идея + ячейка',key:r=>r[C.idea]+'|'+r[C.combo],name:k=>{const p=String(k).split('|');return ideaTitle(D.ideas[p[0]])+' · '+D.combos[p[1]];}},\n  coin:{label:'Монета',key:r=>r[C.coin],name:k=>COIN_SHORT[D.coins[k]]||D.coins[k]},\n  hour:{label:'Час суток (UTC)',key:r=>r[CI.hr],name:k=>k+':00'},\n  wm:{label:'Окно',key:r=>r[C.wm],name:k=>k+' мин'},\n  side:{label:'Сторона',key:r=>r[C.side],name:k=>k?'Down':'Up'},\n  regime:{label:'Режим монеты (боковик/рост/падение/памп/дамп)',key:r=>CI.rg!==undefined&&r[CI.rg]!==null?r[CI.rg]:0,name:k=>REGN[k]||'нет данных'},\n};\nBY.cellcoin={label:'Ячейка + монета',key:r=>r[C.idea]+'|'+r[C.combo]+'|'+r[C.coin],name:k=>{const p=String(k).split('|');return ideaTitle(D.ideas[p[0]])+' · '+D.combos[p[1]]+' · '+(COIN_SHORT[D.coins[p[2]]]||D.coins[p[2]]);}};\nBY.cellside={label:'Ячейка + сторона',key:r=>r[C.idea]+'|'+r[C.combo]+'|'+r[C.side],name:k=>{const p=String(k).split('|');return ideaTitle(D.ideas[p[0]])+' · '+D.combos[p[1]]+' · '+(p[2]==='1'?'Down':'Up');}};\n// один вход на рынок и сторону (самый ранний по времени): так же торгует бот, и сделки не дублируют друг друга\nfunction dedupe(rs){\n  const s=rs.slice().sort((a,b)=>a[C.ts]-b[C.ts]),seen=new Set(),out=[];\n  for(const r of s){const k=r[C.mk]*2+r[C.side];if(seen.has(k))continue;seen.add(k);out.push(r);}\n  return out;\n}\n// дневная цель: набрал цель за день (UTC) — до конца дня больше не входим; стоп-убыток — так же\nlet STOPOV=null; // проверка стопов: временно подменяет стоп-правила (K — проигрышей подряд, Z — лоссов за день)\nfunction goalOn(){return S.goalP>0||S.goalL>0||S.goalN>0||S.goalK>0||S.goalZ>0||S.goalW>0||!!(STOPOV&&(STOPOV.Z>0||STOPOV.K>0));}\n// «после N проигрышей»: смотрим сигналы стратегии по порядку; пока не набралось N проигрышей подряд (уже закрытых) — не покупаем (виртуально наблюдаем), потом покупаем\nfunction afterCut(rs,pm,pn,pc){\n  const SQM=pm===undefined?S.sqm:pm,SQC=pc===undefined?S.sqc:pc;\n  if(!SQM)return rs;\n  const a=rs.slice().sort((x,y)=>x[C.ts]-y[C.ts]),hs=CI.sec!==undefined?CI.sec:-1,N=(pn===undefined?S.sqn:pn)||1,want=SQM==='loss';\n  const hist=new Map(),out=[];let pend=[];\n  for(const r of a){\n    const t=r[C.ts],key=SQC?r[C.coin]:0;\n    if(pend.length){pend.sort((x,y)=>x[0]-y[0]);const k=[];for(const q of pend){if(q[0]<=t){let h=hist.get(q[1]);if(!h){h=[];hist.set(q[1],h);}h.push(q[2]);if(h.length>N)h.shift();}else k.push(q);}pend=k;}\n    const h=hist.get(key);\n    if(h&&h.length>=N&&h.every(x=>x===want))out.push(r);\n    const ro=roiOf(r),sc=hs>=0&&r[hs]!==null?r[hs]:0;\n    pend.push([t+sc,key,ro<0]);\n  }\n  return out;\n}\nfunction sqBar(sfx){\n  const on=!!S.sqm;\n  return rgBar(sfx)+'<div class=\"bar\" style=\"margin:8px 0 4px\"><b>🔁 Вход после результата прошлой сделки</b> <select id=\"sqm'+sfx+'\"><option value=\"\"'+(on?'':' selected')+'>выкл</option><option value=\"loss\"'+(S.sqm==='loss'?' selected':'')+'>только после убытка</option><option value=\"win\"'+(S.sqm==='win'?' selected':'')+'>только после прибыли</option></select>'\n    +'<label class=\"small\">сколько подряд <input type=\"number\" id=\"sqn'+sfx+'\" min=\"1\" max=\"10\" value=\"'+S.sqn+'\" style=\"width:56px\"></label>'\n    +'<select id=\"sqc'+sfx+'\"><option value=\"0\"'+(S.sqc?'':' selected')+'>считать по всем рынкам</option><option value=\"1\"'+(S.sqc?' selected':'')+'>считать отдельно по каждой монете</option></select>'\n    +(on?'<span class=\"badge live\">включено: берём сделку, только если '+(S.sqn>1?'предыдущие '+S.sqn+' сигнала этой ТС закончились ':'предыдущий сигнал этой ТС закончился ')+(S.sqm==='loss'?'убытком':'прибылью')+' (и уже закрылся)</span>':'<span class=\"mut small\">смотрим исход прошлых сигналов ТС, даже если мы их пропустили</span>')+'</div>';\n}\nfunction rgOn(){return S.rg.length>0&&CI.rg!==undefined;}\nfunction rgCut(rs){if(!rgOn())return rs;const ci=CI.rg,set=S.rg;return rs.filter(r=>{const v=r[ci];return v!==null&&v!==undefined&&set.indexOf(v)>=0;});}\nconst cutAll=rs=>goalCut(afterCut(rgCut(rs)));\n// цель дня, сохранённая ВМЕСТЕ с избранной ТС (f.goal): у такой ТС она работает всегда, без включения наверху; общая цель страницы для неё не применяется\nfunction goalSnap(){return goalOn()?{P:S.goalP||0,L:S.goalL||0,N:S.goalN||0,K:S.goalK||0,Z:S.goalZ||0,W:S.goalW||0}:null;}\nfunction favGoalOf(f){const g=f&&f.goal;return g&&(g.P>0||g.L>0||g.N>0||g.K>0||g.Z>0||g.W>0)?g:null;}\nfunction goalText(g){const a=[];if(g.P>0)a.push('цель $'+g.P+'/день');if(g.L>0)a.push('стоп убытка $'+g.L);if(g.N>0)a.push('не больше '+g.N+' сделок');if(g.K>0)a.push('стоп после '+g.K+' минусов подряд');if(g.Z>0)a.push('стоп после '+g.Z+' лоссов за день');if(g.W>0)a.push('цель '+g.W+' приб. сделк. сверху');return a.join(' · ');}\nfunction cutFav(f,rs){const g=favGoalOf(f);if(!g)return cutAll(rs);return goalCutP(afterCut(rgCut(rs)),g.P||0,g.L||0,g.N||0,g.K||0,S.stake,false,g.W||0,g.Z||0);}\n// галочки режима монеты: показывать/торговать только выбранные режимы\nfunction rgBar(sfx){\n  const dis=CI.rg===undefined;\n  let h='<div class=\"bar\" style=\"margin:4px 0\"><b>🧭 Торговать только когда монета…</b>';\n  [[5,'🚀 пампит'],[4,'↗ растёт'],[3,'↔ боковик'],[2,'↘ падает'],[1,'📉 дампит']].forEach(o=>{h+='<label class=\"small\"><input type=\"checkbox\" data-rg=\"'+o[0]+'\"'+(S.rg.indexOf(o[0])>=0?' checked':'')+(dis?' disabled':'')+'> '+o[1]+'</label>';});\n  h+=(S.rg.length?'<span class=\"badge live\">включено: только '+S.rg.slice().sort((a,b)=>b-a).map(v=>REGN[v]).join(' + ')+'</span>':'<span class=\"mut small\">ничего не отмечено = любой режим</span>')+(dis?'<span class=\"mut small\">(в данных ещё нет разметки режима — появится у новых сделок)</span>':'')+'</div>';\n  return h;\n}\n\n// W: «цель в сделках» — ТС останавливается на день, когда после прибыльной сделки итог дня не меньше прибыли последних W прибыльных сделок\n// (первая сделка прибыльная — стоп; убыточная — торгует, пока не перекроет убыток и не заработает сверху ещё W прибыльных)\nfunction goalCutP(rs,P,L,N,K,st,sorted,W,Z){\n  W=W||0;Z=Z||0;if(STOPOV){K=STOPOV.K||0;Z=STOPOV.Z||0;}\n  const a=sorted?rs:rs.slice().sort((x,y)=>x[C.ts]-y[C.ts]),out=[],hs=CI.sec!==undefined?CI.sec:-1;\n  let day=-1,real=0,pend=[],cnt=0,streak=0,wq=[],stopW=false,loss=0;\n  for(const r of a){\n    const t=r[C.ts],d=dayOf(t);\n    if(d!==day){day=d;real=0;pend=[];cnt=0;streak=0;wq=[];stopW=false;loss=0;}\n    if(pend.length){const k=[];for(const q of pend){if(q[0]<=t){real+=q[1];if(q[2]){streak=0;if(W>0){wq.push(q[1]);if(wq.length>W)wq.shift();if(wq.length>=W){let sm=0;for(const x of wq)sm+=x;if(real>=sm-1e-9)stopW=true;}}}else{streak++;loss++;}}else k.push(q);}pend=k;}\n    if(W>0&&stopW)continue;\n    if(P>0&&real>=P-1e-9)continue;\n    if(L>0&&real<=-L+1e-9)continue;\n    if(N>0&&cnt>=N)continue;\n    if(K>0&&streak>=K)continue;\n    if(Z>0&&loss>=Z)continue;\n    out.push(r);cnt++;\n    const ro=roiOf(r),sc=hs>=0&&r[hs]!==null?r[hs]:0;\n    pend.push([t+sc,ro*st,r[C.won]]);\n  }\n  return out;\n}\nfunction goalCut(rs){\n  if(!goalOn())return rs;\n  return goalCutP(rs,S.goalP,S.goalL,S.goalN,S.goalK,S.stake,false,S.goalW,S.goalZ);\n}\nfunction group(rs,by){\n  const g=new Map(),f=BY[by].key;\n  for(const r of rs){const k=f(r);let a=g.get(k);if(!a){a=[];g.set(k,a);}a.push(r);}\n  if(S.one)g.forEach((a,k)=>{g.set(k,dedupe(a));});\n  if(goalOn()||S.sqm||rgOn())g.forEach((a,k)=>{g.set(k,cutAll(a));});\n  return g;\n}\n\n// ---------- отрисовка: фильтры ----------\nconst crCache={};\nfunction colRange(col){\n  if(crCache[col]!==undefined)return crCache[col];\n  const ci=CI[col];let a=Infinity,b=-Infinity;\n  for(let i=0;i<N;i++){const v=ROWS[i][ci];if(v===null)continue;if(v<a)a=v;if(v>b)b=v;}\n  return crCache[col]=(a===Infinity?null:[a,b]);\n}\nconst pxP=(a,b)=>({t:a.toFixed(2)+'–'+b.toFixed(2),f:[{t:'num',col:'px',lo:a,hi:b}]});\nconst secP=(t,a,b)=>({t:t,f:[{t:'num',col:'sec',lo:a,hi:b}]});\nconst coinP=D.coins.map((c,i)=>({t:COIN_SHORT[c]||c,f:[{t:'cat',f:'coin',vals:[i]}]}));\nfunction lastDayIdx(){const m=D.meta||{};if(m.lastTs)return Math.floor(m.lastTs/1000/86400);let b=0;for(let i=0;i<N;i++){const d=Math.floor(ROWS[i][C.ts]/86400);if(d>b)b=d;}return b;}\nconst fromStrN=n=>new Date((lastDayIdx()-(n-1))*86400000).toISOString().slice(0,10);\nconst PRESET_GROUPS=[\n  {l:'Цена входа',p:[pxP(0.60,0.70),pxP(0.70,0.80),pxP(0.80,0.90),pxP(0.90,0.93),pxP(0.93,0.96),pxP(0.95,0.98)]},\n  {l:'До закрытия',p:[secP('≤60с',null,60),secP('60–120с',60,120),secP('120–180с',120,180),secP('180–240с',180,240),secP('≤180с',null,180)]},\n  {l:'Монета',p:coinP},\n  {l:'Сторона / окно',p:[{t:'Up',f:[{t:'cat',f:'side',vals:[0]}]},{t:'Down',f:[{t:'cat',f:'side',vals:[1]}]},{t:'5 мин',f:[{t:'cat',f:'wm',vals:[5]}]},{t:'15 мин',f:[{t:'cat',f:'wm',vals:[15]}]}]},\n  {l:'Биржи',p:[{t:'Binance против',f:[{t:'num',col:'bk',lo:0,hi:0}]},{t:'Хотя бы одна биржа против',f:[{t:'num',col:'nag',lo:1,hi:null}]},{t:'Ни одна не против',f:[{t:'num',col:'nag',lo:0,hi:0}]}]},\n  {l:'Период',p:[2,3,5,7].map(n=>({t:'Последние '+n+' дн.',d:n}))}\n];\nPRESET_GROUPS.forEach(g=>{g.p=g.p.filter(p=>!p.f||p.f.every(f=>f.t==='cat'||CI[f.col]!==undefined));});\nfunction sameNum(a,b){return a.t==='num'&&b.t==='num'&&a.col===b.col&&a.lo===b.lo&&a.hi===b.hi&&!a.neg;}\nfunction presetOn(p){\n  if(p.d)return S.dFrom===fromStrN(p.d)&&!S.dTo;\n  return p.f.every(f=>f.t==='num'?S.flt.some(x=>sameNum(x,f)):S.flt.some(x=>x.t==='cat'&&x.f===f.f&&f.vals.every(v=>x.vals.indexOf(v)>=0)));\n}\nfunction presetClick(p){\n  if(p.d){const s=fromStrN(p.d);if(S.dFrom===s&&!S.dTo){S.dFrom='';}else{S.dFrom=s;S.dTo='';}return;}\n  const on=presetOn(p);\n  p.f.forEach(f=>{\n    if(f.t==='cat'){\n      const ex=S.flt.find(x=>x.t==='cat'&&x.f===f.f);\n      if(on){if(ex){f.vals.forEach(v=>{const k=ex.vals.indexOf(v);if(k>=0)ex.vals.splice(k,1);});if(!ex.vals.length)S.flt.splice(S.flt.indexOf(ex),1);}}\n      else if(ex){f.vals.forEach(v=>{if(ex.vals.indexOf(v)<0)ex.vals.push(v);});}\n      else S.flt.push({t:'cat',f:f.f,vals:f.vals.slice()});\n    }else{\n      if(on)S.flt=S.flt.filter(x=>!sameNum(x,f));\n      else{S.flt=S.flt.filter(x=>!(x.t==='num'&&x.col===f.col&&!x.neg));S.flt.push(JSON.parse(JSON.stringify(f)));}\n    }\n  });\n}\nfunction fltRow(f,i){\n  let h='<div class=\"fl\" data-i=\"'+i+'\">';\n  if(f.t==='num'){\n    const nf=NUMF_BY[f.col],rg=colRange(f.col);\n    h+='<select data-act=\"fcol\">'+NUMF.map(x=>'<option value=\"'+x.col+'\"'+(x.col===f.col?' selected':'')+'>'+esc(x.label)+'</option>').join('')+'</select>';\n    h+=' от <input type=\"number\" step=\"any\" data-act=\"flo\" value=\"'+(f.lo===null?'':f.lo)+'\" placeholder=\"'+(rg?fmt(rg[0],nf?nf.d:2):'любое')+'\"> до <input type=\"number\" step=\"any\" data-act=\"fhi\" value=\"'+(f.hi===null?'':f.hi)+'\" placeholder=\"'+(rg?fmt(rg[1],nf?nf.d:2):'любое')+'\">';\n    h+=' <label class=\"small\"><input type=\"checkbox\" data-act=\"fneg\"'+(f.neg?' checked':'')+'> кроме этого диапазона</label> <label class=\"small\"><input type=\"checkbox\" data-act=\"fnul\"'+(f.nul?' checked':'')+'> с пустыми</label>';\n    if(nf&&nf.hint)h+=' <span class=\"mut small\">'+esc(nf.hint)+(rg?' · в данных: '+fmt(rg[0],nf.d)+' … '+fmt(rg[1],nf.d):'')+'</span>';\n  }else{\n    const cf=CATF[f.f];\n    h+='<b>'+esc(cf.label)+':</b> ';\n    cf.vals.forEach(v=>{h+='<span class=\"chip'+(f.vals.indexOf(v[0])>=0?' on':'')+'\" data-act=\"fval\" data-v=\"'+esc(v[0])+'\">'+esc(v[1])+'</span>';});\n    h+=' <span class=\"mut small\">пусто = любые</span>';\n  }\n  return h+' <button class=\"x\" data-act=\"fdel\" title=\"убрать\">×</button></div>';\n}\nfunction renderFilters(){\n  const nAct=S.flt.length+(S.dFrom?1:0)+(S.dTo?1:0);\n  let h='<div class=\"card\"><div class=\"bar\" style=\"margin:0 0 6px\"><b>Фильтры</b> <span class=\"mut small\">сделок после фильтров: <b>'+rowsF.length+'</b> из '+N+(nAct?' · включено условий: '+nAct:'')+'</span>';\n  h+=' <button data-act=\"fclear\">Сбросить всё</button></div>';\n  if(!S.sel&&S.tab!=='fav')h+=entryBar();\n  PRESET_GROUPS.forEach((g,gi)=>{h+='<div class=\"pg\"><span class=\"pgl\">'+esc(g.l)+'</span>'+g.p.map((p,i)=>'<span class=\"chip'+(presetOn(p)?' on':'')+'\" data-act=\"preset\" data-g=\"'+gi+'\" data-i=\"'+i+'\">'+esc(p.t)+'</span>').join('')+'</div>';});\n  h+='<div class=\"bar\" style=\"margin:8px 0 4px\"><label class=\"small\">Период с <input type=\"date\" id=\"dFrom\" value=\"'+esc(S.dFrom)+'\"></label><label class=\"small\">по <input type=\"date\" id=\"dTo\" value=\"'+esc(S.dTo)+'\"></label>';\n  h+='<label class=\"small\">Поиск по названию <input type=\"text\" id=\"q\" value=\"'+esc(S.q)+'\" placeholder=\"например: справедливая\" style=\"width:190px\"></label></div>';\n  S.flt.forEach((f,i)=>{h+=fltRow(f,i);});\n  h+='<div class=\"bar\" style=\"margin:8px 0 4px\"><b>🎯 Дневная цель</b> <label class=\"small\">прибыль $ в день <input type=\"number\" id=\"goalP\" min=\"0\" step=\"any\" value=\"'+(S.goalP||'')+'\" placeholder=\"выкл\" style=\"width:80px\"></label><label class=\"small\">стоп по убытку $ в день <input type=\"number\" id=\"goalL\" min=\"0\" step=\"any\" value=\"'+(S.goalL||'')+'\" placeholder=\"выкл\" style=\"width:80px\"></label><label class=\"small\">макс. входов в день <input type=\"number\" id=\"goalN\" min=\"0\" value=\"'+(S.goalN||'')+'\" placeholder=\"выкл\" style=\"width:70px\"></label><label class=\"small\">стоп после N проигрышей подряд за день <input type=\"number\" id=\"goalK\" min=\"0\" value=\"'+(S.goalK||'')+'\" placeholder=\"выкл\" style=\"width:70px\"></label><label class=\"small\" title=\"Сколько проигрышей за день (UTC, с 07:00 Бангкок) терпим: набрала — до конца дня ТС не торгует. Не обязательно подряд\">стоп после N лоссов за день <input type=\"number\" id=\"goalZ\" min=\"0\" value=\"'+(S.goalZ||'')+'\" placeholder=\"выкл\" style=\"width:70px\"></label><label class=\"small\" title=\"Первая сделка дня прибыльная — стоп. Убыточная — торгует, пока не перекроет убыток и не заработает сверху ещё N прибыльных\">цель в сделках: прибыльных сверху в день <input type=\"number\" id=\"goalW\" min=\"0\" value=\"'+(S.goalW||'')+'\" placeholder=\"выкл\" style=\"width:70px\"></label>'+(goalOn()?'<span class=\"badge live\">включено: ТС'+(S.goalP>0?' останавливается на день после +$'+S.goalP:'')+(S.goalL>0?' · после −$'+S.goalL:'')+(S.goalN>0?' · не больше '+S.goalN+' входов':'')+(S.goalK>0?' · после '+S.goalK+' проигрышей подряд':'')+(S.goalZ>0?' · после '+S.goalZ+' лоссов за день':'')+(S.goalW>0?' · цель в сделках: перекрыть убыток дня + '+S.goalW+' приб. сделк.':'')+' (ставка $'+S.stake+', день по UTC)</span>':'<span class=\"mut small\">пусто = выкл. Достигла цели за день — до конца дня (UTC) новых входов нет</span>')+'</div>';\n  h+=sqBar('');\n  h+='<div class=\"bar\" style=\"margin:8px 0 0\"><select id=\"addnum\"><option value=\"\">+ показатель (цена, z, секунды, биржи…)</option>'+NUMF.map(x=>'<option value=\"'+x.col+'\">'+esc(x.label)+'</option>').join('')+'</select>';\n  h+='<select id=\"addcat\"><option value=\"\">+ категория (монета, сторона, окно…)</option>'+Object.keys(CATF).map(k=>'<option value=\"'+k+'\">'+esc(CATF[k].label)+'</option>').join('')+'</select>';\n  h+='<span class=\"mut small\">все условия работают вместе (И). Пустое поле = без ограничения. «Кроме диапазона» — наоборот, убирает этот диапазон.</span></div></div>';\n  return h;\n}\n\n// ---------- таблица стратегий ----------\nconst COLS_T=[\n  ['name','Стратегия',1],['n','Сделок'],['mk','Рынков'],['wr','Побед'],['apx','Ср. цена'],['usd','Прибыль'],['usdd','$ в день'],['bars','По дням',1,1],['cum','Накопленная',1,1],['pmz','+ / − / пусто',0,1],['worstd','Худший день'],['ddm','Макс. просадка'],['smooth','Ровность роста'],['roi','ROI'],['edge','Edge'],['lo','Нижн. гр.'],['verdict','Вердикт',1],['stab','Устойчивость (1-я / 2-я половина)',1],['wmode','Частый винстрик'],['wmax','Макс. винстрик']\n];\nconst COLS_TIP={usdd:'прибыль в день: общая прибыль ÷ число дней периода',bars:'прибыль по каждому дню (зелёный — плюс, красный — минус)',cum:'накопленная прибыль по каждой сделке',pmz:'дней в плюсе / в минусе / без сделок',worstd:'самый плохой день (сумма за день)',ddm:'максимальная просадка: самое большое падение накопленной прибыли от своего пика (по порядку сделок)',smooth:'насколько накопленная прибыль похожа на ровную линию вверх: 100% — идеальная прямая'};\n// выбор строк «Разбора» для добавления в избранное\nconst RAZ={pick:{},by:null,name:''};\n// дни для таблицы «Разбор стратегий»: весь период данных (без обрезки неполных крайних дней), с учётом «Период с/по»\nfunction razRange(){\n  const ab=dataDayBounds();let lo=ab[0],hi=ab[1];\n  if(S.dFrom){const t=Date.parse(S.dFrom+'T00:00:00Z');if(isFinite(t))lo=dayOf(t/1000);}\n  if(S.dTo){const t=Date.parse(S.dTo+'T00:00:00Z');if(isFinite(t))hi=dayOf(t/1000);}\n  if(hi<lo){lo=ab[0];hi=ab[1];}\n  return[lo,hi];\n}\nfunction razDay(r,lo,nD){\n  if(r.dm)return r.dm;\n  const gg=prepGroup(r.rs,lo,nD,'none',true),dm=metrics(gg,nD,S.stake);dm.gg=gg;\n  r.dm=dm;r.usdd=dm.usdd;r.worstd=dm.worst;r.ddm=dm.dd;\n  return dm;\n}\nfunction razPickedKeys(){return Object.keys(RAZ.pick).filter(k=>RAZ.pick[k]);}\nfunction razAddFav(name){\n  const keys=razPickedKeys();let ok=0,bad=0;\n  keys.forEach((k,i)=>{\n    const f=favFromKey(S.by,k);\n    if(!f){bad++;return;}\n    if(name){f.name=keys.length>1?name+' · '+f.name:name;}\n    FAVS.push(f);ok++;\n  });\n  if(ok)saveFavs();\n  RAZ.pick={};RAZ.name='';\n  window.alert(ok?('Добавлено в избранное: '+ok+(bad?' (ещё '+bad+' нельзя сохранить при таком «Группировать по»)':'')+'. Сохранены и текущие фильтры сверху.'):'Эти строки нельзя сохранить в избранное при таком «Группировать по» (подойдёт «Идея», «Идея + ячейка», «Ячейка + монета»).');\n}\nfunction renderTable(){\n  const g=group(rowsF,S.by);\n  if(RAZ.by!==S.by){RAZ.pick={};RAZ.by=S.by;}\n  let rows=[];\n  g.forEach((rs,k)=>{\n    const st=stats(rs);st.key=k;st.rs=rs;st.name=BY[S.by].name(k);st.usd=st.roi*st.n*S.stake;st.h=halves(rs);st.stab=st.h?Math.min(st.h[0],st.h[1]):-9;Object.assign(st,seqInfo(rs));\n    rows.push(st);\n  });\n  const total=rows.length;\n  rows=rows.filter(r=>r.n>=S.minN);\n  if(S.minSm>0)rows=rows.filter(r=>r.smooth!=null&&r.smooth*100>=S.minSm);\n  if(S.q.trim()){const qq=S.q.trim().toLowerCase();rows=rows.filter(r=>String(r.name).toLowerCase().indexOf(qq)>=0);}\n  const rzr=razRange(),rzlo=rzr[0],rznD=rzr[1]-rzr[0]+1;TOPLO=rzlo;TOPND=rznD;\n  // колонки по дням считаем для всех строк только если по ним сортируем, иначе — только для показанных\n  if(S.sort==='usdd'||S.sort==='worstd'||S.sort==='ddm')rows.forEach(r=>razDay(r,rzlo,rznD));\n  rows.sort((a,b)=>{\n    const x=a[S.sort],y=b[S.sort];\n    if(typeof x==='string')return S.dir*(x<y?1:(x>y?-1:0))*-1;\n    return S.dir*((x||0)-(y||0));\n  });\n  let h='<div class=\"card\"><div class=\"bar\" style=\"margin:0 0 6px\"><b>Стратегии</b>';\n  h+='<label class=\"small\">Группировать по <select id=\"by\">'+Object.keys(BY).map(k=>'<option value=\"'+k+'\"'+(S.by===k?' selected':'')+'>'+BY[k].label+'</option>').join('')+'</select></label>';\n  h+='<label class=\"small\">мин. сделок <input type=\"number\" id=\"minN\" min=\"1\" value=\"'+S.minN+'\" style=\"width:70px\"></label>';\n  h+='<label class=\"small\" title=\"Показывать только стратегии, у которых кумулятивная прибыль похожа на ровную линию вверх. 0 = не фильтровать\">ровность роста не ниже, % <input type=\"number\" id=\"minSm\" min=\"0\" max=\"100\" value=\"'+(S.minSm||'')+'\" placeholder=\"0\" style=\"width:70px\"></label>';\n  h+='<label class=\"small\">ставка $ <input type=\"number\" id=\"stake\" min=\"1\" value=\"'+S.stake+'\" style=\"width:70px\"></label>';\n  h+='<label class=\"small\" title=\"Считать, что вход был дороже на N центов (реальный ask хуже, чем в момент сигнала). Пересчитывает проценты, прибыль и edge по всей странице. На сделки с моделью выхода (тейк/стоп) не действует.\"> проскальзывание входа <select id=\"eslip\">'+[0,0.5,1,1.5,2,3].map(v=>'<option value=\"'+v+'\"'+(ESLIP===v?' selected':'')+'>'+(v?'+'+v+'¢ хуже':'нет')+'</option>').join('')+'</select></label>'+(ESLIP>0?'<span class=\"badge\" style=\"background:#7a4b00\">учтено проскальзывание +'+ESLIP+'¢</span>':'');\n  h+='<label class=\"small\" title=\"Если стратегия входит в один рынок несколько раз (разными ячейками), считаем только первый вход, как торгует бот. Иначе сделки одного рынка засчитываются много раз, и надёжность завышается.\"><input type=\"checkbox\" id=\"one\"'+(S.one?' checked':'')+'> один вход на рынок</label>';\n  h+='<span class=\"mut small\">показано '+Math.min(rows.length,S.show)+' из '+rows.length+' (скрыто с малым числом сделок: '+(total-rows.length)+')</span></div>';\n  const np=razPickedKeys().length;\n  h+='<div class=\"bar\" style=\"margin:0 0 6px\"><span class=\"small\"><b>⭐ Выбрано: '+np+'</b></span><label class=\"small\">название <input type=\"text\" id=\"razname\" value=\"'+esc(RAZ.name)+'\" placeholder=\"по умолчанию — как в таблице\" style=\"width:240px\"></label><button data-act=\"razfav\"'+(np?'':' disabled')+' title=\"добавить отмеченные галочкой строки в «Избранные» (вместе с текущими фильтрами сверху)\">⭐ В избранное</button><button data-act=\"razclear\"'+(np?'':' disabled')+'>Снять выбор</button><span class=\"mut small\">галочка слева у строки; если выбрано несколько, название добавляется к каждому имени</span></div>';\n  h+='<div class=\"tw\"><table><thead><tr><th class=\"ns\" title=\"отметить для добавления в избранное\">⭐</th>';\n  COLS_T.forEach(c=>{if(c[3]){h+='<th'+(c[2]?' class=\"l\"':'')+' title=\"'+COLS_TIP[c[0]]+'\">'+c[1]+'</th>';}else if(c[0]==='stab')h+='<th class=\"l\" data-act=\"sort\" data-k=\"stab\">'+c[1]+(S.sort==='stab'?(S.dir<0?' ▼':' ▲'):'')+'</th>';else h+='<th'+(c[2]?' class=\"l\"':'')+(COLS_TIP[c[0]]?' title=\"'+COLS_TIP[c[0]]+'\"':'')+' data-act=\"sort\" data-k=\"'+c[0]+'\">'+c[1]+(S.sort===c[0]?(S.dir<0?' ▼':' ▲'):'')+'</th>';});\n  h+='</tr></thead><tbody>';\n  rows.slice(0,S.show).forEach(r=>{\n    const dm=razDay(r,rzlo,rznD),gg=dm.gg;\n    const hv=r.h?'<span class=\"'+cls(r.h[0])+'\">'+sgn(r.h[0]*100,1)+'%</span> / <span class=\"'+cls(r.h[1])+'\">'+sgn(r.h[1]*100,1)+'%</span>'+((r.h[0]>0&&r.h[1]>0)?' ✓':''):'—';\n    h+='<tr class=\"click\" data-act=\"open\" data-k=\"'+esc(r.key)+'\"><td><input type=\"checkbox\" data-act=\"razpick\" data-k=\"'+esc(r.key)+'\"'+(RAZ.pick[r.key]?' checked':'')+'></td><td class=\"l\">'+esc(r.name)+'</td><td>'+r.n+'</td><td>'+r.mk+'</td><td>'+pct(r.wr)+'</td><td>'+fmt(r.apx,3)+'</td><td class=\"'+cls(r.usd)+'\">'+money(r.usd)+'</td><td class=\"'+cls(dm.usdd)+'\"><b>'+money(dm.usdd)+'</b></td><td class=\"l\">'+dayBars(gg,S.stake,Math.max(80,Math.min(220,rznD*14)),30)+'</td><td class=\"l\">'+cumSpark(gg.rows,90,30)+'</td><td><span class=\"pos\">'+dm.plus+'</span> / <span class=\"'+(dm.minus?'neg':'mut')+'\">'+dm.minus+'</span> / <span class=\"mut\">'+dm.empty+'</span></td><td class=\"'+cls(dm.worst)+'\">'+money(dm.worst)+'</td><td class=\"'+(dm.dd>0?'neg':'mut')+'\">'+(dm.dd>0?'−$'+fmt(dm.dd,2):'$0')+'</td><td>'+(r.smooth==null?'—':Math.round(r.smooth*100)+'%')+'</td><td class=\"'+cls(r.roi)+'\">'+sgn(r.roi*100,1)+'%</td><td class=\"'+cls(r.edge)+'\">'+sgn(r.edge*100,1)+' п.п.</td><td>'+pct(r.lo)+'</td><td class=\"l\">'+r.verdict+'</td><td class=\"l\">'+hv+'</td><td title=\"самая частая длина серии побед подряд (сколько раз такая серия была)\">'+(r.wmode?r.wmode+' <span class=\"mut small\">×'+r.wmodeN+'</span>':'—')+'</td><td>'+(r.wmax||'—')+'</td></tr>';\n  });\n  h+='</tbody></table></div>';\n  if(rows.length>S.show)h+='<div class=\"bar\"><button data-act=\"more\">Показать ещё 200</button></div>';\n  h+='<div class=\"note small\">«Прибыль» — на ставку из поля «ставка $» без комиссий (победа даёт (1−цена)/цена, проигрыш −100%). ✅ — «Нижн. гр.» выше средней цены (плюс доказан при 95%), ⚠️ — не доказан, ❌ — минус доказан, «мало» — меньше 30 сделок. «Устойчивость» — ROI первой и второй половины периода: ✓ если обе положительные. <a href=\"#\" data-act=\"help\">Как читать подробнее</a></div></div>';\n  return h;\n}\n\n// ---------- подробности выбранной стратегии ----------\n// «перевернуть»: торгуем противоположную сторону. Цена входа ≈ 1 − bid нашей стороны = 1 − (ask − спред)\nlet FLIPPOST=null;\nfunction flipRows(rs){\n  if(!FLIPPOST){FLIPPOST=[];Object.keys(CI).forEach(k=>{if(/^d\\d+$/.test(k)||/^tp\\d+$/.test(k)||['mfe','mae','tmae','lost10','flip','end10','cm10','cm30','fin','finr'].indexOf(k)>=0)FLIPPOST.push(CI[k]);});}\n  const ip=CI.px,isp=CI.spr,out=[];\n  for(const r of rs){\n    const sp=(isp!==undefined&&r[isp]!==null&&r[isp]>=0)?r[isp]:0.01,p2=1-r[ip]+sp;\n    if(!(p2>0.01&&p2<0.99))continue;\n    const c=r.slice();c[C.won]=r[C.won]?0:1;c[C.side]=1-r[C.side];c[ip]=p2;\n    for(const j of FLIPPOST)c[j]=null;\n    out.push(c);\n  }\n  return out;\n}\nfunction selRows(){\n  if(!S.sel||!S.sel.flip)return selRowsBase();\n  const gp=S.goalP,gl=S.goalL,gn=S.goalN,gk=S.goalK,gz=S.goalZ,gw=S.goalW;S.goalP=0;S.goalL=0;S.goalN=0;S.goalK=0;S.goalZ=0;S.goalW=0;let rs;\n  try{\n    const f=S.sel.favId?FAVS.find(x=>x.id===S.sel.favId):null;\n    rs=f?favRowsNC(f):selRowsBase();\n  }finally{S.goalP=gp;S.goalL=gl;S.goalN=gn;S.goalK=gk;S.goalZ=gz;S.goalW=gw;}\n  return cutAll(flipRows(rs));\n}\nfunction selRowsBase(){\n  if(!S.sel)return[];\n  if(S.sel.pf)return pfRows();\n  if(S.sel.favId){const f=FAVS.find(x=>x.id===S.sel.favId);if(f)return cutFav(f,applyExit(applyRe(applyEntry(favRowsNC(f)))));}\n  if(S.sel.rows){const gp=globalPred();return cutAll(applyExit(applyRe(applyEntry(gp?S.sel.rows.filter(gp):S.sel.rows))));}\n  const f=BY[S.sel.by].key,k=String(S.sel.key);\n  const x=(ENOFF?rowsF0:rowsF).filter(r=>String(f(r))===k);\n  const xe=applyRe(applyEntry(x));\n  return cutAll(applyExit(S.one?dedupe(xe):xe));\n}\n// ---------- ВЫХОДЫ: тейк-профит, стоп, добор (независимые; всё считается по реальному пути bid после входа) ----------\nconst XK=XI+1;\nconst X={tp:{on:false,v:10,u:'pct'},sl:{on:false,v:20,u:'pct',lat:0,afo:false,aft:30,fs:{on:false,v:0.3},rb:{on:false,n:10}},add:{on:false,steps:[{m:'c',v:10,usd:5}]},ld:{on:false,u:'c',parts:[{f:50,v:15},{f:25,v:25}]},tt:{on:false,v:95},gr:{on:false,n:5,step:5},more:false};\nconst UPL=[3,5,10,15,20,30],DNL=[5,10,15,20,30,40,50];\nlet SLIP=0.02;\nlet SLIPAUTO=true,SLIPD=2; // стоп считаем по реальным бидам: по какой цене продалось бы через SLIPD с после касания уровня (вручную задаваемое проскальзывание — только если пути цены нет)\n// v4.6: «умные» условия: выход при обвале после роста; вход после выноса и возврата; вход после дна и отскока\nconst CR={on:false,h:90,l:50};\nconst RE={b:{on:false,peak:85,low:50,buy:80},c:{on:false,low:50,buy:85}};\nlet REOFF=false;\nlet REXS=0; // запас на спред при покупке по возврату, ¢ (на тонком стакане ask дороже, чем в момент сигнала)\nlet REGAP=3; // покупку по возврату делаем, только если bid в момент покупки не выше уровня покупки больше чем на REGAP¢ (если цена перепрыгнула — бот не купит: потолок цены)\nconst OPT={on:false,tab:'sl',fam:'',fsf:'',rob:false,div:false,sort:'gain',res:null,key:'',list:[]};\nlet EXOFF=false;\nconst isNul=v=>v===null||v===undefined;\nfunction exHave(){return CI.mae!==undefined&&CI.mfe!==undefined&&CI.tp3!==undefined;}\nfunction exOn(){return !EXOFF&&!entryOn()&&exHave()&&(X.tp.on||X.sl.on||X.ld.on||X.tt.on||X.gr.on||CR.on||(X.add.on&&X.add.steps.length>0));}\nfunction reOn(){return !REOFF&&!entryOn()&&exHave()&&(RE.b.on||RE.c.on);}\n// расстояние по цене (0..1) из «% от цены входа», «$ прибыли/убытка на базовую ставку» или «центов»\nfunction xDist(u,v,px,st){return u==='abs'?px-v/100:u==='pct'?px*v/100:(u==='usd'?v*px/st:v/100);}\n// когда (секунд после входа) bid впервые дошёл на gc центов вверх (pre='tp') или вниз (pre='dn'); между записанными уровнями — по прямой\nfunction tLevel(r,pre,levels,gc){\n  let lo=0,tlo=0,hi=null,thi=null;\n  for(const L of levels){\n    const t=r[CI[pre+L]];\n    if(Math.abs(L-gc)<1e-6)return isNul(t)?0:t;\n    if(L<gc){lo=L;if(!isNul(t))tlo=t;}\n    else if(hi===null){hi=L;thi=isNul(t)?null:t;}\n  }\n  if(hi!==null&&thi!==null)return tlo+(thi-tlo)*(gc-lo)/(hi-lo);\n  return tlo+0.5;\n}\n// «только резкое падение»: стоп не срабатывает, если bid падал медленно (за 5 с до касания −10¢/−20¢ упал меньше N); такие сделки держим до конца\nfunction fsHold(r,s){\n  if(!X.sl.fs||!X.sl.fs.on)return false;\n  const col=s>=0.2-1e-9?'fs20':(s>=0.1-1e-9?'fs10':'');\n  if(!col||CI[col]===undefined)return false;\n  const v=r[CI[col]];\n  return !isNul(v)&&v<X.sl.fs.v-1e-9;\n}\n// «ждать отката»: после касания уровня стопа выставляем продажу на уровне стопа и ждём N секунд; вернулся bid (на 1¢ выше уровня) — продали по уровню, нет — продаём по рынку (bid через N с минус 2¢). Только по точному пути\nfunction rebStop(r,px,s){\n  if(!hasPath(r))return null;\n  const ser=bidSer(r);if(!ser)return null;\n  const lv=px-s,A=(X.sl.afo&&X.sl.aft>0)?X.sl.aft:0,N=Math.max(1,X.sl.rb.n||10);\n  let i0=-1;for(let i=0;i<ser.length;i++){if(ser[i][0]>=A&&ser[i][1]<=lv+1e-9){i0=i;break;}}\n  if(i0<0)return null;\n  const t0=ser[i0][0];\n  for(let j=i0+1;j<ser.length&&ser[j][0]<=t0+N;j++){if(ser[j][1]>=lv+0.01-1e-9)return{t:t0,ex:lv};}\n  let b=ser[ser.length-1][1];\n  for(let j=i0;j<ser.length;j++){if(ser[j][0]>=t0+N){b=ser[j][1];break;}}\n  return{t:t0,ex:Math.max(0.01,b-0.02)};\n}\n// стоп по реальному пути цены (если он записан по секундам): ждём задержку после касания и продаём по тому bid, какой был\nfunction realStop(r,px,s,lat){\n  if(lat===undefined)lat=X.sl.lat;\n  if(!hasPath(r))return null; // без точного пути по секундам задержку считать нельзя (восстановленные точки дают заниженный результат)\n  const ser=bidSer(r);if(!ser)return null;\n  const A=(X.sl.afo&&X.sl.aft>0)?X.sl.aft:0;\n  let t0=-1;for(let i=0;i<ser.length;i++){if(ser[i][0]>=A&&ser[i][1]<=px-s+1e-9){t0=ser[i][0];break;}}\n  if(t0<0)return null;\n  let b=ser[ser.length-1][1];\n  for(let j=0;j<ser.length;j++){if(ser[j][0]>=t0+lat){b=ser[j][1];break;}}\n  return{t:t0,ex:Math.max(0.01,b)};\n}\n// bid на момент t секунд после входа: точный путь по секундам, если он записан; иначе по линии между ТОЧНЫМИ замерами (d5…d120), без восстановленных точек\nfunction bidAt(r,t){\n  const px=r[CI.px],dense=denseOf(r);\n  if(dense){const i=Math.min(dense.length-1,Math.round(t/2));const b=dense[i];return(b!==null&&b>=0)?b/100:null;}\n  const T=isNul(r[CI.sec])?300:Math.max(30,r[CI.sec]);\n  let pt=0,pv=px,found=null;\n  for(const o of OFF){const v=r[CI['d'+o]];if(isNul(v)||o>T)continue;const bv=px+v;if(o>=t){found=pv+(bv-pv)*(t-pt)/Math.max(1e-9,o-pt);break;}pt=o;pv=bv;}\n  return found;\n}\nfunction xSim(r,st){\n  const px=r[CI.px],mf=r[CI.mfe],ma=r[CI.mae];\n  if(isNul(mf)||isNul(ma))return null;\n  const sp=r[CI.spr],spr=isNul(sp)?0.01:Math.max(0,sp);\n  let kind='',tx=Infinity,ex=null;\n  if(X.sl.on&&X.sl.v>0){\n    const s=xDist(X.sl.u,X.sl.v,px,st);\n    if(s>0&&px-s>0.02&&ma<=-s+1e-9&&!fsHold(r,s)){\n      tx=tLevel(r,'dn',DNL,s*100);kind='sl';ex=Math.max(0.01,px-s-SLIP);\n      if(X.sl.lat>0){const rp=realStop(r,px,s);if(rp){tx=rp.t;ex=rp.ex;}}\n      else if(SLIPAUTO){const rp=realStop(r,px,s,SLIPD);if(rp){tx=rp.t;ex=rp.ex;}}\n      // «стоп не раньше N с после входа»: что было раньше — игнорируем; если на N-й секунде bid всё ещё ниже уровня — продаём тогда; если вернулся и позже упал снова — стоп по уровню позже\n      const A=(X.sl.afo&&X.sl.aft>0)?X.sl.aft:0;\n      if(A>0&&tx<A){\n        const bN=bidAt(r,A);\n        if(bN!==null&&bN<=px-s+1e-9){tx=A;ex=Math.max(0.01,bN-(SLIPAUTO?0:SLIP));}\n        else if(!isNul(r[CI.tmae])&&r[CI.tmae]>A&&!hasPath(r)){tx=A+0.5*(r[CI.tmae]-A);ex=Math.max(0.01,px-s-SLIP);}\n        else if(hasPath(r)){const rp=realStop(r,px,s);if(rp){tx=rp.t;ex=rp.ex;}else{kind='';tx=Infinity;ex=null;}}\n        else{kind='';tx=Infinity;ex=null;}\n      }\n      if(kind==='sl'&&X.sl.rb&&X.sl.rb.on){const rb=rebStop(r,px,s);if(rb){tx=rb.t;ex=rb.ex;}}\n    }\n  }\n  if(X.tp.on&&X.tp.v>0&&!X.ld.on){\n    const g=xDist(X.tp.u,X.tp.v,px,st);\n    if(g>0&&px+g<=0.995&&mf>=g-1e-9){const tt=tLevel(r,'tp',UPL,g*100);if(tt<tx){tx=tt;kind='tp';ex=px+g;}}\n  }\n  if(X.tt.on&&X.tt.v>0){\n    const g=X.tt.v/100-px;\n    if(g>0.004&&mf>=g-1e-9){const tt=tLevel(r,'tp',UPL,Math.min(30,g*100));if(tt<tx){tx=tt;kind='tt';ex=X.tt.v/100;}}\n  }\n  if(CR.on&&CR.l<CR.h){const cc=crashT(r,px);if(cc&&cc.t<tx){tx=cc.t;kind='cr';ex=cc.ex;}}\n  if(!kind)ex=r[C.won]?1:0;\n  let pnl=(ex-px)/px;const steps=[];\n  // лесенка: каждая часть продаётся на своей цели, если цена дошла до неё РАНЬШЕ, чем сработал стоп/обвал; остальное — как обычно (стоп или итог рынка)\n  let lds=null,ldAny=false;\n  if(X.ld.on&&X.ld.parts.length&&!X.gr.on){\n    let used=0;pnl=0;lds=[];\n    X.ld.parts.forEach(p=>{\n      const f=Math.max(0,Math.min(100-used,p.f))/100;used+=f*100;\n      const g=xDist(X.ld.u,p.v,px,st);let hit=false;\n      if(f>0&&g>0&&px+g<=0.995&&mf>=g-1e-9){const tt=tLevel(r,'tp',UPL,g*100);if(tt<tx)hit=true;}\n      pnl+=f*((hit?px+g:ex)-px)/px;lds.push(hit?1:0);if(hit)ldAny=true;\n    });\n    pnl+=(100-used)/100*(ex-px)/px;\n    if(ldAny)kind='ld';\n  }\n  // сетка входа: ступени-лимитки ниже цены сигнала; ступень заполнена, если ask опускался до её цены (bid-минимум + спред) раньше, чем сработал выход\n  if(X.gr.on&&X.gr.n>=2){\n    const n=X.gr.n;pnl=0;lds=[];\n    for(let i=0;i<n;i++){\n      const k=i*X.gr.step/100,pi=px-k;let fill=true;\n      if(i>0){fill=false;if(pi>0.02&&ma<=-(k+spr)+1e-9){const tf=tLevel(r,'dn',DNL,Math.min(50,(k+spr)*100));if(tf<tx)fill=true;}}\n      lds.push(fill?1:0);\n      if(fill)pnl+=(1/n)*(ex-pi)/pi;\n    }\n    if(!kind)kind='gr';\n  }\n  if(X.add.on&&!X.gr.on)X.add.steps.forEach((a,i)=>{\n    if(!(a.usd>0))return;\n    const ga=a.m==='p'?a.v-px:a.v/100;\n    if(!(ga>0.0049)||px+ga>0.99||mf<ga-1e-9)return;\n    const ta=tLevel(r,'tp',UPL,ga*100);\n    if(!(ta<tx))return;\n    const pa=Math.min(0.99,px+ga+spr),pp=(a.usd/st)*(ex-pa)/pa;\n    pnl+=pp;steps.push([i,pp]);\n  });\n  if(!kind&&!steps.length)return null;\n  return{pnl:pnl,kind:kind,steps:steps,lds:lds,tx:(isFinite(tx)&&kind)?tx:null};\n}\n// путь рынка (bid/ask шагом 2 с): у всех ТС. Строка: символ = 256+центы, 255 = нет данных.\nconst DC=new Map(),AC=new Map();\nfunction mkSlice(r,ai){\n  const k=pkey(r);\n  if(!ai){if(D.paths&&D.paths[k])return D.paths[k];}else{if(D.pa&&D.pa[k])return D.pa[k];if(D.paths&&D.paths[k])return null;}\n  const m=D.pm&&D.pm[r[C.mk]+'.'+r[C.side]];if(!m)return null;\n  const cache=ai?AC:DC;let c=cache.get(k);if(c!==undefined)return c;\n  let i0=Math.floor((r[C.ts]-m[0])/2)-m[1];if(i0<0&&i0>=-2)i0=0;\n  const str=m[ai?3:2];c=null;\n  if(i0>=0&&i0<str.length-1){const a=[];for(let i=i0;i<str.length;i++){const v=str.charCodeAt(i)-256;a.push(v<0?null:v);}c=a;}\n  if(cache.size>40000)cache.clear();cache.set(k,c);return c;\n}\nconst denseOf=r=>mkSlice(r,false),askOf=r=>mkSlice(r,true);\n// путь bid после входа: по секундам (если сохранён) или по ключевым точкам\nfunction hasPath(r){const d=denseOf(r);return !!(d&&d.some(v=>v!==null&&v>=0));}\nfunction bidSer(r){\n  const px=r[CI.px];\n  const dense=denseOf(r);\n  if(dense){const ak=askOf(r),a=[];dense.forEach((b,i)=>{if(b!==null&&b>=0){const q=ak&&ak[i]!==null&&ak[i]!==undefined&&ak[i]>b?ak[i]/100:null;a.push([i*2,b/100,q]);}});if(a.length)return a;}\n  const T=isNul(r[CI.sec])?300:Math.max(30,r[CI.sec]);\n  const a=[[0,px]];\n  OFF.forEach(o=>{const v=r[CI['d'+o]];if(!isNul(v)&&o<=T)a.push([o,px+v]);});\n  if(!isNul(r[CI.end10])&&T>20)a.push([T-10,px+r[CI.end10]]);\n  UPL.forEach(L=>{const t=r[CI['tp'+L]];if(!isNul(t))a.push([t,px+L/100]);});\n  DNL.forEach(L=>{const t=r[CI['dn'+L]];if(!isNul(t))a.push([t,px-L/100]);});\n  if(CI.tmfe!==undefined&&!isNul(r[CI.tmfe])&&!isNul(r[CI.mfe]))a.push([r[CI.tmfe],px+r[CI.mfe]]);\n  if(!isNul(r[CI.tmae])&&!isNul(r[CI.mae]))a.push([r[CI.tmae],px+r[CI.mae]]);\n  a.sort((x,y)=>x[0]-y[0]);\n  return a;\n}\n// «обвал»: bid доходил до H, потом упал до L → продаём\nfunction crashT(r,px){\n  if(!hasPath(r))return null; // только по точному пути (по ключевым точкам результат завышался)\n  const H=CR.h/100,L=CR.l/100,ser=bidSer(r);\n  let iH=-1;for(let i=0;i<ser.length;i++){if(ser[i][1]>=H-1e-9){iH=i;break;}}\n  if(iH>=0)for(let j=iH+1;j<ser.length;j++){if(ser[j][1]<=L+1e-9)return{t:ser[j][0],ex:Math.max(0.01,Math.min(L,ser[j][1])-0.01)};}\n  return null;\n}\n// «вынос / дно»: peak===null — просто дно; иначе сначала рост до peak, потом падение до low, потом возврат до buy → покупаем\nfunction reFind(r,peak,low,buy){\n  const ser=bidSer(r);let st=peak===null?1:0;\n  for(let i=0;i<ser.length;i++){\n    const b=ser[i][1];\n    if(st===0){if(b>=peak-1e-9)st=1;}\n    else if(st===1){if(b<=low+1e-9)st=2;}\n    else if(b>=buy-1e-9){\n      const q=ser[i][2];\n      // бот покупает по ask с потолком buy+REGAP¢; если ask неизвестен — считаем по bid\n      if(q!==null&&q!==undefined){if(q<=buy+REGAP/100+1e-9&&q<=0.99+1e-9)return [ser[i][0],b,q];}\n      else if(b<=buy+Math.max(0,REGAP-1)/100+1e-9&&b<=0.98+1e-9)return [ser[i][0],b,null];\n    }\n  }\n  return null;\n}\n// после «входа после выноса/дна» путь цены считаем заново от момента покупки: чтобы работали стопы, тейки, обвал\nfunction reCols(r,c,ta,np){\n  const dense=denseOf(r);if(!dense)return;\n  const sh=dense.slice(Math.round(ta/2));\n  D.paths[pkey(c)]=sh;\n  const ak0=askOf(r);if(ak0){D.pa=D.pa||{};D.pa[pkey(c)]=ak0.slice(Math.round(ta/2));}\n  let mx=-1,mn=1e9,tmx=0,tmn=0;const tp={},dn={};\n  for(let i=0;i<sh.length;i++){\n    const b=sh[i];if(b===null||b<0)continue;const v=b/100,t=i*2;\n    if(v>mx){mx=v;tmx=t;}if(v<mn){mn=v;tmn=t;}\n    UPL.forEach(L=>{if(tp[L]===undefined&&v>=np+L/100-1e-9)tp[L]=t;});\n    DNL.forEach(L=>{if(dn[L]===undefined&&v<=np-L/100+1e-9)dn[L]=t;});\n  }\n  if(mx<0)return;\n  c[CI.mfe]=mx-np;c[CI.mae]=mn-np;\n  if(CI.tmfe!==undefined)c[CI.tmfe]=tmx;if(CI.tmae!==undefined)c[CI.tmae]=tmn;\n  UPL.forEach(L=>{if(CI['tp'+L]!==undefined)c[CI['tp'+L]]=tp[L]===undefined?null:tp[L];});\n  DNL.forEach(L=>{if(CI['dn'+L]!==undefined)c[CI['dn'+L]]=dn[L]===undefined?null:dn[L];});\n  const sec=c[CI.sec];\n  OFF.forEach(o=>{if(CI['d'+o]===undefined)return;if(!isNul(sec)&&o>sec){c[CI['d'+o]]=null;return;}const b=bidAt(c,o);c[CI['d'+o]]=b===null?null:b-np;});\n  if(CI.end10!==undefined&&!isNul(sec)&&sec>20){const b=bidAt(c,sec-10);c[CI.end10]=b===null?null:b-np;}\n}\nfunction applyRe(rs){\n  if(!reOn()||(S.sel&&S.sel.flip))return rs;\n  const out=[];\n  for(const r of rs){\n    if(!hasPath(r))continue; // без точного пути «вынос/дно» считать нельзя: результат получался нереально красивым\n    const cand=[];\n    if(RE.b.on&&RE.b.low<RE.b.peak&&RE.b.buy>=RE.b.low){const t=reFind(r,RE.b.peak/100,RE.b.low/100,RE.b.buy/100);if(t!==null)cand.push([t[0],t[1],'вынос и возврат',t[2]]);}\n    if(RE.c.on&&RE.c.buy>=RE.c.low){const t=reFind(r,null,RE.c.low/100,RE.c.buy/100);if(t!==null)cand.push([t[0],t[1],'дно и отскок',t[2]]);}\n    if(!cand.length)continue;\n    cand.sort((a,b)=>a[0]-b[0]);const k=cand[0];\n    const sp=r[CI.spr],spr=(isNul(sp)?0.01:Math.max(0,sp)),np=Math.min(0.99,(k[3]!==null&&k[3]!==undefined?k[3]:k[1]+spr)+REXS/100),px0=r[CI.px],ta=k[0];\n    const c=r.slice();while(c.length<XK+6)c.push(null);\n    c[CI.px]=np;c[C.ts]=r[C.ts]+Math.round(ta);c[XK+5]='#'+Math.round(ta);\n    if(!isNul(r[CI.sec]))c[CI.sec]=Math.max(0,r[CI.sec]-ta);\n    c[CI.mfe]=null;c[CI.mae]=null;\n    for(const kk of Object.keys(CI)){if(/^(d\\d+|tp\\d+|dn\\d+|tmae|tmfe|mnp|end10|fs\\d+|cx\\d+|cy\\d+|bs\\d+|dp\\d+)$/.test(kk))c[CI[kk]]=null;}\n    c[XK+4]=[px0,Math.round(ta),k[2]];\n    reCols(r,c,ta,np);\n    out.push(c);\n  }\n  return out;\n}\nfunction selRowsNoRe(){const o=REOFF;REOFF=true;try{return selRows();}finally{REOFF=o;}}\nfunction applyExit(rs){\n  if(!exOn()||(S.sel&&S.sel.flip))return rs;\n  const st=S.stake,out=[];\n  for(const r of rs){\n    const x=xSim(r,st);\n    if(!x){out.push(r);continue;}\n    const c=r.slice();while(c.length<XI)c.push(null);\n    c[XI]=x.pnl;c[XK]=x.kind||'add';c[XK+1]=r[C.won];c[XK+2]=x.steps;c[XK+3]=(r[C.won]?(1-r[CI.px])/r[CI.px]:-1);if(x.lds)c[XK+4]=x.lds;c[XK+5]=x.tx;\n    c[C.won]=x.pnl>0?1:0;out.push(c);\n  }\n  return out;\n}\nfunction selRowsEx(){const o=EXOFF;EXOFF=true;try{return selRows();}finally{EXOFF=o;}}\nfunction selRowsPlain(){const o=EXOFF,o2=REOFF;EXOFF=true;REOFF=true;try{return selRows();}finally{EXOFF=o;REOFF=o2;}}\n\n// ---- деньги: сколько сделок открыто одновременно и какой депозит нужен ----\nconst RES_LAG=180; // после закрытия окна рынок резолвится ~3 мин; до тех пор деньги заняты\nfunction depCalc(rs,stake){\n  const ev=[],dayTr=new Map();\n  for(const r of rs){\n    const o=r[C.ts],sc=r[CI.sec],tx=r[XK+5];\n    const cl=(tx!==null&&tx!==undefined)?o+tx+5:o+(isNul(sc)?150:sc)+RES_LAG;\n    const pn=roiOf(r)*stake;\n    ev.push([o,1,0,0],[cl,0,pn,-1]);\n    const dk=Math.floor(o/86400);let a=dayTr.get(dk);if(!a){a=[];dayTr.set(dk,a);}a.push([cl,pn]);\n  }\n  ev.sort((a,b)=>a[0]-b[0]||a[1]-b[1]);\n  let E=0,P=0,peakN=0,minDep=0,peakAt=0,cum=0,pk=0,maxDD=0;\n  const dayN=new Map();\n  for(const e of ev){\n    if(e[1]){E++;if(E>peakN){peakN=E;peakAt=e[0];}}\n    else{E--;P+=e[2];}\n    const need=E*stake-P;if(need>minDep)minDep=need;\n    const dk=Math.floor(e[0]/86400);if(e[1]&&E>(dayN.get(dk)||0))dayN.set(dk,E);\n  }\n  const closes=[];dayTr.forEach(a=>a.forEach(x=>closes.push(x)));closes.sort((a,b)=>a[0]-b[0]);\n  closes.forEach(x=>{cum+=x[1];if(cum>pk)pk=cum;if(pk-cum>maxDD)maxDD=pk-cum;});\n  const dayInfo=new Map();\n  dayTr.forEach((a,dk)=>{a.sort((x,y)=>x[0]-y[0]);let c=0,p=0,dd=0,tr=0;a.forEach(x=>{c+=x[1];if(c>p)p=c;if(c<tr)tr=c;if(p-c>dd)dd=p-c;});dayInfo.set(dk,{dd:dd,pk:p,tr:tr,maxN:dayN.get(dk)||0});});\n  return{peakN:peakN,peakAt:peakAt,peakUsd:peakN*stake,minDep:minDep,maxDD:maxDD,total:P,dayInfo:dayInfo,stake:stake};\n}\nfunction depBlock(rs){\n  if(!rs.length)return '';\n  const st=S.stake,d=depCalc(rs,st);\n  let h='<h3>💰 Одновременные сделки и нужный депозит</h3><div class=\"small mut\" style=\"margin-bottom:6px\">Считаем по времени: сделка занимает деньги от входа до продажи (если был выход) или до резолва рынка (+ примерно '+Math.round(RES_LAG/60)+' мин после закрытия окна). «Минимальный депозит» — с какой суммы на счёте можно было бы пройти весь период, ни разу не упёршись в нехватку денег (учитывает и занятые деньги, и убытки по ходу).</div>';\n  h+='<div class=\"kpis\"><div class=\"kpi\"><b>'+d.peakN+'</b><span>максимум сделок открыто одновременно ('+tz(d.peakAt)+')</span></div><div class=\"kpi\"><b>'+money(d.minDep).replace('+','')+'</b><span>минимальный депозит на ставку $'+st+'</span></div><div class=\"kpi\"><b>$'+d.peakUsd.toFixed(0)+'</b><span>пик занятых денег</span></div><div class=\"kpi\"><b>−$'+d.maxDD.toFixed(1)+'</b><span>макс. просадка (по времени закрытия)</span></div></div>';\n  h+='<div class=\"tw\"><table><thead><tr><th class=\"l ns\">Ставка на сделку, $</th><th class=\"ns\">Макс. открыто, $</th><th class=\"ns\">Минимальный депозит, $</th><th class=\"ns\">Депозит с запасом ×1.5, $</th><th class=\"ns\">Макс. просадка, $</th><th class=\"ns\">Прибыль за период, $</th></tr></thead><tbody>';\n  [1.05,2,5,10,20,50,100].forEach(v=>{const k=v/st;h+='<tr'+(Math.abs(v-st)<1e-9?' style=\"font-weight:700\"':'')+'><td class=\"l\">$'+v+'</td><td>$'+(d.peakUsd*k).toFixed(0)+'</td><td><b>$'+(d.minDep*k).toFixed(0)+'</b></td><td>$'+(d.minDep*k*1.5).toFixed(0)+'</td><td class=\"neg\">−$'+(d.maxDD*k).toFixed(1)+'</td><td class=\"'+cls(d.total)+'\">'+money(d.total*k)+'</td></tr>';});\n  h+='</tbody></table></div><div class=\"mut small\" style=\"margin-top:6px\">Остальные ставки пересчитаны пропорционально. Комиссии и проскальзывание не учтены; допокупки («добор») в расчёт занятых денег не входят.</div>';\n  return h;\n}\nlet DAYREG={},DAYORD=[];\nfunction dayTable(rs){\n  const m=new Map();\n  for(const r of rs){const d=new Date(r[C.ts]*1000).toISOString().slice(0,10);let a=m.get(d);if(!a){a=[];m.set(d,a);}a.push(r);}\n  const days=[...m.keys()].sort();\n  DAYREG={};DAYORD=days.slice();\n  let h='<h3>По дням (UTC) <span class=\"mut small\" style=\"font-weight:400\">— нажми на день: красивая кумулятивка дня, часы, монеты и все сделки</span></h3><div class=\"tw\"><table><thead><tr><th class=\"l ns\">День</th><th class=\"ns\">Сделок</th><th class=\"ns\">Побед</th><th class=\"ns\">Проигрышей</th><th class=\"ns\">ROI</th><th class=\"ns\">Прибыль</th><th class=\"ns\" title=\"сумма всех выигрышей за день\">Профит</th><th class=\"ns\" title=\"сумма всех проигрышей за день\">Убыток</th><th class=\"l ns\" title=\"самое большое падение накопленной прибыли внутри дня: либо чистый убыток с начала дня, либо откат от достигнутого плюса\">Просадка внутри дня</th><th class=\"ns\" title=\"максимум сделок, открытых одновременно в этот день\">Макс. открыто</th><th class=\"ns\" title=\"сколько денег было занято в пик (на ставку из поля «ставка»)\">Занято в пик</th></tr></thead><tbody>';\n  const dc=depCalc(rs,S.stake);\n  days.forEach(d=>{const st=stats(m.get(d));const di=dc.dayInfo.get(Math.floor(Date.parse(d+'T00:00:00Z')/86400000))||{dd:0,maxN:0};DAYREG[d]={d:d,rows:m.get(d),di:di,pnl:st.roi*st.n*S.stake};h+='<tr class=\"click\" data-act=\"day\" data-d=\"'+d+'\"><td class=\"l\">'+d+' <span class=\"mut\">›</span></td><td>'+st.n+'</td><td>'+pct(st.wr)+'</td><td>'+st.loss+'</td><td class=\"'+cls(st.roi)+'\">'+sgn(st.roi*100,1)+'%</td><td class=\"'+cls(st.roi)+'\">'+money(st.roi*st.n*S.stake)+'</td><td class=\"pos\">+$'+(m.get(d).reduce((a,r)=>{const v=roiOf(r);return a+(v>0?v:0);},0)*S.stake).toFixed(2)+'</td><td class=\"neg\">'+(()=>{const v=m.get(d).reduce((a,r)=>{const x=roiOf(r);return a+(x<0?x:0);},0)*S.stake;return v<0?'−$'+Math.abs(v).toFixed(2):'$0';})()+'</td><td class=\"l small '+(di.dd>0?'neg':'mut')+'\">'+(di.dd>0?'−$'+di.dd.toFixed(2)+' · ':'')+ddText(di.pk||0,di.dd)+'</td><td>'+di.maxN+'</td><td>$'+(di.maxN*S.stake).toFixed(0)+'</td></tr>';});\n  return h+'</tbody></table></div><div class=\"bar\"><button data-act=\"dayan\" style=\"font-weight:600\">🔎 '+(S.dayAn?'Скрыть анализ дней':'Найти закономерности по дням')+'</button><span class=\"mut small\">как начинаются плюсовые и минусовые дни, что бывает после просадки, слабые часы, правила остановки</span></div>'+(S.dayAn?dayAnalysis():'');\n}\nfunction bucketTable(rs){\n  let opts='';NUMF.forEach(f=>{opts+='<option value=\"'+f.col+'\"'+(S.bucket===f.col?' selected':'')+'>'+esc(f.label)+'</option>';});\n  let h='<h3>Винрейт по корзинам показателя</h3><div class=\"bar\"><select id=\"bcol\">'+opts+'</select></div>';\n  const ci=CI[S.bucket];const arr=rs.filter(r=>r[ci]!==null).sort((a,b)=>a[ci]-b[ci]);\n  const k=Math.min(5,Math.floor(arr.length/8));\n  if(k<2)return h+'<div class=\"note\">Мало данных по этому показателю.</div>';\n  const dd=NUMF_BY[S.bucket].d;\n  h+='<div class=\"tw\"><table><thead><tr><th class=\"l ns\">Диапазон</th><th class=\"ns\">Сделок</th><th class=\"ns\">Побед</th><th class=\"ns\">Ср. цена</th><th class=\"ns\">ROI</th></tr></thead><tbody>';\n  for(let b=0;b<k;b++){const part=arr.slice(Math.floor(arr.length*b/k),Math.floor(arr.length*(b+1)/k));const st=stats(part);\n    h+='<tr><td class=\"l\">'+fmt(part[0][ci],dd)+' … '+fmt(part[part.length-1][ci],dd)+'</td><td>'+st.n+'</td><td>'+pct(st.wr)+'</td><td>'+fmt(st.apx,3)+'</td><td class=\"'+cls(st.roi)+'\">'+sgn(st.roi*100,1)+'%</td></tr>';}\n  return h+'</tbody></table></div>';\n}\nconst tz=sec=>{const d=new Date(sec*1000),p=x=>(x<10?'0':'')+x;return p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes())+':'+p(d.getSeconds());};\nlet TRLIST=[];\nfunction regTag(r){const v=CI.rg!==undefined?r[CI.rg]:null;return v===null||v===undefined?'—':(REGN[v]||'—');}\n// блок «режим монеты»: как ТС работает, когда монета в боковике / росла / падала / пампила / дампила\nfunction regimeBlock(rs){\n  if(CI.rg===undefined)return '';\n  const g=new Map();\n  for(const r of rs){const v=r[CI.rg]===null?0:r[CI.rg];let a=g.get(v);if(!a){a=[];g.set(v,a);}a.push(r);}\n  let h='<h3>🧭 Режим монеты в момент входа</h3><div class=\"small mut\" style=\"margin-bottom:6px\">Размечаем каждую сделку по тому, что делала монета (независимо от нашей стороны): <b>памп/дамп</b> — резкий рывок за последние 30с; <b>рост/падение</b> — устойчивое движение на 15-мин свече; <b>боковик</b> — без явного движения. Пороги подстроены под монету (BTC чувствительнее, DOGE грубее). Чтобы оставить только нужные режимы в ТС, поставь фильтр «Режим монеты» (1 дамп · 2 падение · 3 боковик · 4 рост · 5 памп) — например от 3 до 3 = только боковик.</div>';\n  h+='<div class=\"tw\"><table><thead><tr><th class=\"l ns\">Режим</th><th class=\"ns\">Сделок</th><th class=\"ns\">Доля</th><th class=\"ns\">Побед</th><th class=\"ns\">Ср. цена</th><th class=\"ns\">ROI</th><th class=\"ns\">Прибыль</th></tr></thead><tbody>';\n  [1,2,3,4,5,0].forEach(v=>{\n    const a=g.get(v);if(!a)return;const st=stats(a);\n    h+='<tr><td class=\"l\">'+esc(REGN[v]||'нет данных')+'</td><td>'+st.n+'</td><td>'+Math.round(st.n/Math.max(1,rs.length)*100)+'%</td><td>'+pct(st.wr)+'</td><td>'+fmt(st.apx,3)+'</td><td class=\"'+cls(st.roi)+'\">'+sgn(st.roi*100,1)+'%</td><td class=\"'+cls(st.roi)+'\">'+money(st.roi*st.n*S.stake)+'</td></tr>';\n  });\n  return h+'</tbody></table></div>';\n}\nfunction tradesTable(rs){\n  const sorted=rs.slice().sort((a,b)=>b[C.ts]-a[C.ts]);TRLIST=sorted;\n  let h='<h3>Сделки <span class=\"mut small\" style=\"font-weight:400\">— нажми на сделку, чтобы увидеть график цены именно по ней</span></h3><div class=\"bar\"><button data-act=\"csv\">Скачать CSV (все '+rs.length+' строк со всеми показателями)</button></div>';\n  h+='<div class=\"tw\"><table><thead><tr><th class=\"l ns\">Время</th><th class=\"l ns\">Ячейка</th><th class=\"l ns\">Монета</th><th class=\"l ns\">Сторона</th><th class=\"l ns\" title=\"что делала монета к моменту входа\">Монета тогда</th><th class=\"ns\">Цена</th><th class=\"l ns\">Итог</th><th class=\"ns\">z</th><th class=\"ns\">до конца, с</th></tr></thead><tbody>';\n  sorted.slice(0,S.tradeN).forEach((r,i)=>{\n    const k=r[XK],ro=roiOf(r);\n    const res=k==='cr'?'обвал, продали '+sgn(ro*100,0)+'%':k==='sl'?'стоп '+sgn(ro*100,0)+'%':(k==='tp'?'тейк '+sgn(ro*100,0)+'%':(k==='gr'?'сетка '+sgn(ro*100,0)+'%':k==='tt'?'выход у верха '+sgn(ro*100,0)+'%':k==='ld'?'лесенка '+sgn(ro*100,0)+'%':(k==='add'?(r[C.won]?'победа с добором ':'проигрыш с добором ')+sgn(ro*100,0)+'%':(r[C.won]?'победа '+sgn(ro*100,0)+'%':'проигрыш −100%'))));\n    h+='<tr class=\"click\" data-act=\"trade\" data-k=\"'+i+'\"><td class=\"l\">'+tz(r[C.ts])+'</td><td class=\"l\">'+esc(D.combos[r[C.combo]])+'</td><td class=\"l\">'+esc(COIN_SHORT[D.coins[r[C.coin]]]||D.coins[r[C.coin]])+'</td><td class=\"l\">'+(r[C.side]?'Down':'Up')+'</td><td class=\"l\">'+esc(regTag(r))+'</td><td>'+fmt(r[CI.px],3)+'</td><td class=\"l '+(ro>0?'pos':'neg')+'\">'+res+'</td><td>'+fmt(r[CI.z],2)+'</td><td>'+fmt(r[CI.sec],0)+'</td></tr>';});\n  h+='</tbody></table></div>';\n  if(rs.length>S.tradeN)h+='<div class=\"bar\"><button data-act=\"moreT\">Показать ещё 200</button><span class=\"mut small\">показано '+Math.min(S.tradeN,rs.length)+' из '+rs.length+'</span></div>';\n  return h;\n}\nfunction downloadCsv(rs){\n  const head=D.idCols.concat(COLS.map(c=>c.k)),lines=[head.join(',')];\n  rs.forEach(r=>{lines.push(r.slice(0,head.length).map((v,i)=>{if(v===null)return '';if(i===C.coin)return D.coins[v];if(i===C.idea)return D.ideas[v];if(i===C.combo)return '\"'+String(D.combos[v]).replace(/\"/g,'\"\"')+'\"';if(i===C.ts)return new Date(v*1000).toISOString();return v;}).join(','));});\n  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([lines.join('\\n')],{type:'text/csv;charset=utf-8'}));a.download='lab-trades.csv';document.body.appendChild(a);a.click();setTimeout(()=>document.body.removeChild(a),500);\n}\n\n// ---------- АВТОПОДБОР ФИЛЬТРОВ ----------\n// Правила ищутся на первых 60% сделок (по времени) и проверяются на последних 40%, которые при поиске не использовались.\nfunction ruleText(r){\n  return r.conds.map(c=>{const nf=NUMF_BY[c.col];const d=nf?nf.d:2;const lab=nf?nf.label:c.col;\n    if(c.lo!==null&&c.hi!==null){return c.lo===c.hi?lab+' = '+fmt(c.lo,d):lab+' от '+fmt(c.lo,d)+' до '+fmt(c.hi,d);}\n    return c.lo!==null?lab+' ≥ '+fmt(c.lo,d):lab+' ≤ '+fmt(c.hi,d);}).join('  И  ');\n}\n// ---------- карточка стратегии ----------\nfunction renderDetail(){\n  const rs=selRows();\n  const st=stats(rs),hv=halves(rs);\n  const backL={top:'← к лучшим стратегиям',fav:'← к избранным',chain:'← к согласиям'}[S.back]||'← к списку';\n  const ttl=S.sel.title||BY[S.sel.by].name(S.sel.key);\n  let h='<div class=\"card\"><div class=\"bar\" style=\"margin:0\"><button data-act=\"back\">'+backL+'</button><b style=\"font-size:16px\">'+esc(ttl)+'</b>'+(S.sel.favId?'<button data-act=\"favex\" title=\"запомнить текущие тейк/стоп/добор, умные условия и особый вход для этого избранного\">💾 запомнить выходы</button><button data-act=\"favdel\" data-id=\"'+esc(S.sel.favId)+'\">★ убрать из избранного</button>':(S.sel.pf?'':'<button data-act=\"favsave\">⭐ В избранное</button>'))+'</div>'+sqBar('d');\n  if(!S.sel.pf)h+='<div class=\"bar\" style=\"margin:6px 0 0\"><button data-act=\"flip\"'+(S.sel.flip?' style=\"border-color:var(--bad);color:var(--bad)\"':'')+'>🔄 '+(S.sel.flip?'Вернуть как есть':'Перевернуть (торговать наоборот)')+'</button><span class=\"mut small\">'+(S.sel.flip?'':'проверка: что было бы, если бы на каждом входе мы покупали противоположную сторону')+'</span></div>';\n  if(S.sel.flip)h+='<div class=\"note warn\"><b>🔄 Показана обратная торговля.</b> На каждом входе стратегии мы покупаем <b>противоположный</b> токен по цене ≈ 1 − bid нашей стороны (то есть с учётом спреда). Выигрыш — когда оригинал проиграл. График пути токена после входа здесь недоступен. Это приблизительный расчёт по записанным ценам, не реальная торговля.</div>';\n  if(S.sel.favId)h+='<div class=\"note small\">Эта выборка считается со своими фильтрами избранной (они указаны в списке избранных), а верхние фильтры, режим монеты, дневная цель и «вход после результата прошлой сделки» накладываются поверх них.</div>';\n  if(S.sel.pf)h+='<div class=\"note small\">Это общий результат нескольких избранных ТС, каждая считается со своими фильтрами и выходами; настройки выходов тут не меняются — меняй их в самих ТС.</div>';\n  else{h+=entryPanel(rs);\n  h+=exPanel(rs);\n  h+=smartPanel(rs);\n  h+=optPanel();\n  h+=renderFit(rs);}\n  h+='<div class=\"kpis\">';\n  const kp=(v,l,c)=>'<div class=\"kpi\"><b class=\"'+(c||'')+'\">'+v+'</b><span>'+l+'</span></div>';\n  h+=kp(st.n,'сделок ('+st.mk+' рынков)')+kp(pct(st.wr),'побед ('+st.w+')')+kp(fmt(st.apx,3),'средняя цена входа')+kp(sgn(st.edge*100,1)+' п.п.','Edge (побед − цена)',cls(st.edge))+kp(money(st.roi*st.n*S.stake),'прибыль на ставку $'+S.stake,cls(st.roi))+kp(sgn(st.roi*100,1)+'%','ROI',cls(st.roi))+kp(pct(st.lo),'нижняя граница побед ('+st.verdict+')')+(hv?kp(sgn(hv[0]*100,1)+'% / '+sgn(hv[1]*100,1)+'%','ROI 1-й / 2-й половины',(hv[0]>0&&hv[1]>0)?'pos':''):'');\n  const sq=seqInfo(rs);\n  h+=kp(sq.wmode?sq.wmode+' подряд':'—','самый частый винстрик'+(sq.wmode?' ('+sq.wmodeN+' раз)':''))+kp(sq.wmax||'—','самый длинный винстрик'+(sq.wruns?' (в среднем '+fmt(sq.wavg,1)+', типичный '+sq.wmed+')':''))+kp(sq.lmax,'макс. проигрышей подряд')+kp(sq.smooth==null?'—':Math.round(sq.smooth*100)+'%','ровность роста (100% — идеальная прямая вверх)');\n  h+='</div>';\n  if(sq.dist.length){const top=sq.dist.slice().sort((x,y)=>y[1]-x[1]||y[0]-x[0]).slice(0,8);h+='<div class=\"small mut\" style=\"margin:4px 0\">Серии побед подряд — длина × сколько раз такая была: '+top.map(e=>'<b>'+e[0]+'</b> × '+e[1]).join(' · ')+(sq.dist.length>8?' · …':'')+'</div>';}\n  if(!S.one&&st.n>st.mk*1.3)h+='<div class=\"note warn\"><b>Сделки повторяются по рынкам:</b> '+st.n+' сделок на '+st.mk+' рынков. Надёжность (нижняя граница, вердикт) и прибыль завышены. Включи «один вход на рынок» в списке стратегий.</div>';\n  if(st.n<30)h+='<div class=\"note warn\">Меньше 30 сделок — смотри как на описание, а не как на вывод.</div>';\n  const SEC=[['s-cum','📈 Кумулятив'],['s-path','📊 Цена после входа'],['s-loss','📉 Проигрыши'],['s-win','📈 Победы'],['s-cdl','🕯 Свеча'],['s-bk','🧮 По показателям'],['s-rg','🧭 Режим монеты'],['s-days','📅 Дни'],['s-dep','💰 Депозит'],['s-tr','🧾 Сделки']];\n  h+='<div class=\"snav\">'+SEC.map(x=>'<button data-act=\"jump\" data-id=\"'+x[0]+'\">'+x[1]+'</button>').join('')+'</div>';\n  h+='<div class=\"sec\" id=\"s-cum\">'+cumChart(rs)+'</div><div class=\"sec\" id=\"s-path\">'+pathChart(rs)+'</div><div class=\"sec\" id=\"s-loss\">'+lossBlock()+'</div><div class=\"sec\" id=\"s-win\">'+winBlock()+'</div><div class=\"sec\" id=\"s-cdl\">'+candleBlock()+'</div><div class=\"sec\" id=\"s-bk\">'+bucketTable(rs)+'</div>';\n  h+='<div class=\"sec\" id=\"s-rg\">'+regimeBlock(rs)+'</div><div class=\"sec\" id=\"s-days\">'+dayTable(rs)+'</div><div class=\"sec\" id=\"s-dep\">'+depBlock(rs)+'</div><div class=\"sec\" id=\"s-tr\">'+tradesTable(rs)+'</div></div>';\n  return h;\n}\n\nfunction renderHelp(){\n  return '<div class=\"card\"><h3>Как читать</h3><div class=\"small\"><p><b>Побед</b> — доля выигранных сделок. На малом числе сделок она обманывает: 3 из 3 это не 100% навсегда.</p><p><b>Нижн. гр.</b> — осторожная оценка доли побед (95%). Сравнивай её со <b>средней ценой входа</b>: цена 0.95 значит, что нужно выигрывать больше 95 из 100 сделок, чтобы не быть в минусе. Если нижняя граница выше цены — ✅, плюс доказан. Если ниже — ⚠️, пока не доказан.</p><p><b>Edge</b> — побед минус цена в п.п. Размер преимущества, но без поправки на малую выборку.</p><p><b>Прибыль</b> — сколько получилось бы со ставкой из поля «ставка $». При дорогих входах (0.95+) победа даёт копейки, а проигрыш стоит всю ставку.</p><p><b>Устойчивость</b> — ROI первой и второй половины периода. Если одна половина в плюсе, а другая в минусе, правило, вероятно, случайное.</p><p><b>Подбор фильтров</b> — перебирает условия на первых 60% сделок и проверяет на последних 40%. Это защита от подгонки: правило, найденное перебором, редко держится на новых данных. Смотри на строку «Проверка».</p></div><div class=\"bar\"><button data-act=\"helpclose\">Закрыть</button></div></div>';\n}\n\n// ---------- ВКЛАДКА «ЛУЧШИЕ СТРАТЕГИИ» ----------\nconst DAYS=86400;\nconst dayOf=ts=>Math.floor(ts/DAYS);\nconst dStr=d=>new Date(d*DAYS*1000).toISOString().slice(0,10);\nlet TOPLO=0,TOPND=0;\nfunction dataDayBounds(){\n  const m=D.meta||{};let a=m.firstTs?dayOf(m.firstTs/1000):null,b=m.lastTs?dayOf(m.lastTs/1000):null;\n  if(a===null||b===null){a=Infinity;b=-Infinity;for(let i=0;i<N;i++){const d=dayOf(ROWS[i][C.ts]);if(d<a)a=d;if(d>b)b=d;}}\n  if(!isFinite(a)||!isFinite(b))return[0,0];\n  return[a,b];\n}\nfunction dayRange(){\n  const ab=dataDayBounds(),a=ab[0],b=ab[1],T=S.top;let lo=a,hi=b;\n  if(T.trim&&b-a>=3){lo=a+1;hi=b-1;}\n  if(S.dFrom){const t=Date.parse(S.dFrom+'T00:00:00Z');if(isFinite(t))lo=dayOf(t/1000);}\n  if(S.dTo){const t=Date.parse(S.dTo+'T00:00:00Z');if(isFinite(t))hi=dayOf(t/1000);}\n  if(hi<lo){lo=a;hi=b;}\n  return[lo,hi];\n}\n// mode: 'ms' — один вход на (рынок, сторона); 'm' — один на рынок (как в боте); 'none' — все сделки\n// просадка дня человеческим языком: pk — максимум накопленного за день (≥0), dd — самое большое падение от пика (все в $)\nfunction ddText(pk,dd){\n  if(!(dd>0.004))return 'просадки не было';\n  if(pk<=0.004)return 'ушёл в минус с начала дня: чистый убыток −$'+dd.toFixed(2);\n  const low=pk-dd;\n  if(low>=0)return 'откат от пика: был +$'+pk.toFixed(2)+', упал до +$'+low.toFixed(2)+' (ниже нуля не уходил)';\n  return 'откат от пика: был +$'+pk.toFixed(2)+', упал до −$'+(-low).toFixed(2)+' (чистый минус от старта дня −$'+(-low).toFixed(2)+')';\n}\nfunction prepGroup(rs,lo,nD,mode,noGoal){\n  let a=rs.slice().sort((x,y)=>x[C.ts]-y[C.ts]);\n  if(mode!=='none'){\n    const seen=new Set(),o=[];\n    for(const r of a){const k=mode==='m'?r[C.mk]:r[C.mk]*2+r[C.side];if(seen.has(k))continue;seen.add(k);o.push(r);}\n    a=o;\n  }\n  if(!noGoal)a=cutAll(a);\n  const g={rows:a,n:a.length,w:0,px:0,roi:0,dRoi:new Float64Array(nD),dN:new Int32Array(nD),dd:0,streak:0,mk:0};\n  let cum=0,peak=0,cur=0;const mk=new Set();\n  for(const r of a){\n    const won=r[C.won],p=pxe(r),ro=roiOf(r);\n    g.w+=won;g.px+=p;g.roi+=ro;\n    const d=dayOf(r[C.ts])-lo;\n    if(d>=0&&d<nD){g.dRoi[d]+=ro;g.dN[d]++;}\n    cum+=ro;if(cum>peak)peak=cum;if(peak-cum>g.dd)g.dd=peak-cum;\n    if(won)cur=0;else{cur++;if(cur>g.streak)g.streak=cur;}\n    mk.add(r[C.mk]);\n  }\n  g.mk=mk.size;\n  // по дням: сумма побед, сумма проигрышей, максимум/минимум накопленного внутри дня и просадка (по времени закрытия сделки)\n  g.dW=new Float64Array(nD);g.dL=new Float64Array(nD);g.dPk=new Float64Array(nD);g.dTr=new Float64Array(nD);g.dDD=new Float64Array(nD);\n  {const hs2=CI.sec!==undefined?CI.sec:-1,dm=new Map();\n   for(const r of a){const d=dayOf(r[C.ts])-lo;if(d<0||d>=nD)continue;const sc=hs2>=0&&r[hs2]!==null&&r[hs2]!==undefined?r[hs2]:0;let x=dm.get(d);if(!x){x=[];dm.set(d,x);}x.push([r[C.ts]+sc,roiOf(r)]);}\n   dm.forEach((x,d)=>{x.sort((p,q)=>p[0]-q[0]);let c=0,pk=0,tr=0,dd=0;for(const y of x){if(y[1]>0)g.dW[d]+=y[1];else g.dL[d]+=y[1];c+=y[1];if(c>pk)pk=c;if(c<tr)tr=c;if(pk-c>dd)dd=pk-c;}g.dPk[d]=pk;g.dTr[d]=tr;g.dDD[d]=dd;});}\n  g.seq=seqInfo(a,true);\n  return g;\n}\nfunction metrics(g,nD,stake){\n  const n=g.n,wr=n?g.w/n:0,apx=n?g.px/n:0,wl=wilson(g.w,n);\n  let plus=0,minus=0,act=0,worst=Infinity,best=-Infinity;\n  const k=nD>=5?Math.max(2,Math.round(nD*0.6)):nD;\n  let trU=0,teU=0,teMinus=0,teN=0;\n  for(let d=0;d<nD;d++){\n    const v=g.dRoi[d]*stake;\n    if(g.dN[d])act++;\n    if(v>1e-9)plus++;else if(v<-1e-9)minus++;\n    if(v<worst)worst=v;if(v>best)best=v;\n    if(d<k)trU+=v;else{teU+=v;teN+=g.dN[d];if(v<-1e-9)teMinus++;}\n  }\n  if(!isFinite(worst)){worst=0;best=0;}\n  const usd=g.roi*stake,usdd=nD?usd/nD:0;\n  let verdict='мало';if(n>=30)verdict=wl[0]>apx?'✅':(wl[1]<apx?'❌':'⚠️');\n  const hasTest=nD>=5&&k<nD;\n  return{seq:g.seq,g:g,n:n,w:g.w,wr:wr,apx:apx,edge:wr-apx,lo:wl[0],verdict:verdict,roi:n?g.roi/n:0,usd:usd,usdd:usdd,plus:plus,minus:minus,act:act,empty:nD-act,cover:nD?act/nD:0,worst:worst,best:best,tpd:nD?n/nD:0,dd:g.dd*stake,streak:g.streak,mk:g.mk,\n    train:k?trU/k:0,test:hasTest?{usdd:teU/(nD-k),minus:teMinus,n:teN,days:nD-k}:null,\n    oosOk:hasTest&&teU>0&&teN>=3,\n    stakeNeed:(g.roi>0&&nD)?S.top.goal/(g.roi/nD):null};\n}\nconst topGroupCache={};\nfunction getGroups(by,lo,hi){\n  const key=JSON.stringify([S.flt,S.dFrom,S.dTo,S.one,by,lo,hi,S.goalP,S.goalL,S.goalN,S.goalK,S.goalZ,S.goalW,ESLIP,enKey(),S.stake,S.sqm,S.sqn,S.sqc,S.rg.join(',')]);\n  const c=topGroupCache[by];if(c&&c.key===key)return c.groups;\n  const nD=hi-lo+1,kf=BY[by].key,m=new Map();\n  for(const r of rowsF){const d=dayOf(r[C.ts]);if(d<lo||d>hi)continue;const k=kf(r);let a=m.get(k);if(!a){a=[];m.set(k,a);}a.push(r);}\n  const groups=[];\n  m.forEach((rs,k)=>{const g=prepGroup(rs,lo,nD,S.one?'ms':'none');g.key=k;groups.push(g);});\n  topGroupCache[by]={key:key,groups:groups};\n  return groups;\n}\nfunction itemsOf(groups,by,nD,stake){\n  return groups.map(g=>{const m=metrics(g,nD,stake);m.key=g.key;m.by=by;m.name=BY[by].name(g.key);if(by==='cellcoin')m.coin=+String(g.key).split('|')[2];return m;});\n}\nconst TOP_SORTS={usdd:['Прибыль в день',x=>x.usdd],worst:['Худший день',x=>x.worst],wr:['Винрейт',x=>x.wr],tpd:['Сделок в день',x=>x.tpd],test:['Проверка ($ в день)',x=>x.test?x.test.usdd:-1e9],edge:['Edge',x=>x.edge],roi:['ROI на сделку',x=>x.roi],smooth:['Ровность роста',x=>x.seq&&x.seq.smooth!=null?x.seq.smooth:-1],wmode:['Частый винстрик',x=>x.seq?x.seq.wmode:0]};\nfunction critBad(x,T,nD){\n  const bad=[];\n  if(x.usdd<T.goal)bad.push('прибыль '+money(x.usdd)+'/день < $'+T.goal);\n  if(x.minus>T.maxLoss)bad.push('убыточных дней: '+x.minus);\n  if(x.cover*100<T.cover)bad.push('торговала в '+x.act+' из '+nD+' дн.');\n  if(x.n<T.minN)bad.push('сделок '+x.n+' < '+T.minN);\n  if(T.needOos&&!x.oosOk)bad.push('на проверке не в плюсе');\n  if(T.minSm>0&&!(x.seq&&x.seq.smooth!=null&&x.seq.smooth*100>=T.minSm))bad.push('ровность роста '+(x.seq&&x.seq.smooth!=null?Math.round(x.seq.smooth*100)+'%':'—')+' < '+T.minSm+'%');\n  return bad;\n}\nfunction dayBars(g,stake,w,h,lo0){\n  const n=g.dRoi.length;if(!n)return'';\n  const two=!!g.dW;\n  let mx=0;for(let i=0;i<n;i++){const a=Math.abs(g.dRoi[i]*stake);if(a>mx)mx=a;}\n  if(mx<1e-9)mx=1;\n  const bw=(w-2)/n,zero=h/2;\n  let s='<svg class=\"spark\" viewBox=\"0 0 '+w+' '+h+'\" width=\"'+w+'\" height=\"'+h+'\" role=\"img\"><line x1=\"0\" x2=\"'+w+'\" y1=\"'+zero+'\" y2=\"'+zero+'\" stroke=\"var(--line)\"/>';\n  for(let i=0;i<n;i++){\n    const net=g.dRoi[i]*stake,x=1+i*bw,ww=Math.max(1.5,bw-(bw>6?2:1)),nm=dStr((lo0!==undefined?lo0:TOPLO)+i);\n    if(!g.dN[i]){s+='<rect x=\"'+x.toFixed(1)+'\" y=\"'+(zero-1)+'\" width=\"'+ww.toFixed(1)+'\" height=\"2\" fill=\"var(--mut)\" opacity=\".45\"><title>'+nm+': сделок не было</title></rect>';continue;}\n    if(!two){const bh=Math.max(2,Math.abs(net)/mx*(h/2-2));s+='<rect x=\"'+x.toFixed(1)+'\" y=\"'+(net>=0?zero-bh:zero).toFixed(1)+'\" width=\"'+ww.toFixed(1)+'\" height=\"'+bh.toFixed(1)+'\" rx=\"1.5\" fill=\"'+(net>=0?'var(--good)':'var(--bad)')+'\"><title>'+nm+': '+money(net)+' ('+g.dN[i]+' сд.)</title></rect>';continue;}\n    const win=g.dW[i]*stake,los=g.dL[i]*stake,pk=g.dPk[i]*stake,dd=g.dDD[i]*stake;\n    const tip=nm+' ('+g.dN[i]+' сд.)\\nпрофит (сумма побед): +$'+win.toFixed(2)+'\\nубыток (сумма проигрышей): −$'+Math.abs(los).toFixed(2)+'\\nитог дня: '+money(net)+'\\nвнутри дня: '+ddText(pk,dd);\n    const bh=Math.max(2,Math.abs(net)/mx*(h/2-2));\n    s+='<rect x=\"'+x.toFixed(1)+'\" y=\"'+(net>=0?zero-bh:zero).toFixed(1)+'\" width=\"'+ww.toFixed(1)+'\" height=\"'+bh.toFixed(1)+'\" rx=\"1.5\" fill=\"'+(net>=0?'var(--good)':'var(--bad)')+'\"><title>'+tip+'</title></rect>';\n  }\n  return s+'</svg>';\n}\n// столбики по дням + таблица: профит и убыток отдельно, итог, и что было с просадкой внутри дня\nfunction dayDetail(g,stake,lo,nD){\n  const w=Math.max(260,Math.min(640,nD*40));\n  let h='<div style=\"margin:6px 0\"><div class=\"small\" style=\"margin-bottom:3px\"><b>📅 По дням</b> <span class=\"mut\">зелёный — день в плюс, красный — день в минус (итог дня); наведи на день — профит, убыток и что было с просадкой</span></div>'+dayBars(g,stake,w,70,lo)+'</div>';\n  h+='<details style=\"margin:4px 0 8px\"><summary class=\"small\">таблица по дням (профит / убыток / просадка)</summary><div class=\"tw\"><table><thead><tr><th class=\"l ns\">день</th><th class=\"ns\">сделок</th><th class=\"ns\">профит</th><th class=\"ns\">убыток</th><th class=\"ns\">итог</th><th class=\"l ns\" title=\"что происходило внутри дня: чистый убыток с начала дня или откат от достигнутого плюса\">просадка внутри дня</th></tr></thead><tbody>';\n  for(let d=0;d<nD;d++){if(!g.dN[d])continue;const win=g.dW[d]*stake,los=g.dL[d]*stake,net=g.dRoi[d]*stake,pk=g.dPk[d]*stake,dd=g.dDD[d]*stake;\n    h+='<tr><td class=\"l\">'+dayStr(lo+d)+'</td><td>'+g.dN[d]+'</td><td class=\"pos\">+$'+win.toFixed(2)+'</td><td class=\"'+(los<0?'neg':'')+'\">'+(los<0?'−$'+Math.abs(los).toFixed(2):'$0')+'</td><td class=\"'+cls(net)+'\"><b>'+money(net)+'</b></td><td class=\"l small '+(dd>0.004?'':'mut')+'\">'+ddText(pk,dd)+'</td></tr>';}\n  return h+'</tbody></table></div></details>';\n}\nconst MEDAL=['🥇','🥈','🥉'];\nfunction topTable(list,id,opts){\n  opts=opts||{};const T=S.top,show=opts.limit||T.show[id]||8,stake=S.stake,nD=TOPND;\n  const sw=Math.max(80,Math.min(220,nD*14));\n  let h='<div class=\"tw\"><table><thead><tr><th class=\"l ns\">#</th><th class=\"l ns\">Стратегия</th><th class=\"ns\">$ в день</th><th class=\"l ns\">По дням</th><th class=\"l ns\" title=\"накопленная прибыль по каждой сделке\">Накопленная</th><th class=\"ns\" title=\"дней в плюсе / в минусе / без сделок\">+ / − / пусто</th><th class=\"ns\">Худший день</th><th class=\"ns\">Сделок/день</th><th class=\"ns\">Побед · цена</th><th class=\"l ns\">Вердикт</th><th class=\"ns\" title=\"самая частая длина серии побед подряд / самая длинная серия\">Винстрик (частый / макс)</th><th class=\"ns\" title=\"насколько кумулятивная прибыль похожа на ровную линию вверх: 100% — идеальная прямая, 0% — нет роста\">Ровность роста</th><th class=\"ns\" title=\"последние ~40% дней периода: поиск их не видел\">Проверка</th>'+(opts.head?'<th class=\"l ns\">'+opts.head+'</th>':'')+(opts.extra&&!opts.head?'<th class=\"ns\"></th>':'')+'</tr></thead><tbody>';\n  list.slice(0,show).forEach((x,i)=>{\n    const t=x.test?'<span class=\"'+cls(x.test.usdd)+'\">'+money(x.test.usdd)+'/д</span>'+(x.test.minus?' <span class=\"neg\">('+x.test.minus+' дн. в минусе)</span>':''):'—';\n    const attrs=opts.attrs?opts.attrs(x):' data-act=\"opentop\" data-by=\"'+x.by+'\" data-k=\"'+esc(x.key)+'\"';\n    const star=(opts.star===false)?'':'<button class=\"star\" title=\"В избранное (сохранятся и текущие фильтры сверху)\" data-act=\"favadd\" data-by=\"'+x.by+'\" data-k=\"'+esc(x.key)+'\">☆</button> ';\n    h+='<tr class=\"click\"'+attrs+'><td class=\"l\">'+(i<3&&!opts.nomedal?MEDAL[i]:(i+1))+'</td><td class=\"l nm\">'+star+esc(x.name)+(opts.sub?'<div class=\"mut small\" style=\"font-weight:400\">'+opts.sub(x)+'</div>':'')+'</td><td class=\"'+cls(x.usdd)+'\"><b>'+money(x.usdd)+'</b></td><td class=\"l\">'+dayBars(x.g,stake,sw,30)+'</td><td class=\"l\">'+cumSpark(x.g.rows,90,30)+'</td><td><span class=\"pos\">'+x.plus+'</span> / <span class=\"'+(x.minus?'neg':'mut')+'\">'+x.minus+'</span> / <span class=\"mut\">'+x.empty+'</span></td><td class=\"'+cls(x.worst)+'\">'+money(x.worst)+'</td><td>'+fmt(x.tpd,1)+'</td><td>'+pct(x.wr)+' · '+fmt(x.apx,3)+'</td><td class=\"l\">'+x.verdict+'</td><td>'+(x.seq&&x.seq.wmode?x.seq.wmode+' <span class=\"mut small\">×'+x.seq.wmodeN+'</span> / '+x.seq.wmax:'—')+'</td><td>'+(x.seq&&x.seq.smooth!=null?Math.round(x.seq.smooth*100)+'%':'—')+'</td><td>'+t+'</td>'+(opts.extra?'<td class=\"l small\">'+opts.extra(x)+'</td>':'')+'</tr>';\n  });\n  h+='</tbody></table></div>';\n  if(list.length>show)h+='<div class=\"bar\"><button data-act=\"topmore\" data-id=\"'+id+'\">Показать ещё 10</button><span class=\"mut small\">показано '+Math.min(show,list.length)+' из '+list.length+'</span></div>';\n  return h;\n}\nfunction topSection(id,title,sub,list,opts){\n  let h='<div class=\"card top\"><div class=\"th\"><b>'+title+'</b> <span class=\"mut small\">'+sub+'</span></div>';\n  if(!list.length)h+='<div class=\"mut small\" style=\"padding:6px 2px\">Ничего не нашлось по этому признаку.</div>';\n  else h+=topTable(list,id,opts);\n  return h+'</div>';\n}\n// ----- команда -----\nfunction teamMetrics(members,nD,stake){\n  const arrs=members.map(m=>m.g.rows);\n  const rows=Array.prototype.concat.apply([],arrs);\n  const g=prepGroup(rows,TOPLO,nD,'m',true);\n  const m=metrics(g,nD,stake);m.raw=rows.length;return m;\n}\nfunction buildTeam(pool,K,nD,stake){\n  const sel=[];let cur=null,curObj=-Infinity;\n  const objOf=m=>{let neg=0;for(let d=0;d<nD;d++){const v=m.g.dRoi[d]*stake;if(v<0)neg+=v;}return m.usdd+(nD?neg/nD:0);};\n  while(sel.length<K){\n    let bi=-1,bm=null,bo=curObj;\n    for(let i=0;i<pool.length;i++){\n      if(sel.indexOf(pool[i])>=0)continue;\n      const m=teamMetrics(sel.concat([pool[i]]),nD,stake),o=objOf(m);\n      if(o>bo+1e-9){bo=o;bi=i;bm=m;}\n    }\n    if(bi<0)break;\n    sel.push(pool[bi]);cur=bm;curObj=bo;\n  }\n  if(!sel.length)return null;\n  const contrib=sel.map((s,i)=>{if(sel.length<2)return cur.usdd;const w=teamMetrics(sel.filter((_,j)=>j!==i),nD,stake);return cur.usdd-w.usdd;});\n  return{members:sel,m:cur,contrib:contrib};\n}\nfunction renderTeam(pool,strictN){\n  const T=S.top,stake=S.stake,nD=TOPND;\n  let h='<div class=\"card top\"><div class=\"th\"><b>👥 Команда стратегий</b> <span class=\"mut small\">подбирает набор, который вместе даёт больше всего прибыли в день и меньше всего убыточных дней</span></div>';\n  h+='<div class=\"bar\"><label class=\"small\">Сколько стратегий в команде <select id=\"tp_team\">'+[2,3,4].map(k=>'<option value=\"'+k+'\"'+(T.team===k?' selected':'')+'>'+k+'</option>').join('')+'</select></label><span class=\"mut small\">берём из '+(strictN>=T.team?'подошедших под условия':'самых прибыльных (условия не прошёл никто)')+'; на одном рынке торгует одна — как бот</span></div>';\n  if(pool.length<2){return h+'<div class=\"note\">Для команды нужно хотя бы 2 подходящих варианта.</div></div>';}\n  const tm=buildTeam(pool,T.team,nD,stake);\n  if(!tm)return h+'<div class=\"note\">Не получилось собрать команду.</div></div>';\n  const m=tm.m;\n  h+='<div class=\"kpis\">'+kp(money(m.usdd),'прибыль в день на ставке $'+stake,cls(m.usdd))+kp('<span class=\"pos\">'+m.plus+'</span> / <span class=\"'+(m.minus?'neg':'')+'\">'+m.minus+'</span> / '+m.empty,'дней плюс / минус / пусто')+kp(money(m.worst),'худший день',cls(m.worst))+kp(m.n,'сделок ('+fmt(m.tpd,1)+' в день)')+kp(pct(m.wr)+' · '+fmt(m.apx,3),'побед · средняя цена')+kp('−$'+fmt(m.dd,2),'макс. просадка')+kp(m.streak,'проигрышей подряд (макс.)')+'</div>';\n  h+='<div style=\"margin:4px 0 10px\">'+dayBars(m.g,stake,Math.max(260,Math.min(640,nD*40)),64)+'<div class=\"mut small\">общая прибыль по дням (зелёный — плюс, красный — минус)</div></div>';\n  h+='<div class=\"tw\"><table><thead><tr><th class=\"l ns\">Стратегия</th><th class=\"ns\">$ в день (сама по себе)</th><th class=\"ns\">Вклад в команду</th><th class=\"ns\">Сделок</th><th class=\"l ns\">Вердикт</th></tr></thead><tbody>';\n  tm.members.forEach((x,i)=>{h+='<tr class=\"click\" data-act=\"opentop\" data-by=\"'+x.by+'\" data-k=\"'+esc(x.key)+'\"><td class=\"l nm\">'+esc(x.name)+'</td><td class=\"'+cls(x.usdd)+'\">'+money(x.usdd)+'</td><td class=\"'+cls(tm.contrib[i])+'\">'+money(tm.contrib[i])+'</td><td>'+x.n+'</td><td class=\"l\">'+x.verdict+'</td></tr>';});\n  h+='</tbody></table></div>';\n  const lost=m.raw-m.n;\n  h+='<div class=\"note small\">Сумма сделок отдельных стратегий — '+m.raw+', в команде — '+m.n+(lost>0?' ('+lost+' отпало: несколько стратегий вошли в один рынок, бот берёт только первую)':'')+'. Если «вклад» близок к нулю, эта стратегия почти повторяет остальные.</div></div>';\n  return h;\n}\nconst kp=(v,l,c)=>'<div class=\"kpi\"><b class=\"'+(c||'')+'\">'+v+'</b><span>'+l+'</span></div>';\n// ----- вкладка целиком -----\nfunction renderTop(){\n  const T=S.top,stake=S.stake;\n  const lr=dayRange(),lo=lr[0],hi=lr[1],nD=hi-lo+1;TOPLO=lo;TOPND=nD;\n  const q=S.q.trim().toLowerCase();\n  const groups=getGroups(T.by,lo,hi);\n  let items=itemsOf(groups,T.by,nD,stake);\n  if(q)items=items.filter(x=>x.name.toLowerCase().indexOf(q)>=0);\n  if(T.stopOk&&exHave()){items=items.filter(x=>x.n>=T.minN&&stopCheck(x.g).ok);}\n  if(T.reliable&&exHave()){items=items.filter(x=>x.n>=T.minN&&relCheck(x.g).ok);}\n  const total=items.length;\n  const sortF=(TOP_SORTS[T.sort]||TOP_SORTS.usdd)[1];\n  const evald=items.map(x=>({x:x,bad:critBad(x,T,nD)}));\n  const strict=evald.filter(e=>e.bad.length===0).map(e=>e.x).sort((a,b)=>sortF(b)-sortF(a));\n  const near=evald.filter(e=>e.bad.length===1&&e.x.usd>0).sort((a,b)=>b.x.usdd-a.x.usdd);\n  const base=items.filter(x=>x.n>=T.minN);\n  const pos=base.filter(x=>x.usd>0&&x.verdict!=='❌');\n  let h='<div class=\"card hero\"><div class=\"bar\" style=\"margin:0 0 8px\"><b style=\"font-size:17px\">🏆 Лучшие стратегии</b><span class=\"mut small\">автопоиск по всем вариантам: какие приносят прибыль каждый день</span></div>';\n  h+='<div class=\"goal\">';\n  h+='<label>Искать среди<select id=\"tp_by\">'+[['cell','ячеек (идея + ячейка)'],['idea','идей целиком'],['cellcoin','ячейка + монета'],['cellside','ячейка + сторона']].map(o=>'<option value=\"'+o[0]+'\"'+(T.by===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+'</select></label>';\n  h+='<label>Ставка на сделку, $<input type=\"number\" id=\"stake\" min=\"1\" value=\"'+stake+'\"></label>';\n  h+='<label>Цель: прибыль в день от, $<input type=\"number\" id=\"tp_goal\" min=\"0\" step=\"any\" value=\"'+T.goal+'\"></label>';\n  h+='<label>Убыточных дней не больше<input type=\"number\" id=\"tp_loss\" min=\"0\" value=\"'+T.maxLoss+'\"></label>';\n  h+='<label>Торговала в % дней не меньше<input type=\"number\" id=\"tp_cover\" min=\"0\" max=\"100\" value=\"'+T.cover+'\"></label>';\n  h+='<label>Мин. сделок за период<input type=\"number\" id=\"tp_minn\" min=\"1\" value=\"'+T.minN+'\"></label>';\n  h+='<label>Ровность роста не ниже, %<input type=\"number\" id=\"tp_sm\" min=\"0\" max=\"100\" value=\"'+(T.minSm||0)+'\"></label>';\n  h+='<label>Сортировать подошедшие по<select id=\"tp_sort\">'+Object.keys(TOP_SORTS).map(k=>'<option value=\"'+k+'\"'+(T.sort===k?' selected':'')+'>'+TOP_SORTS[k][0]+'</option>').join('')+'</select></label>';\n  h+='</div><div class=\"bar\" style=\"margin:8px 0 0\">';\n  h+='<label class=\"small\" title=\"Бот сам ловит прострелы на бумаге: вход только по живому ask с проверкой глубины стакана (ничего не покупает). Это честная проверка идей про обвал на старте и лимитки\"><input type=\"checkbox\" id=\"tp_pl\"'+(T.plim?' checked':'')+'> 🧪 бумажные лимитки (живой стакан)</label>';\n  h+='<label class=\"small\" title=\"Общий рейтинг: перебирает ТС × режим монеты × вход после прибыли/убытка × правила дня и выдаёт те, у кого ровная кумулятивная, плюс почти каждый день, малая просадка и достаточно сделок\"><input type=\"checkbox\" id=\"tp_best\"'+(T.best?' checked':'')+'> 🏅 лучшие из лучших</label>';\n  h+='<label class=\"small\"><input type=\"checkbox\" id=\"one\"'+(S.one?' checked':'')+'> один вход на рынок</label>';\n  h+='<label class=\"small\" title=\"Первые и последние сутки в данных обычно неполные: в них нет сделок просто потому, что парсер ещё не работал или ещё не доработал.\"><input type=\"checkbox\" id=\"tp_trim\"'+(T.trim?' checked':'')+'> не считать неполные крайние дни</label>';\n  h+='<label class=\"small\" title=\"Оставить в рейтингах только ТС, где стоп (подобранный по сетке ¢ и %) улучшает результат и на первой, и на второй половине сделок.\"><input type=\"checkbox\" id=\"tp_stopok\"'+(T.stopOk?' checked':'')+'> 🛑 только ТС, где стопы работают</label>';\n  h+='<label class=\"small\" title=\"Оставить только ТС, где торговля со стопом выглядит надёжно: плюс на обеих половинах сделок, остаётся при проскальзывании на 3¢ хуже, держится при соседних стопах (на 20% уже и шире), стоп срабатывает не чаще чем в 45% сделок, сделок с путём цены не меньше 150.\"><input type=\"checkbox\" id=\"tp_rel\"'+(T.reliable?' checked':'')+'> 🛡 только надёжные (со стопом)</label>';\n  h+='<label class=\"small\" title=\"Показывать как «подошла» только стратегию, которая и на последних ~40% дней периода в плюсе.\"><input type=\"checkbox\" id=\"tp_oos\"'+(T.needOos?' checked':'')+'> требовать плюс на проверке (последние дни)</label>';\n  h+='<label class=\"small\" title=\"Показать готовый отсортированный список ТС, где для каждой уже подобран лучший вариант: стопы, тейки, комбинации, вход после дна / выноса, выход при обвале (шаг 1¢).\"><input type=\"checkbox\" id=\"tp_scan\"'+(T.scan?' checked':'')+'> 🔎 лучшие с перебором стопов и входов</label>';\n  h+='<label class=\"small\" title=\"Для каждой ТС подбираются фильтры (спред, объёмы, биржи, время…) и проверяются на сделках, которых подбор не видел. Показаны ТС, которым фильтры дают больше всего.\"><input type=\"checkbox\" id=\"tp_fs\"'+(T.fscan?' checked':'')+'> 🎛 фильтры, которые меняют всё</label>';\n  h+='<label class=\"small\" title=\"Для каждой ТС перебираются правила дня: остановиться после +$X, после −$Y, не больше N входов, стоп после K проигрышей подряд. Подбор на первых 60% сделок, проверка на последних 40%.\"><input type=\"checkbox\" id=\"tp_gs\"'+(T.gscan?' checked':'')+'> 🎯 лучшая цель дня и стоп дня</label>';\n  h+='<label class=\"small\" title=\"Лимитная покупка токена ниже рынка (ловим резкие падения цены) и продажа лимиткой выше или до резолва. Два замера рядом: по ленте раз в 5с и по минимуму/максимуму между замерами.\"><input type=\"checkbox\" id=\"tp_ls\"'+(T.lscan?' checked':'')+'> 🪤 лимитки на прострелы</label>';\n  h+='<button data-act=\"topcsv\">Скачать все варианты в CSV</button></div></div>';\n  if(T.plim)h+=plSection();\n  if(T.best)h+=bbSection(T,stake,lo,hi,nD);\n  if(T.fscan)h+=fsSection(items,T,stake);\n  if(T.gscan)h+=gsSection(items,T,stake);\n  if(T.lscan)h+=lsSection(T,stake);\n  if(T.scan&&exHave())h+=scSection(items,T,stake);\n  h+='<div class=\"kpis\"><div class=\"kpi\"><b>'+nD+'</b><span>дней в расчёте ('+dStr(lo)+' — '+dStr(hi)+', UTC)</span></div><div class=\"kpi\"><b>'+total+'</b><span>вариантов проверено</span></div><div class=\"kpi\"><b class=\"'+(strict.length?'pos':'neg')+'\">'+strict.length+'</b><span>подошли под все условия</span></div><div class=\"kpi\"><b>'+near.length+'</b><span>не хватает одного условия</span></div></div>';\n  if(nD<5)h+='<div class=\"note warn\">В расчёте всего <b>'+nD+'</b> дн. Фраза «прибыль каждый день» на таком коротком отрезке почти ничего не доказывает, а колонка «Проверка» не считается (нужно хотя бы 5 дней).</div>';\n  h+='<div class=\"note warn small\"><b>Как не обмануться.</b> Это поиск лучшего по прошлому среди '+total+' вариантов: часть найдётся просто от везения, чем больше вариантов, тем больше «идеальных» случайно. Доверия добавляют три вещи: колонка «Проверка» (последние ~40% дней в плюсе), ✅ в «Вердикте» и то, что соседние ячейки тоже в плюсе. Настоящий тест — следующая неделя новых данных (фильтр «Период» вверху).</div>';\n  if(T.reliable){\n    const rl=items.slice().sort((a,b)=>relCheck(b.g).a-relCheck(a.g).a);\n    h+=topSection('rel','🛡 Надёжные ТС (со стопом)','условия: плюс на обеих половинах; плюс при проскальзывании +3¢ хуже; плюс при соседних стопах (×0,8 и ×1,2); стоп срабатывает ≤ 45% сделок; ≥ 150 сделок с путём цены',rl,{head:'Со стопом: прибыль (при +3¢ хуже), срабатываний',extra:x=>{const o=relCheck(x.g);return o.a===undefined?'—':'стоп '+o.pct+'%: '+money(o.a)+' ('+money(o.b)+'), '+Math.round(o.rate*100)+'%';}});\n  }\n  if(T.stopOk){\n    const sl=items.slice().sort((a,b)=>stopCheck(b.g).gain-stopCheck(a.g).gain);\n    h+=topSection('stopok','🛑 ТС, где стоп помогает','стоп подобран по сетке (2–40¢ и 5–60%); учитываем только если он улучшает итог и на 1-й, и на 2-й половине сделок',sl,{head:'Лучший стоп',extra:x=>{const o=stopCheck(x.g);return optTxt(o.best,'sl')+': '+(o.gain>=0?'+':'−')+'$'+Math.abs(o.gain).toFixed(1)+' (1-я '+(o.g1>=0?'+':'−')+'$'+Math.abs(o.g1).toFixed(1)+' / 2-я '+(o.g2>=0?'+':'−')+'$'+Math.abs(o.g2).toFixed(1)+')';}});\n  }\n  // команда\n  const pool=(strict.length>=T.team?strict:pos.slice().sort((a,b)=>b.usdd-a.usdd)).slice(0,T.by==='idea'?12:24);\n  h+=renderTeam(pool,strict.length);\n  // подошедшие\n  h+=topSection('strict','✅ Подходят под все мои условия','прибыль в день ≥ $'+T.goal+', убыточных дней ≤ '+T.maxLoss+', торговала ≥ '+T.cover+'% дней, сделок ≥ '+T.minN+(T.needOos?', плюс на проверке':''),strict,{extra:x=>x.stakeNeed?'ставка для цели ≈ $'+fmt(x.stakeNeed,1):'',head:'Для цели в $'+T.goal+'/день'});\n  if(strict.length<8){\n    const nl=near.map(e=>{e.x.__bad=e.bad[0];return e.x;});\n    h+=topSection('near','🔶 Почти подошли','не хватает ровно одного условия — смотри последнюю колонку',nl,{head:'Чего не хватает',extra:x=>esc(x.__bad),nomedal:true});\n  }\n  // топы\n  h+=topSection('usd','💰 Больше всего $ в день','с положительным результатом и без ❌, сделок ≥ '+T.minN,pos.slice().sort((a,b)=>b.usdd-a.usdd));\n  h+=topSection('even','🛡 Самые ровные по дням','меньше всего убыточных дней, затем лучший «худший день»; торговали минимум в половине дней',pos.filter(x=>x.cover>=0.5).sort((a,b)=>a.minus-b.minus||b.worst-a.worst||b.usdd-a.usdd));\n  h+=topSection('smooth','📈 Ровнее всего растут','кумулятивная ближе всего к прямой линии вверх (R² прямой), прибыль > 0, сделок ≥ '+Math.max(T.minN,30),pos.filter(x=>x.n>=Math.max(T.minN,30)&&x.seq&&x.seq.smooth!=null).sort((a,b)=>b.seq.smooth-a.seq.smooth),{head:'Ровность роста',extra:x=>Math.round(x.seq.smooth*100)+'%'});\n  h+=topSection('calm','😌 Самые спокойные психологически','короче всего серия проигрышей подряд (при ROI > 0.5%)',pos.filter(x=>x.roi>0.005).sort((a,b)=>a.streak-b.streak||b.wr-a.wr),{head:'Макс. серия минусов',extra:x=>x.streak+' подряд (−$'+fmt(x.streak*stake,0)+')'});\n  h+=topSection('freq','⚡ Самые частые прибыльные','больше всего сделок в день при ROI > 1%',pos.filter(x=>x.roi>0.01).sort((a,b)=>b.tpd-a.tpd));\n  h+=topSection('rare','💎 Редкие, но сильные','8–60 сделок и преимущество над ценой ≥ 8 п.п.: мало данных, смотри как на кандидата на минимальную ставку',items.filter(x=>x.n>=8&&x.n<=60&&x.edge>=0.08&&x.usd>0).sort((a,b)=>b.roi-a.roi),{head:'Edge',extra:x=>sgn(x.edge*100,1)+' п.п.'});\n  h+=topSection('proved','🔬 С доказательством (✅)','нижняя граница винрейта выше цены входа, отсортированы по запасу',items.filter(x=>x.verdict==='✅'&&x.usd>0).sort((a,b)=>(b.lo-b.apx)-(a.lo-a.apx)),{head:'Нижн. гр. − цена',extra:x=>sgn((x.lo-x.apx)*100,1)+' п.п.'});\n  h+=topSection('oos','🧪 Держатся на проверке','в плюсе и в первой части периода, и в последних ~40% дней',pos.filter(x=>x.oosOk&&x.train>0).sort((a,b)=>b.test.usdd-a.test.usdd));\n  // по монетам\n  const cc=T.by==='cellcoin'?items:itemsOf(getGroups('cellcoin',lo,hi),'cellcoin',nD,stake).filter(x=>!q||x.name.toLowerCase().indexOf(q)>=0);\n  const perCoin=[];\n  D.coins.forEach((c,ci)=>{cc.filter(x=>x.coin===ci&&x.n>=T.minN&&x.usd>0&&x.verdict!=='❌').sort((a,b)=>b.usdd-a.usdd).slice(0,2).forEach(x=>perCoin.push(x));});\n  h+=topSection('coin','🪙 Лучшие по каждой монете','по две лучшие ячейки для каждой монеты',perCoin);\n  h+='<div class=\"note small\">Как читать таблицу: «$ в день» — средняя прибыль за сутки на ставку из поля «ставка» (по всем дням периода, включая дни без сделок). «+ / − / пусто» — сколько суток закончилось в плюсе, в минусе и без единой сделки. Столбики — прибыль каждого дня: зелёный плюс, красный минус, серая точка — не было сделок. «Худший день» — самая слабая сутки. «Проверка» — прибыль в день на последних ~40% дней периода. Клик по строке открывает подробный разбор.</div>';\n  return h;\n}\nfunction downloadTopCsv(){\n  const lr=dayRange(),lo=lr[0],hi=lr[1],nD=hi-lo+1,T=S.top;\n  const items=itemsOf(getGroups(T.by,lo,hi),T.by,nD,S.stake);\n  const head=['стратегия','сделок','побед','винрейт','ср_цена','edge_пп','roi','прибыль_$','прибыль_в_день_$','дней_плюс','дней_минус','дней_пусто','худший_день_$','просадка_$','макс_серия_минусов','вердикт','проверка_$_в_день','проверка_дней_в_минусе','ставка_для_цели_$'];\n  const lines=[head.join(',')];\n  items.sort((a,b)=>b.usdd-a.usdd).forEach(x=>{lines.push(['\"'+x.name.replace(/\"/g,'\"\"')+'\"',x.n,x.w,x.wr.toFixed(4),x.apx.toFixed(4),(x.edge*100).toFixed(2),x.roi.toFixed(4),x.usd.toFixed(2),x.usdd.toFixed(2),x.plus,x.minus,x.empty,x.worst.toFixed(2),x.dd.toFixed(2),x.streak,x.verdict,x.test?x.test.usdd.toFixed(2):'',x.test?x.test.minus:'',x.stakeNeed?x.stakeNeed.toFixed(1):''].join(','));});\n  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([lines.join('\\n')],{type:'text/csv;charset=utf-8'}));a.download='lab-top-strategies.csv';document.body.appendChild(a);a.click();setTimeout(()=>document.body.removeChild(a),500);\n}\nfunction renderTabs(){\n  const tb=(t,l)=>'<button class=\"tab'+(S.tab===t?' on':'')+'\" data-act=\"tab\" data-t=\"'+t+'\">'+l+'</button>';\n  return '<div class=\"tabs\">'+tb('an','📊 Разбор стратегий')+tb('top','🏆 Лучшие стратегии')+tb('fav','⭐ Избранные ('+FAVS.length+')')+tb('chain','🔗 Согласия')+tb('combo','🧩 Комбинации')+'</div>';\n}\n// ---------- график накопленной прибыли (по каждой сделке) ----------\nconst CUMREG={};let cumSeq=0;\nfunction rowName(r){return (COIN_SHORT[D.coins[r[C.coin]]]||D.coins[r[C.coin]])+' '+(r[C.side]?'Down':'Up');}\nfunction cumSeries(rs,sorted){\n  const s=sorted?rs:rs.slice().sort((a,b)=>a[C.ts]-b[C.ts]);\n  const ys=new Array(s.length);let cum=0;\n  for(let i=0;i<s.length;i++){cum+=roiOf(s[i])*S.stake;ys[i]=cum;}\n  return{s:s,ys:ys};\n}\nfunction cumStats(sr){\n  let peak=0,dd=0,cur=0,mx=0,best=-Infinity,worst=Infinity;\n  for(let i=0;i<sr.s.length;i++){\n    const y=sr.ys[i];if(y>peak)peak=y;if(peak-y>dd)dd=peak-y;\n    const r=sr.s[i],v=roiOf(r)*S.stake;if(v>best)best=v;if(v<worst)worst=v;\n    if(r[C.won])cur=0;else{cur++;if(cur>mx)mx=cur;}\n  }\n  return{dd:dd,streak:mx,best:best,worst:worst};\n}\nfunction cumChart(rs,opt){\n  opt=opt||{};\n  const sr=cumSeries(rs),n=sr.s.length;\n  if(n<2)return '<div class=\"note\">Для графика нужно хотя бы 2 сделки.</div>';\n  const mode=S.cumMode;\n  const W=opt.w||920,H=opt.h||270,pl=58,pr=14,pt=14,pb=30;\n  const xs=new Array(n);\n  for(let i=0;i<n;i++)xs[i]=mode==='time'?sr.s[i][C.ts]:i;\n  const x0=xs[0],x1=xs[n-1];\n  let mn=0,mx=0;for(let i=0;i<n;i++){const y=sr.ys[i];if(y<mn)mn=y;if(y>mx)mx=y;}\n  if(mx-mn<0.5){mx+=0.25;mn-=0.25;}\n  const X=v=>pl+(W-pl-pr)*((v-x0)/((x1-x0)||1)),Y=v=>pt+(H-pt-pb)*(1-(v-mn)/(mx-mn));\n  let d='';\n  if(n<=6000){for(let i=0;i<n;i++)d+=(i?'L':'M')+X(xs[i]).toFixed(1)+' '+Y(sr.ys[i]).toFixed(1);}\n  else{\n    const b=Math.ceil(n/3000);let first=true;\n    for(let i=0;i<n;i+=b){\n      let lo=i,hi=i;\n      for(let j=i;j<Math.min(n,i+b);j++){if(sr.ys[j]<sr.ys[lo])lo=j;if(sr.ys[j]>sr.ys[hi])hi=j;}\n      const a=Math.min(lo,hi),c=Math.max(lo,hi);\n      d+=(first?'M':'L')+X(xs[a]).toFixed(1)+' '+Y(sr.ys[a]).toFixed(1);first=false;\n      if(c!==a)d+='L'+X(xs[c]).toFixed(1)+' '+Y(sr.ys[c]).toFixed(1);\n    }\n  }\n  const end=sr.ys[n-1],col=end>=0?'var(--good)':'var(--bad)';\n  let s='<svg class=\"cumsvg\" data-cum=\"c'+(cumSeq+1)+'\" viewBox=\"0 0 '+W+' '+H+'\" width=\"100%\" style=\"max-width:'+W+'px\" role=\"img\">';\n  for(let g=0;g<=4;g++){const v=mn+(mx-mn)*g/4,y=Y(v);s+='<line x1=\"'+pl+'\" x2=\"'+(W-pr)+'\" y1=\"'+y.toFixed(1)+'\" y2=\"'+y.toFixed(1)+'\" stroke=\"var(--line)\"/><text x=\"'+(pl-6)+'\" y=\"'+(y+4).toFixed(1)+'\" text-anchor=\"end\">'+(v>=0?'+':'−')+'$'+Math.abs(v).toFixed(Math.abs(v)>=100?0:1)+'</text>';}\n  s+='<line x1=\"'+pl+'\" x2=\"'+(W-pr)+'\" y1=\"'+Y(0).toFixed(1)+'\" y2=\"'+Y(0).toFixed(1)+'\" stroke=\"var(--mut)\" stroke-dasharray=\"4 3\"/>';\n  // границы суток\n  const marks=[];\n  for(let i=1;i<n;i++){const a=dayOf(sr.s[i-1][C.ts]),b=dayOf(sr.s[i][C.ts]);if(a!==b)marks.push([i,b]);}\n  const stride=Math.max(1,Math.ceil(marks.length/10));\n  marks.forEach((m,k)=>{const x=X(xs[m[0]]).toFixed(1);s+='<line x1=\"'+x+'\" x2=\"'+x+'\" y1=\"'+pt+'\" y2=\"'+(H-pb)+'\" stroke=\"var(--line)\" stroke-dasharray=\"2 4\"/>';if(k%stride===0)s+='<text x=\"'+x+'\" y=\"'+(H-10)+'\" text-anchor=\"middle\">'+dStr(m[1]).slice(5)+'</text>';});\n  s+='<path d=\"'+d+' L'+X(xs[n-1]).toFixed(1)+' '+Y(0).toFixed(1)+' L'+X(xs[0]).toFixed(1)+' '+Y(0).toFixed(1)+' Z\" fill=\"'+col+'\" opacity=\".09\"/>';\n  s+='<path d=\"'+d+'\" fill=\"none\" stroke=\"'+col+'\" stroke-width=\"1.8\" stroke-linejoin=\"round\"/>';\n  s+='<circle cx=\"'+X(xs[n-1]).toFixed(1)+'\" cy=\"'+Y(end).toFixed(1)+'\" r=\"3.5\" fill=\"'+col+'\"/>';\n  s+='<line class=\"cl\" x1=\"0\" x2=\"0\" y1=\"'+pt+'\" y2=\"'+(H-pb)+'\" stroke=\"var(--fg)\" stroke-width=\"1\" opacity=\".5\" style=\"display:none\"/></svg>';\n  const id='c'+(++cumSeq);\n  CUMREG[id]={s:sr.s,ys:sr.ys,xs:xs,x0:x0,x1:x1,W:W,pl:pl,pr:pr};\n  const cs=cumStats(sr);\n  let h='<div class=\"cum\"><div class=\"bar\" style=\"margin:0 0 4px\"><b>Накопленная прибыль по каждой сделке</b><span class=\"mut small\">ставка $'+S.stake+', все '+n+' сделок · ось X:</span>';\n  h+='<button class=\"tg'+(mode==='trade'?' on':'')+'\" data-act=\"cummode\" data-m=\"trade\">по сделкам</button><button class=\"tg'+(mode==='time'?' on':'')+'\" data-act=\"cummode\" data-m=\"time\">по времени</button></div>';\n  h+=s;\n  h+='<div class=\"cumtip small mut\">наведи курсор на график — увидишь каждую сделку</div>';\n  h+='<div class=\"small mut\">итог <b class=\"'+cls(end)+'\">'+money(end)+'</b> · макс. просадка −$'+cs.dd.toFixed(2)+' · проигрышей подряд (макс.) '+cs.streak+' · лучшая сделка '+money(cs.best)+' · худшая '+money(cs.worst)+'</div></div>';\n  return h;\n}\n// маленькая линия накопленной прибыли для таблиц\n\n\n// ---------- ПРОГРЕССИЯ СТАВКИ ПО ДНЯМ ----------\n// ---------- ПРОГНОЗ ВПЕРЁД (пролонгация кумулятивной) ----------\nconst PROJC={};\nfunction cumSpark(rows,w,h){\n  const n=rows.length;if(n<2)return '';\n  let cum=0;const ys=new Array(n);\n  for(let i=0;i<n;i++){cum+=roiOf(rows[i]);ys[i]=cum;}\n  let mn=0,mx=0;for(let i=0;i<n;i++){if(ys[i]<mn)mn=ys[i];if(ys[i]>mx)mx=ys[i];}\n  if(mx-mn<1e-9)mx=mn+1;\n  const step=Math.max(1,Math.ceil(n/(w*1.5)));\n  let d='';for(let i=0;i<n;i+=step){const x=(w-2)*i/(n-1)+1,y=2+(h-4)*(1-(ys[i]-mn)/(mx-mn));d+=(d?'L':'M')+x.toFixed(1)+' '+y.toFixed(1);}\n  const x=w-1,y=2+(h-4)*(1-(ys[n-1]-mn)/(mx-mn));d+='L'+x.toFixed(1)+' '+y.toFixed(1);\n  const z=2+(h-4)*(1-(0-mn)/(mx-mn));\n  return '<svg class=\"spark\" viewBox=\"0 0 '+w+' '+h+'\" width=\"'+w+'\" height=\"'+h+'\"><line x1=\"0\" x2=\"'+w+'\" y1=\"'+z.toFixed(1)+'\" y2=\"'+z.toFixed(1)+'\" stroke=\"var(--line)\"/><path d=\"'+d+'\" fill=\"none\" stroke=\"'+(ys[n-1]>=0?'var(--good)':'var(--bad)')+'\" stroke-width=\"1.6\"/></svg>';\n}\n\n// ---------- ИЗБРАННЫЕ ----------\nconst FAV_KEY='lab-favs-v2';\nconst FAV_DEFAULT=[\n  {id:'live-fair2',type:'cell',name:'fair2 — в торговле (σ120с, edge 2-4%, 0.93-0.96)',idea:'fair2',combo:'edge 2-4% / 60-120с / 0.93-0.96',flt:[],cats:{},live:'fair2'},\n  {id:'live-fair85',type:'cell',name:'fair85 = №1 — в торговле (σ120с, edge 4-6%, 0.85-0.90)',idea:'fair2',combo:'edge 4-6% / 60-120с / 0.85-0.90',flt:[{col:'sec',lo:null,hi:89},{col:'c10',lo:0,hi:0}],cats:{},live:'fair85'},\n  {id:'live-model93',type:'cell',name:'model93 = №3 — в торговле (Модель 1-1.5, 0.93-0.96)',idea:'model',combo:'сила 1-1.5 / 60-120с / 0.93-0.96',flt:[{col:'tb60',lo:0.48,hi:null}],cats:{},live:'model93'},\n  {id:'live-bot7b0',type:'cell',name:'bot7b0 — в торговле (профиль 7 + Binance против; приблизительно)',idea:'bot7',combo:null,flt:[{col:'bk',lo:0,hi:0}],cats:{},live:'bot7b0'},\n  {id:'u2',type:'cell',name:'№2 σ60с, edge 4-6%, 30-60с, 0.70-0.80',idea:'fair1',combo:'edge 4-6% / 30-60с / 0.70-0.80',flt:[],cats:{}},\n  {id:'u4',type:'cell',name:'№4 σ60с, edge <0, 120-180с, 0.60-0.70 + Coinbase/поток',idea:'fair1',combo:'edge <0 / 120-180с / 0.60-0.70',flt:[{col:'cbr',lo:3.44,hi:17.07}],cats:{}},\n  {id:'u5',type:'cell',name:'№5 σ60с, edge <0, 120-180с, 0.70-0.80 + 3 фильтра',idea:'fair1',combo:'edge <0 / 120-180с / 0.70-0.80',flt:[{col:'tb60',lo:0.15,hi:0.38},{col:'asz',lo:10,hi:49},{col:'rv2',lo:null,hi:0.28}],cats:{}},\n  {id:'n-f2neg',type:'cell',name:'Справедливая цена (σ 120с) · edge <0 / 60-120с / 0.80-0.85 · стоп 27%',idea:'fair2',combo:'edge <0 / 60-120с / 0.80-0.85',flt:[],cats:{},ex:{x:{sl:{on:true,v:27,u:'pct',lat:2}}}},\n  {id:'n-ts1',type:'cell',name:'ТС1 · fair2, edge<0, 180-240с, ask 0.80-0.90, TP +15¢ / SL −20¢',idea:'fair2',combo:null,flt:[{col:'fe',lo:null,hi:-0.0001},{col:'sec',lo:180,hi:240},{col:'px',lo:0.8,hi:0.9}],cats:{},ex:{x:{tp:{on:true,v:15,u:'c'},sl:{on:true,v:20,u:'c'}}}},\n  {id:'n-ts1nd',type:'cell',name:'ТС1 без DOGE · fair2, edge<0, 180-240с, ask 0.80-0.90, TP +15¢ / SL −20¢',idea:'fair2',combo:null,flt:[{col:'fe',lo:null,hi:-0.0001},{col:'sec',lo:180,hi:240},{col:'px',lo:0.8,hi:0.9}],cats:{coin:['Bitcoin','Ethereum','Solana','XRP']},ex:{x:{tp:{on:true,v:15,u:'c'},sl:{on:true,v:20,u:'c'}}}},\n  {id:'n-ts1h',type:'cell',name:'ТС1 без выходов (держим до расчёта) — для сравнения',idea:'fair2',combo:null,flt:[{col:'fe',lo:null,hi:-0.0001},{col:'sec',lo:180,hi:240},{col:'px',lo:0.8,hi:0.9}],cats:{}},\n  {id:'n-ts2',type:'cell',name:'ТС2 · fair1, edge 4-6%, 60-120с, ask 0.80-0.85',idea:'fair1',combo:null,flt:[{col:'fe',lo:0.04,hi:0.0599},{col:'sec',lo:60,hi:120},{col:'px',lo:0.8,hi:0.85}],cats:{}},\n  {id:'n-ts3',type:'cell',name:'ТС3 · Модель, сила 1-3, 180-240с, ask 0.80-0.90',idea:'model',combo:null,flt:[{col:'z',lo:1,hi:3},{col:'sec',lo:180,hi:240},{col:'px',lo:0.8,hi:0.9}],cats:{}},\n  {id:'n-ts4a',type:'cell',name:'ТС4 · fair2, edge 0-4%, 60-180с, ask 0.80-0.90',idea:'fair2',combo:null,flt:[{col:'fe',lo:0,hi:0.0399},{col:'sec',lo:60,hi:180},{col:'px',lo:0.8,hi:0.9}],cats:{}},\n  {id:'n-ts4b',type:'cell',name:'ТС4 · fair1, edge 0-4%, 60-180с, ask 0.80-0.90',idea:'fair1',combo:null,flt:[{col:'fe',lo:0,hi:0.0399},{col:'sec',lo:60,hi:180},{col:'px',lo:0.8,hi:0.9}],cats:{}},\n  {id:'u6',type:'cell',name:'№6 σ60с, edge 2-4%, 120-180с, 0.70-0.80 + bid токена +0.48',idea:'fair1',combo:'edge 2-4% / 120-180с / 0.70-0.80',flt:[{col:'tb60',lo:0.48,hi:null}],cats:{}},\n  {id:'bot-1',type:'cell',name:'🤖 Бот №1 · σ120с, edge<0, 180-240с, ask 0.98-0.99',idea:'fair2',combo:'edge <0 / 180-240с / 0.98-0.99',flt:[],cats:{}},\n  {id:'bot-2',type:'cell',name:'🤖 Бот №2 · σ60с, edge<0, 180-240с, ask 0.98-0.99',idea:'fair1',combo:'edge <0 / 180-240с / 0.98-0.99',flt:[],cats:{}},\n  {id:'bot-3',type:'cell',name:'🤖 Бот №3 · fz3: σ120с, edge 0-2%, 30-60с, ask 0.70-0.80 + свеча −7…−0.7, движение ≤1.9, ask ≤0.77',idea:'fair2',combo:'edge 0-2% / 30-60с / 0.70-0.80',flt:[{col:'clo',lo:-7,hi:-0.7},{col:'pm',lo:null,hi:1.9},{col:'px',lo:null,hi:0.77}],cats:{}},\n  {id:'bot-4',type:'cell',name:'🤖 Бот №4 · σ120с, edge<0, 30-60с, ask 0.97-0.98 + объём bid ≥62, Bybit −0.62…3.95',idea:'fair2',combo:'edge <0 / 30-60с / 0.97-0.98',flt:[{col:'bsz',lo:62,hi:null},{col:'xr_by',lo:-0.62,hi:3.95}],cats:{}},\n  {id:'bot-5',type:'cell',name:'🤖 Бот №5 · fz2: σ60с, edge 2-4%, 60-120с, ask 0.60-0.70 + свеча −3.5…0, пик ≤0.93, объём ask ≥5',idea:'fair1',combo:'edge 2-4% / 60-120с / 0.60-0.70',flt:[{col:'clo',lo:-3.5,hi:0},{col:'pk',lo:null,hi:0.93},{col:'asz',lo:5,hi:null}],cats:{}},\n  {id:'bot-6',type:'cell',name:'🤖 Бот №6 · σ60с, edge<0, 120-180с, ask 0.70-0.80 + за 10с ≤0.3, edge −0.240…−0.006, откат токена ≥0.18',idea:'fair1',combo:'edge <0 / 120-180с / 0.70-0.80',flt:[{col:'sp10',lo:null,hi:0.3},{col:'fe',lo:-0.24,hi:-0.006},{col:'rdd',lo:0.18,hi:null}],cats:{}},\n  {id:'bot-7',type:'cell',name:'🤖 Бот №7 · σ60с, edge<0, 60-120с, ask 0.60-0.70 + объём bid 21…369, ask ≤0.68, Binance −13.77…20.26',idea:'fair1',combo:'edge <0 / 60-120с / 0.60-0.70',flt:[{col:'bsz',lo:21,hi:369},{col:'px',lo:null,hi:0.68},{col:'bin',lo:-13.77,hi:20.26}],cats:{}},\n  {id:'bot-8',type:'cell',name:'🤖 Бот №8 · Модель, сила 0.5-1, 60-120с, ask 0.85-0.90 + токен за 30с 0.10…0.20, за 60с 0.16…0.34, пик ≥0.79, edge ≥0.001, σ5м ≥0.30, за 15с −0.04…0.28',idea:'model',combo:'сила 0.5-1 / 60-120с / 0.85-0.90',flt:[{col:'tb30',lo:0.1,hi:0.2},{col:'tb60',lo:0.16,hi:0.34},{col:'pk',lo:0.79,hi:null},{col:'fe',lo:0.001,hi:null},{col:'rv5',lo:0.3,hi:null},{col:'tr15',lo:-0.04,hi:0.28}],cats:{}},\n  {id:'bot-9',type:'cell',name:'🤖 Бот №9 · σ60с, edge<0, 60-120с, ask 0.90-0.93 + до закрытия 79…117с, свеча −5.4…0, скачок токена ≥0.13',idea:'fair1',combo:'edge <0 / 60-120с / 0.90-0.93',flt:[{col:'sec',lo:79,hi:117},{col:'clo',lo:-5.4,hi:0},{col:'jmp',lo:0.13,hi:null}],cats:{}},\n  {id:'bot-10',type:'cell',name:'🤖 Бот №10 · Монета, отрыв в 3-5 раза больше отката, 180-240с + откат токена ≤0.24, до закрытия ≤209с, спред ≤0.03',idea:'crv',combo:'отрыв в 3-5 раза больше любого отката / 180-240с',flt:[{col:'rdd',lo:null,hi:0.24},{col:'sec',lo:null,hi:209},{col:'spr',lo:null,hi:0.03}],cats:{}}\n];\nconst BOT_KOL_IDS=['bot-1','bot-2','bot-3','bot-4','bot-5','bot-6','bot-7','bot-8','bot-9','bot-10'];\nlet FAVS=[],FAV_REMOVED=[];\nfunction loadFavs(){\n  let saved=null;\n  try{const t=localStorage.getItem(FAV_KEY);if(t)saved=JSON.parse(t);}catch(e){}\n  if(saved&&Array.isArray(saved.favs)){FAVS=saved.favs;FAV_REMOVED=Array.isArray(saved.removed)?saved.removed:[];}\n  const have=new Set(FAVS.map(f=>f.id));\n  FAV_DEFAULT.forEach(d=>{if(!have.has(d.id)&&FAV_REMOVED.indexOf(d.id)<0)FAVS.push(JSON.parse(JSON.stringify(d)));});\n}\nfunction saveFavs(){try{localStorage.setItem(FAV_KEY,JSON.stringify({favs:FAVS,removed:FAV_REMOVED}));}catch(e){}}\nloadFavs();\n// настройки выходов/умных условий, которые запоминаются вместе с избранным\nfunction exSnap(){\n  const o={};\n  const x={};\n  if(X.tp.on)x.tp=JSON.parse(JSON.stringify(X.tp));\n  if(X.sl.on)x.sl=JSON.parse(JSON.stringify(X.sl));\n  if(X.add.on)x.add=JSON.parse(JSON.stringify(X.add));\n  if(X.ld.on)x.ld=JSON.parse(JSON.stringify(X.ld));\n  if(X.tt.on)x.tt=JSON.parse(JSON.stringify(X.tt));\n  if(X.gr.on)x.gr=JSON.parse(JSON.stringify(X.gr));\n  if(Object.keys(x).length)o.x=x;\n  if(CR.on)o.cr=JSON.parse(JSON.stringify(CR));\n  if(RE.b.on||RE.c.on)o.re=JSON.parse(JSON.stringify(RE));\n  if(EN.on)o.en={p:EN.p,rl:EN.rl?1:0,slip:EN.slip};\n  return Object.keys(o).length?o:null;\n}\nfunction exApply(ex){\n  X.tp.on=false;X.sl.on=false;X.sl.fs.on=false;X.sl.rb.on=false;X.add.on=false;X.ld.on=false;X.tt.on=false;X.gr.on=false;CR.on=false;RE.b.on=false;RE.c.on=false;EN.on=false;\n  if(!ex)return;\n  if(ex.x){if(ex.x.tp)Object.assign(X.tp,ex.x.tp);if(ex.x.sl)Object.assign(X.sl,JSON.parse(JSON.stringify(ex.x.sl)));if(ex.x.add)Object.assign(X.add,ex.x.add);if(ex.x.ld)Object.assign(X.ld,ex.x.ld);if(ex.x.tt)Object.assign(X.tt,ex.x.tt);if(ex.x.gr)Object.assign(X.gr,ex.x.gr);}\n  if(ex.cr)Object.assign(CR,ex.cr);\n  if(ex.re){Object.assign(RE.b,ex.re.b||{});Object.assign(RE.c,ex.re.c||{});}\n  if(ex.en){EN.on=true;EN.p=+ex.en.p||89;EN.rl=!!ex.en.rl;EN.slip=(ex.en.slip===undefined||ex.en.slip===null)?1:+ex.en.slip;}\n}\nfunction exText(ex){\n  if(!ex)return'';\n  const p=[];\n  if(ex.x&&ex.x.tp)p.push('TP '+ex.x.tp.v+({c:'¢',pct:'%',usd:'$'}[ex.x.tp.u]||''));\n  if(ex.x&&ex.x.sl)p.push((ex.x.sl.u==='abs'?'SL bid≤'+ex.x.sl.v+'¢':'SL '+ex.x.sl.v+({c:'¢',pct:'%',usd:'$'}[ex.x.sl.u]||''))+(ex.x.sl.afo?' с '+ex.x.sl.aft+'с':'')+(ex.x.sl.fs&&ex.x.sl.fs.on?' только резкое ≥'+ex.x.sl.fs.v:'')+(ex.x.sl.rb&&ex.x.sl.rb.on?' откат '+ex.x.sl.rb.n+'с':''));\n  if(ex.x&&ex.x.add)p.push('добор');\n  if(ex.x&&ex.x.tt)p.push('выход у верха '+ex.x.tt.v+'¢');\n  if(ex.x&&ex.x.gr)p.push('сетка '+ex.x.gr.n+'×'+ex.x.gr.step+'¢');\n  if(ex.x&&ex.x.ld)p.push('лесенка '+ex.x.ld.parts.map(q=>q.f+'%@'+q.v).join('/')+({c:'¢',pct:'%',usd:'$'}[ex.x.ld.u]||''));\n  if(ex.cr)p.push('обвал '+ex.cr.h+'→'+ex.cr.l+'¢');\n  if(ex.re&&ex.re.b&&ex.re.b.on)p.push('вынос');\n  if(ex.re&&ex.re.c&&ex.re.c.on)p.push('дно');\n  if(ex.en)p.push('вход по '+ex.en.p+'¢'+(ex.en.rl?' (реально, потолок +'+(ex.en.slip===undefined?1:ex.en.slip)+'¢)':''));\n  return p.join(', ');\n}\nlet favIdSeq=Date.now();\nconst newFavId=()=>'f'+(favIdSeq++).toString(36);\nfunction fltText(flt,cats){\n  const parts=(flt||[]).map(f=>{\n    const nf=NUMF_BY[f.col],lab=nf?nf.label:f.col,d=nf?nf.d:2;\n    let t;\n    if(f.lo!==null&&f.lo!==undefined&&f.hi!==null&&f.hi!==undefined)t=f.lo===f.hi?lab+' = '+fmt(f.lo,d):lab+' '+fmt(f.lo,d)+'…'+fmt(f.hi,d);\n    else if(f.lo!==null&&f.lo!==undefined)t=lab+' ≥ '+fmt(f.lo,d);\n    else if(f.hi!==null&&f.hi!==undefined)t=lab+' ≤ '+fmt(f.hi,d);\n    else t=lab;\n    return (f.neg?'кроме: ':'')+t;\n  });\n  if(cats){\n    if(cats.coin&&cats.coin.length)parts.push('монета: '+cats.coin.map(c=>COIN_SHORT[c]||c).join('/'));\n    if(cats.side&&cats.side.length)parts.push('сторона: '+cats.side.map(x=>x?'Down':'Up').join('/'));\n    if(cats.wm&&cats.wm.length)parts.push('окно: '+cats.wm.join('/')+' мин');\n  }\n  return parts.join(' · ');\n}\n// ---- строки избранной ----\nlet IDX=null;\nfunction buildIdx(){\n  IDX={cell:new Map(),idea:new Map()};\n  for(const r of ROWS){\n    const k=r[C.idea]+'|'+r[C.combo];let a=IDX.cell.get(k);if(!a){a=[];IDX.cell.set(k,a);}a.push(r);\n    let b=IDX.idea.get(r[C.idea]);if(!b){b=[];IDX.idea.set(r[C.idea],b);}b.push(r);\n  }\n}\nfunction rowPred(flt,cats){\n  const num=(flt||[]).filter(f=>CI[f.col]!==undefined).map(f=>({ci:CI[f.col],lo:f.lo===undefined?null:f.lo,hi:f.hi===undefined?null:f.hi,neg:!!f.neg,nul:!!f.nul}));\n  const coinSet=cats&&cats.coin&&cats.coin.length?new Set(cats.coin.map(n=>D.coins.indexOf(n))):null;\n  const sideSet=cats&&cats.side&&cats.side.length?new Set(cats.side):null;\n  const wmSet=cats&&cats.wm&&cats.wm.length?new Set(cats.wm):null;\n  return r=>{\n    if(coinSet&&!coinSet.has(r[C.coin]))return false;\n    if(sideSet&&!sideSet.has(r[C.side]))return false;\n    if(wmSet&&!wmSet.has(r[C.wm]))return false;\n    for(let i=0;i<num.length;i++){\n      const f=num[i],v=r[f.ci];\n      if(v===null){if(f.nul)continue;return false;}\n      const inr=(f.lo===null||v>=f.lo)&&(f.hi===null||v<=f.hi);\n      if(f.neg?inr:!inr)return false;\n    }\n    return true;\n  };\n}\nfunction periodBounds(){\n  let tlo=null,thi=null;\n  if(S.dFrom){const t=Date.parse(S.dFrom+'T00:00:00Z');if(isFinite(t))tlo=t/1000;}\n  if(S.dTo){const t=Date.parse(S.dTo+'T00:00:00Z');if(isFinite(t))thi=t/1000+86400;}\n  return[tlo,thi];\n}\nconst periodCache={key:'',rows:null};\nfunction periodRows(){\n  const pb=periodBounds();if(pb[0]===null&&pb[1]===null)return ROWS;\n  const key=pb[0]+'|'+pb[1];\n  if(periodCache.key===key)return periodCache.rows;\n  const rows=ROWS.filter(r=>(pb[0]===null||r[C.ts]>=pb[0])&&(pb[1]===null||r[C.ts]<pb[1]));\n  periodCache.key=key;periodCache.rows=rows;return rows;\n}\n// «сырые» строки избранной ячейки (без дедупликации)\n// верхние фильтры («Фильтры»: показатели и категории) действуют и на избранные\nfunction globalPred(){\n  const num=S.flt.filter(f=>f.t==='num'&&CI[f.col]!==undefined).map(f=>({ci:CI[f.col],lo:f.lo,hi:f.hi,neg:!!f.neg,nul:!!f.nul}));\n  const cat=S.flt.filter(f=>f.t==='cat'&&CATF[f.f]&&f.vals.length).map(f=>({get:CATF[f.f].get,set:new Set(f.vals)}));\n  if(!num.length&&!cat.length)return null;\n  return r=>{\n    for(let i=0;i<cat.length;i++)if(!cat[i].set.has(cat[i].get(r)))return false;\n    for(let i=0;i<num.length;i++){const f=num[i],v=r[f.ci];if(v===null){if(f.nul)continue;return false;}const inr=(f.lo===null||v>=f.lo)&&(f.hi===null||v<=f.hi);if(f.neg?inr:!inr)return false;}\n    return true;\n  };\n}\nfunction favRowsRaw(f){\n  if(!IDX)buildIdx();\n  const ii=D.ideas.indexOf(f.idea);if(ii<0)return[];\n  let base;\n  if(f.combo){const ci=D.combos.indexOf(f.combo);if(ci<0)return[];base=IDX.cell.get(ii+'|'+ci)||[];}\n  else base=IDX.idea.get(ii)||[];\n  const pb=periodBounds(),pred=rowPred(f.flt,f.cats);\n  const gp=globalPred();\n  return base.filter(r=>(pb[0]===null||r[C.ts]>=pb[0])&&(pb[1]===null||r[C.ts]<pb[1])&&pred(r)&&(!gp||gp(r)));\n}\nfunction favRowsNC(f){\n  if(f.type==='chain'){const res=chainCompute(f.steps,f.gap,periodRows());const gp=globalPred();return gp?res.chain.filter(gp):res.chain;}\n  const rs=favRowsRaw(f);\n  return S.one?dedupe(rs):rs;\n}\nfunction favRows(f){\n  return cutFav(f,favRowsNC(f));\n}\nfunction favRowsX(f){\n  if(!f.ex||f.type==='chain')return favRows(f);\n  const rs=favRowsNC(f);\n  const sv=exSnap(),enS=Object.assign({},EN);\n  exApply(f.ex);\n  try{return cutFav(f,applyExit(applyRe(applyEntry(rs))));}finally{exApply(sv);Object.assign(EN,enS);}\n}\nfunction favSub(f){\n  let t='';\n  if(f.live)t+='<span class=\"badge live\">🟢 торгует: '+esc(f.live)+'</span> ';\n  if(favGoalOf(f))t+='<span class=\"badge\" title=\"цель сохранена вместе с ТС и работает всегда\">🎯 '+esc(goalText(favGoalOf(f)))+'</span> ';\n  if(f.type==='chain')t+='цепочка: '+esc(chainLabel(f.steps)+(f.gap?' · пауза ≤ '+f.gap+'с':''));\n  else{const ft=fltText(f.flt,f.cats);t+=esc((f.idea?ideaTitle(f.idea):'')+(f.combo?' · '+f.combo:'')+(ft?' · '+ft:'')+(f.ex?' · выходы: '+exText(f.ex):''));}\n  return t;\n}\n// ---- добавление в избранное ----\nfunction favFromKey(by,key){\n  const p=String(key).split('|');\n  const f={id:newFavId(),type:'cell',name:'',idea:null,combo:null,flt:[],cats:{}};\n  if(by==='idea'){f.idea=D.ideas[+p[0]];}\n  else if(by==='cell'||by==='cellcoin'||by==='cellside'){\n    f.idea=D.ideas[+p[0]];f.combo=D.combos[+p[1]];\n    if(by==='cellcoin')f.cats.coin=[D.coins[+p[2]]];\n    if(by==='cellside')f.cats.side=[+p[2]];\n  }else return null;\n  { const g0=goalSnap(); if(g0)f.goal=g0; }\n  S.flt.forEach(x=>{\n    if(x.t==='num'&&CI[x.col]!==undefined)f.flt.push({col:x.col,lo:x.lo,hi:x.hi,neg:!!x.neg,nul:!!x.nul});\n    else if(x.t==='cat'&&x.vals.length){\n      if(x.f==='coin')f.cats.coin=(f.cats.coin||[]).concat(x.vals.map(i=>D.coins[i]));\n      else if(x.f==='side')f.cats.side=(f.cats.side||[]).concat(x.vals);\n      else if(x.f==='wm')f.cats.wm=x.vals.slice();\n    }\n  });\n  const nm=BY[by].name(key);\n  const ft=fltText(f.flt,f.cats);\n  f.name=nm+(ft?' + '+ft:'');\n  return f;\n}\nfunction addFav(f){\n  const nm=window.prompt('Название для избранного:',f.name);\n  if(nm===null)return false;\n  f.name=nm.trim()||f.name;\n  if(!f.goal){const g0=goalSnap();if(g0)f.goal=g0;}\n  f.created=Date.now();\n  FAVS.push(f);saveFavs();return true;\n}\nfunction delFav(id){\n  const k=FAVS.findIndex(f=>f.id===id);if(k<0)return;\n  FAVS.splice(k,1);\n  if(FAV_DEFAULT.some(d=>d.id===id)&&FAV_REMOVED.indexOf(id)<0)FAV_REMOVED.push(id);\n  saveFavs();\n}\n// ---- 🤝 Коллективная работа: несколько избранных ТС как один портфель ----\nconst PF_KEY='lab-pf-v1';\nconst PF={ids:[],one:true,mo:false,mon:3};\nlet __pfSaved=false;\ntry{const o=JSON.parse(localStorage.getItem(PF_KEY)||'null');if(o&&Array.isArray(o.ids)){PF.ids=o.ids;PF.one=o.one!==false;PF.mo=!!o.mo;PF.mon=+o.mon>0?Math.floor(+o.mon):3;__pfSaved=true;}}catch(e){}\nif(!__pfSaved){PF.ids=BOT_KOL_IDS.filter(id=>FAVS.some(f=>f.id===id));PF.one=false;}\nfunction savePf(){try{localStorage.setItem(PF_KEY,JSON.stringify(PF));}catch(e){}}\n// ---- 📚 Сохранённые коллективы: именованные наборы, чтобы быстро смотреть по ним статистику ----\nconst PFS_KEY='lab-pfs-v1';\nlet PFS=[];const PFSOPEN=new Set();\ntry{const o=JSON.parse(localStorage.getItem(PFS_KEY)||'null');if(Array.isArray(o))PFS=o.filter(x=>x&&x.id&&Array.isArray(x.ids));}catch(e){}\nfunction savePfs(){try{localStorage.setItem(PFS_KEY,JSON.stringify(PFS));}catch(e){}}\nconst FOLD_KEY='lab-folders-v1';\nlet FOLDERS=[];\ntry{const o=JSON.parse(localStorage.getItem(FOLD_KEY)||'null');if(Array.isArray(o))FOLDERS=o.filter(x=>x&&x.id&&x.name);}catch(e){}\nfunction saveFolders(){try{localStorage.setItem(FOLD_KEY,JSON.stringify(FOLDERS));}catch(e){}}\nfunction folderOf(it){return it&&it.folder&&FOLDERS.some(f=>f.id===it.folder)?it.folder:null;}\nfunction newFoldId(){return 'fd'+Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36);}\n// перекинуть ТС или коллектив в папку: цифра — номер папки, 0 — вынуть из папки, текст — создать новую папку с таким названием\nfunction moveToFolder(it,saveFn){\n  const cur=folderOf(it);\n  let msg='Куда переложить «'+it.name+'»?\\n0 — вынуть из папки (будет без папки)\\n';\n  FOLDERS.forEach((f,i)=>{msg+=(i+1)+' — '+f.name+(f.id===cur?'   (сейчас здесь)':'')+'\\n';});\n  msg+='Или напиши название новой папки — я её создам.';\n  const a=window.prompt(msg,'');\n  if(a===null)return false;\n  const t=a.trim();if(!t)return false;\n  if(/^\\d+$/.test(t)){\n    const n=+t;\n    if(n===0)delete it.folder;\n    else if(n<=FOLDERS.length){it.folder=FOLDERS[n-1].id;FOLDERS[n-1].open=true;}\n    else return false;\n  }else{\n    let f=FOLDERS.find(x=>x.name===t);\n    if(!f){f={id:newFoldId(),name:t,open:true};FOLDERS.push(f);}\n    it.folder=f.id;f.open=true;\n  }\n  saveFolders();saveFn();return true;\n}\nfunction pfsMembers(p){return p.ids.map(id=>FAVS.find(f=>f.id===id)||(p.favs||[]).find(f=>f.id===id)).filter(Boolean);}\n// лимит одновременно открытых сделок на весь коллектив: сделка открыта от входа до закрытия рынка (вход + «секунд до закрытия»); когда мест нет — вход пропускается\nfunction capOpen(rs,N){\n  // как в расчёте «максимум открыто»: деньги заняты от входа до расчёта (закрытие рынка + ~3 мин; при своих выходах — до выхода)\n  const out=[];let op=[];\n  for(const r of rs){\n    const t=r[C.ts],sc=CI.sec!==undefined?r[CI.sec]:null,tx=r[XK+5];\n    op=op.filter(e=>e>t);if(op.length>=N)continue;out.push(r);\n    op.push((tx!==null&&tx!==undefined)?t+tx+5:t+(isNul(sc)?150:sc)+RES_LAG);\n  }\n  return out;\n}\nlet CAPINFO=null;\nfunction pfFinish(all,one,mo,mon,quiet){\n  all.sort((a,b)=>a[C.ts]-b[C.ts]);\n  let r=one?dedupe(all):all;\n  if(mo&&mon>0){const n0=r.length;r=capOpen(r,mon);if(!quiet)CAPINFO={before:n0,after:r.length,N:mon};}\n  return r;\n}\nfunction pfsRows(p,lo,hi,fd){\n  let all=[];\n  const ov=fd&&fd.eachCap?{one:!!fd.one,mo:!!fd.mo,mon:fd.mon>0?fd.mon:3}:{one:p.one,mo:p.mo,mon:p.mon};\n  const gd=(fd&&fd.goal!==undefined)?fd.goal:p.goal,hasG=gd!==undefined,sv={P:S.goalP,L:S.goalL,N:S.goalN,K:S.goalK,W:S.goalW,Z:S.goalZ};\n  if(hasG){const g=gd||{};S.goalP=g.P||0;S.goalL=g.L||0;S.goalN=g.N||0;S.goalK=g.K||0;S.goalZ=g.Z||0;S.goalW=g.W||0;}\n  try{pfsMembers(p).forEach(f=>{all=all.concat(pfMemberRows(f,lo,hi));});}\n  finally{if(hasG){S.goalP=sv.P;S.goalL=sv.L;S.goalN=sv.N;S.goalK=sv.K;S.goalZ=sv.Z;S.goalW=sv.W;}}\n  return pfFinish(all,ov.one,ov.mo,ov.mon,true);\n}\nfunction pfsNextName(){let n=1;while(PFS.some(x=>x.name==='ТС '+n))n++;return 'ТС '+n;}\nfunction pfsTable(ps,lo,hi,nD,stake,fd){\n  const list=ps.map(p=>{\n    const mem=pfsMembers(p),rows=pfsRows(p,lo,hi,fd);\n    const g=prepGroup(rows,lo,nD,'none',true),m=metrics(g,nD,stake);\n    m.key='pfs'+p.id;m.by='pfs';m.name='📚 '+p.name+' ('+mem.length+' ТС'+(mem.length<p.ids.length?', '+(p.ids.length-mem.length)+' не найдено':'')+')'+(p.goal?' 🎯 '+goalText(p.goal):'');m.pfsId=p.id;\n    return m;\n  });\n  const tbl=topTable(list,'pfs',{nomedal:true,limit:99,star:false,attrs:x=>' data-act=\"pfsload\" data-id=\"'+esc(x.pfsId)+'\"',cum:true,head:'',extra:x=>'<button class=\"x\" title=\"состав: кто даёт лоссы, удалить / добавить ТС\" data-act=\"pfstog\" data-id=\"'+esc(x.pfsId)+'\">'+(PFSOPEN.has(x.pfsId)?'▾ состав':'🔍 состав')+'</button><button class=\"x\" title=\"переименовать\" data-act=\"pfsren\" data-id=\"'+esc(x.pfsId)+'\">✎</button><button class=\"x\" title=\"в папку\" data-act=\"pfsfold\" data-id=\"'+esc(x.pfsId)+'\">📁</button><button class=\"x\" title=\"удалить сохранённый коллектив\" data-act=\"pfsdel\" data-id=\"'+esc(x.pfsId)+'\">🗑</button>'});\n  let pan='';ps.forEach(p=>{if(PFSOPEN.has(p.id))pan+=pfsPanel(p,lo,hi,nD,stake,fd);});\n  return tbl+pan;\n}\n\n// ---- ПРОВЕРКА СТОПОВ: тот же набор сделок с разными стопами («после N лоссов за день», «N проигрышей подряд»); стоп = до конца дня (UTC) ТС не входит ----\nconst PFSTEST=new Set(),FOLDTEST=new Set();\nfunction stopVariants(){return[{t:'без стопов',Z:0,K:0},{t:'после 1 лосса за день',Z:1,K:0},{t:'после 2 лоссов за день',Z:2,K:0},{t:'после 3 лоссов за день',Z:3,K:0},{t:'после 4 лоссов за день',Z:4,K:0},{t:'2 проигрыша подряд',Z:0,K:2},{t:'3 проигрыша подряд',Z:0,K:3}];}\nfunction stopTest(rowsFn,lo,hi,nD,stake){\n  const cur=(()=>{const rows=rowsFn();return{t:'как сейчас',Z:null,K:null,rows:rows};})();\n  const res=[cur];\n  stopVariants().forEach(v=>{STOPOV={Z:v.Z,K:v.K};try{res.push({t:v.t,Z:v.Z,K:v.K,rows:rowsFn()});}finally{STOPOV=null;}});\n  res.forEach(x=>{\n    let w=0,l=0,ls=0,ws=0;\n    x.rows.forEach(r=>{const u=roiOf(r)*stake;if(u<0){l++;ls+=u;}else{w++;ws+=u;}});\n    const g=prepGroup(x.rows,lo,nD,'none',true),m=metrics(g,nD,stake);\n    x.n=x.rows.length;x.w=w;x.l=l;x.ls=ls;x.ws=ws;x.pn=ws+ls;x.m=m;x.rows=null;\n  });\n  return res;\n}\nfunction stopTestHtml(res,applyAct,id){\n  const base=res[1];\n  let h='<div class=\"tw\"><table><thead><tr><th class=\"l ns\">вариант</th><th class=\"ns\">сделок</th><th class=\"ns\">лоссов</th><th class=\"ns\">$ в день</th><th class=\"ns\">макс. просадка</th><th class=\"ns\">худший день</th><th class=\"ns\" title=\"что убрал стоп по сравнению с «без стопов»: сколько лоссов (и на сколько $) и сколько побед (и сколько $ они бы дали)\">стоп убрал</th><th class=\"ns\">итого к «без стопов»</th><th class=\"l ns\">вердикт</th><th class=\"ns\"></th></tr></thead><tbody>';\n  res.forEach((x,i)=>{\n    const isCur=i===0,isBase=i===1;\n    let cutTxt='—',dTxt='—',ver='';\n    if(!isCur&&!isBase){\n      const cl=base.l-x.l,cw=base.w-x.w,cls_=base.ls-x.ls,cws=base.ws-x.ws,d=x.pn-base.pn;\n      cutTxt='лоссов '+cl+' (−$'+Math.abs(cls_).toFixed(2)+' сэкономил) · побед '+cw+' (−$'+cws.toFixed(2)+' потерял)';\n      dTxt='<span class=\"'+cls(d)+'\">'+money(d)+' за период</span>';\n      const ddBetter=x.m.dd<base.m.dd-1e-9,wBetter=x.m.worst>base.m.worst+1e-9;\n      if(d>1e-9)ver='<span class=\"pos\">✅ работает: прибыль выше</span>';\n      else if(ddBetter||wBetter)ver='<span>⚠️ прибыль ниже, зато '+(ddBetter?'просадка меньше (−$'+x.m.dd.toFixed(2)+' вместо −$'+base.m.dd.toFixed(2)+')':'худший день лучше')+'</span>';\n      else ver='<span class=\"neg\">❌ режет прибыль, ничего не даёт</span>';\n    }\n    h+='<tr'+(isCur?' style=\"font-weight:600\"':'')+'><td class=\"l\">'+esc(x.t)+(isCur?' <span class=\"mut small\">(текущие настройки)</span>':'')+'</td><td>'+x.n+'</td><td>'+x.l+'</td><td class=\"'+cls(x.m.usdd)+'\">'+money(x.m.usdd)+'</td><td>−$'+x.m.dd.toFixed(2)+'</td><td class=\"'+cls(x.m.worst)+'\">'+money(x.m.worst)+'</td><td class=\"l small\">'+cutTxt+'</td><td>'+dTxt+'</td><td class=\"l\">'+ver+'</td><td>'+((!isCur&&applyAct)?'<button class=\"x\" data-act=\"'+applyAct+'\" data-id=\"'+esc(id)+'\" data-z=\"'+x.Z+'\" data-k=\"'+x.K+'\" title=\"записать этот стоп (цель дня и остальное не трогаем)\">применить</button>':'')+'</td></tr>';\n  });\n  return h+'</tbody></table></div><div class=\"mut small\" style=\"margin-top:4px\">Стоп считается по уже закрытым сделкам (рынок закрылся — результат известен). Стоп действует до конца дня (UTC, 00:00 = 07:00 Бангкок). «Итого» — разница в $ всех сделок за период. Страница не знает будущего: стоп, который «работал» в прошлом, может не сработать завтра, особенно при малом числе лоссов.</div>';\n}\nfunction setStopOnGoal(p,Z,K,fallback){\n  const base=p.goal!==undefined?(p.goal||{}):(fallback||{});\n  const g=Object.assign({},base);g.Z=Z>0?Z:0;g.K=K>0?K:0;p.goal=g;\n}\n// ======== ПРОВЕРКА НАДЁЖНОСТИ + ПОИСК НАДЁЖНОГО КОЛЛЕКТИВА ========\nconst RELOPEN=new Set();\nconst FIND={open:false,K:7,minN:60,max:10,slip:1,floor:true,pool:'all',res:null};\nfunction wilsonZ(w,n,z){if(!n)return[0,1];const p=w/n,d=1+z*z/n,c=p+z*z/(2*n),m=z*Math.sqrt(p*(1-p)/n+z*z/(4*n*n));return[(c-m)/d,(c+m)/d];}\nconst RE_PR=/^\\d\\.\\d\\d-\\d\\.\\d\\d$/,RE_WIN=/с$/;\nfunction lastNum(t){const m=String(t).match(/\\d+(?:\\.\\d+)?/g);return m?+m[m.length-1]:null;}\n// ROI соседних ячеек (цена ниже/выше, окно меньше/больше) без фильтров: если рядом всё в минусе, а у нас плюс — это «одинокий пик»\nfunction nbInfo(f){\n  if(!f.combo||!f.idea||f.type==='chain')return null;\n  if(!IDX)buildIdx();\n  const ii=D.ideas.indexOf(f.idea);if(ii<0)return null;\n  const parts=f.combo.split(' / '),out={};\n  parts.forEach((pt,j)=>{\n    const kind=RE_PR.test(pt)?'price':(RE_WIN.test(pt)?'win':null);if(!kind)return;\n    const re=kind==='price'?RE_PR:RE_WIN,cur=lastNum(pt),cand=[];\n    D.combos.forEach((cb,ci)=>{\n      const q=cb.split(' / ');if(q.length!==parts.length||q[j]===pt||!re.test(q[j]))return;\n      for(let i=0;i<q.length;i++)if(i!==j&&q[i]!==parts[i])return;\n      if(!IDX.cell.get(ii+'|'+ci))return;\n      cand.push({cb:cb,v:lastNum(q[j])});\n    });\n    let dn=null,up=null;\n    cand.forEach(c=>{if(c.v<cur&&(!dn||c.v>dn.v))dn=c;if(c.v>cur&&(!up||c.v<up.v))up=c;});\n    const calc=c=>{if(!c)return null;const rs=favRowsRaw({idea:f.idea,combo:c.cb,flt:[],cats:{}});const st=stats(rs);return{n:st.n,roi:st.roi,cb:c.cb};};\n    out[kind]={dn:calc(dn),up:calc(up)};\n  });\n  return out;\n}\nfunction relFlags(f,k,st,roi1,nb,cellRoi,cellN){\n  const fl=[];\n  const nf=(f.flt||[]).length;\n  if(st.n<100)fl.push('мало сделок ('+st.n+')');\n  if(st.verdict!=='✅'&&st.n>=30)fl.push('нет доказательства (нижняя граница побед не выше цены)');\n  if(roi1<=0)fl.push('в минусе при входе на 1¢ хуже');\n  if(st.apx<0.8)fl.push('дешёвые входы (<0.80): лосс больше выигрыша');\n  if(nf>=4&&st.n<150)fl.push(nf+' фильтров на '+st.n+' сделках — похоже на подгонку');\n  if(cellRoi!==null&&cellRoi<0&&st.roi>0&&cellN>=30)fl.push('сама ячейка без фильтров в минусе ('+sgn(cellRoi*100,1)+'%): плюс держится только на фильтрах');\n  if(nb&&nb.price){const nn=[nb.price.dn,nb.price.up].filter(x=>x&&x.n>=30);if(nn.length&&nn.every(x=>x.roi<0))fl.push('соседние диапазоны цены в минусе — «одинокий пик»');}\n  return fl;\n}\nfunction relVerdict(fl){return fl.length<=1?'<span class=\"pos\">🟢 надёжная</span>':(fl.length===2?'<span>🟡 осторожно</span>':'<span class=\"neg\">🔴 подозрительная</span>');}\nfunction relPanel(p,mem,c,lo,hi,nD,stake,fd){\n  let h='<div class=\"note\" style=\"margin:6px 0 8px\"><div class=\"bar\" style=\"margin:0 0 6px\"><b>🛡 Проверка надёжности «'+esc(p.name)+'»</b><span class=\"mut small\">ищет признаки подгонки: что будет при худшей цене, после сохранения, на новых днях, не держится ли плюс на одних фильтрах</span></div>';\n  const rows=c.rows,m=c.m,g=c.g;\n  // 1. после сохранения\n  if(p.created){\n    const cs=p.created/1000,aft=rows.filter(r=>r[C.ts]>=cs),bef=rows.filter(r=>r[C.ts]<cs),days=Math.max(0,(Date.now()/1000-cs)/86400);\n    const sa=stats(aft),sb=stats(bef);\n    h+='<div class=\"small\" style=\"margin:4px 0\"><b>📅 После сохранения</b> ('+new Date(p.created).toLocaleString('ru-RU')+', прошло '+days.toFixed(1)+' дн.): '+(aft.length?'<b>'+aft.length+' сделок, побед '+pct(sa.wr)+', edge '+sgn(sa.edge*100,1)+' п.п., прибыль '+money(sa.roi*sa.n*stake)+'</b>':'<span class=\"mut\">сделок ещё нет</span>')+' · до сохранения (подгонка): '+sb.n+' сделок, '+pct(sb.wr)+', edge '+sgn(sb.edge*100,1)+' п.п.'+(aft.length>=30&&sa.edge<sb.edge-0.03?' <span class=\"neg\">— после сохранения заметно хуже, чем на истории</span>':'')+'</div>';\n  }else h+='<div class=\"small mut\" style=\"margin:4px 0\">📅 У этого коллектива нет даты сохранения (сохранён раньше). Нажми «💾 сохранить коллектив» заново — страница запомнит дату и покажет результат «после сохранения» отдельно.</div>';\n  // 2. проскальзывание\n  const sl=[0,1,2].map(v=>withE(ESLIP+v,()=>{const rs=pfsRows(p,lo,hi,fd),gg=prepGroup(rs,lo,nD,'none',true),mm=metrics(gg,nD,stake);return{v:v,m:mm};}));\n  h+='<div class=\"tw\"><table><thead><tr><th class=\"l ns\">если вход дороже на</th><th class=\"ns\">побед</th><th class=\"ns\">edge</th><th class=\"ns\">ROI</th><th class=\"ns\">$ в день</th><th class=\"ns\">худший день</th><th class=\"ns\">макс. просадка</th></tr></thead><tbody>'+sl.map(x=>'<tr><td class=\"l\">'+(x.v?'+'+x.v+'¢':'как сейчас')+'</td><td>'+pct(x.m.wr)+'</td><td class=\"'+cls(x.m.edge)+'\">'+sgn(x.m.edge*100,1)+' п.п.</td><td class=\"'+cls(x.m.roi)+'\">'+sgn(x.m.roi*100,1)+'%</td><td class=\"'+cls(x.m.usdd)+'\">'+money(x.m.usdd)+'</td><td class=\"'+cls(x.m.worst)+'\">'+money(x.m.worst)+'</td><td>−$'+fmt(x.m.dd*stake,2)+'</td></tr>').join('')+'</tbody></table></div>';\n  const s1=sl[1].m;\n  h+='<div class=\"small\" style=\"margin:4px 0\">'+(s1.roi<=0?'<span class=\"neg\">При входе на 1¢ хуже коллектив уходит в ноль или минус — запаса прочности нет.</span>':(s1.roi<m.roi*0.5?'<span>На 1¢ хуже теряется больше половины прибыли — запас тонкий.</span>':'<span class=\"pos\">На 1¢ хуже прибыль остаётся заметной.</span>'))+'</div>';\n  // 3. новые дни\n  if(m.test){h+='<div class=\"small\" style=\"margin:4px 0\"><b>⏱ Первые дни → последние '+m.test.days+' дн.:</b> '+money(m.train)+' в день → '+money(m.test.usdd)+' в день, дней в минусе в последних: '+m.test.minus+(m.test.usdd<m.train*0.4?' <span class=\"neg\">(на последних днях заметно слабее)</span>':'')+'</div>';}\n  // 4. хвост\n  let wins=0,wsum=0,cheap=0,cheapP=0;rows.forEach(r=>{const ro=roiOf(r);if(r[C.won]){wins++;wsum+=ro;}if(r[CI.px]<0.8){cheap++;cheapP+=ro;}});\n  const aw=wins?wsum/wins:0;\n  h+='<div class=\"small\" style=\"margin:4px 0\"><b>🎲 Хвосты:</b> один лосс (−$'+fmt(stake,2)+') = <b>'+(aw>0?Math.round(1/aw):'—')+'</b> побед (средняя победа +$'+fmt(aw*stake,2)+'); больше всего проигрышей подряд: <b>'+g.streak+'</b>; худший день '+money(m.worst)+'; макс. просадка −$'+fmt(m.dd*stake,2)+(cheap?'; дешёвых входов (<0.80): '+cheap+' сделок, '+money(cheapP*stake)+' (риск выше: лосс больше победы)':'')+'</div>';\n  // 5. по каждой ТС\n  let tb='<div class=\"tw\"><table><thead><tr><th class=\"l ns\">ТС</th><th class=\"ns\">сделок</th><th class=\"ns\">edge</th><th class=\"ns\">✅</th><th class=\"ns\" title=\"ROI на сделку, если вход дороже на 1¢\">ROI на 1¢ хуже</th><th class=\"ns\" title=\"ROI этой же ячейки (идея + комбинация) вообще без фильтров\">ячейка без фильтров</th><th class=\"ns\" title=\"ROI соседних диапазонов цены (ниже / выше), без фильтров\">соседи по цене</th><th class=\"l ns\">замечания</th><th class=\"ns\">вердикт</th></tr></thead><tbody>';\n  mem.forEach((f,i)=>{\n    const k=c.rowsPer[i],st=stats(k),roi1=withE(ESLIP+1,()=>stats(k).roi);\n    let cellRoi=null,cellN=0;\n    if(f.type!=='chain'&&f.idea&&(f.flt&&f.flt.length||(f.cats&&Object.keys(f.cats).some(x=>f.cats[x]&&f.cats[x].length)))){const rs=favRowsRaw({idea:f.idea,combo:f.combo,flt:[],cats:{}}),sc=stats(rs);cellRoi=sc.roi;cellN=sc.n;}\n    const nb=nbInfo(f);\n    const fl=relFlags(f,k,st,roi1,nb,cellRoi,cellN);\n    const nbt=nb&&nb.price?['dn','up'].map(x=>{const y=nb.price[x];return y?'<span class=\"'+cls(y.roi)+'\" title=\"'+esc(y.cb)+' · '+y.n+' сделок\">'+(x==='dn'?'↓ ':'↑ ')+sgn(y.roi*100,1)+'%</span>':'<span class=\"mut\">'+(x==='dn'?'↓ —':'↑ —')+'</span>';}).join(' '):'—';\n    tb+='<tr><td class=\"l\">'+esc(f.name)+'</td><td>'+st.n+'</td><td class=\"'+cls(st.edge)+'\">'+sgn(st.edge*100,1)+' п.п.</td><td>'+st.verdict+'</td><td class=\"'+cls(roi1)+'\">'+sgn(roi1*100,1)+'%</td><td class=\"'+(cellRoi===null?'mut':cls(cellRoi))+'\">'+(cellRoi===null?'нет фильтров':sgn(cellRoi*100,1)+'%')+'</td><td>'+nbt+'</td><td class=\"l small\">'+(fl.length?fl.map(esc).join('; '):'<span class=\"pos\">замечаний нет</span>')+'</td><td>'+relVerdict(fl)+'</td></tr>';\n  });\n  h+=tb+'</tbody></table></div><div class=\"mut small\" style=\"margin-top:4px\">Это не гарантия, а набор тревожных признаков: чем их больше, тем вероятнее, что красивый результат — подгонка под прошлое. Окончательная проверка — только настоящие дни после сохранения и бумажная/мини-торговля.</div></div>';\n  return h;\n}\n// ---- ПОИСК НАДЁЖНОГО КОЛЛЕКТИВА с проверкой на «невиданных» днях ----\nfunction findPool(){\n  if(FIND.pool==='cells'){\n    if(!IDX)buildIdx();\n    const out=[];IDX.cell.forEach((rs,k)=>{const q=String(k).split('|'),idea=D.ideas[+q[0]],combo=D.combos[+q[1]];if(!idea||!combo||String(idea).indexOf('temka:')===0)return;out.push({id:'cell:'+k,type:'cell',idea:idea,combo:combo,flt:[],cats:{},name:ideaTitle(idea)+' · '+combo,_cell:true});});\n    return out;\n  }\n  let a=FAVS.filter(f=>f.type!=='chain'&&!f.ex);\n  if(FIND.pool!=='all')a=a.filter(f=>f.folder===FIND.pool);\n  return a;\n}\nfunction runFind(lo,hi,nD,stake){\n  const K=Math.max(2,Math.min(Math.floor(FIND.K)||7,nD-4)),trEnd=lo+nD-K,pool=findPool(),N=pool.length;\n  const z=Math.max(1.96,Math.sqrt(2*Math.log(Math.max(2,N))));\n  const cand=[];let sk={few:0,floor:0,proof:0,half:0};\n  pool.forEach(f=>{\n    const all=f._cell?favRowsRaw(f):favRowsX(f);\n    const tr=all.filter(r=>dayOf(r[C.ts])<trEnd),te=all.filter(r=>dayOf(r[C.ts])>=trEnd);\n    const st0=stats(tr);\n    if(st0.n<FIND.minN){sk.few++;return;}\n    if(FIND.floor&&st0.apx<0.8){sk.floor++;return;}\n    const stS=withE(ESLIP+FIND.slip,()=>stats(tr)),wl=wilsonZ(stS.w,stS.n,z)[0];\n    if(!(wl>stS.apx&&stS.roi>0)){sk.proof++;return;}\n    const hv=withE(ESLIP+FIND.slip,()=>halves(tr));if(!hv||hv[0]<=0||hv[1]<=0){sk.half++;return;}\n    cand.push({f:f,tr:tr,te:te,score:wl-stS.apx,stS:stS});\n  });\n  cand.sort((a,b)=>b.score-a.score);\n  const picked=[],seen=new Set();\n  for(const c of cand){const key=c.f.idea+'|'+c.f.combo;if(seen.has(key))continue;seen.add(key);picked.push(c);if(picked.length>=FIND.max)break;}\n  const info=picked.map(c=>{const stT=withE(ESLIP+FIND.slip,()=>stats(c.te));return{f:c.f,ntr:c.tr.length,edgeTr:c.stS.edge,score:c.score,nte:c.te.length,wrTe:stT.wr,edgeTe:stT.edge,roiTe:stT.roi};});\n  const allRows=[].concat.apply([],picked.map(c=>c.tr.concat(c.te)));\n  const ev=withE(ESLIP+FIND.slip,()=>{const g=prepGroup(allRows,lo,nD,'none',true);let trU=0,teU=0,teMin=0,teW=0,teL=0,tr=0,te=0;\n    for(let d=0;d<nD;d++){const v=g.dRoi[d]*stake;if(d<nD-K)trU+=v;else{teU+=v;if(v<-1e-9)teMin++;}}\n    const rt=g.rows.filter(r=>dayOf(r[C.ts])>=trEnd),rr=g.rows.filter(r=>dayOf(r[C.ts])<trEnd),sT=stats(rt),sR=stats(rr);\n    return{trUd:trU/(nD-K),teUd:teU/K,teMin:teMin,sT:sT,sR:sR,nTe:rt.length,nTr:rr.length};});\n  FIND.res={K:K,N:N,z:z,sk:sk,info:info,ev:ev,nCand:cand.length,at:Date.now(),slip:FIND.slip};\n}\nfunction findCard(lo,hi,nD,stake){\n  let h='<div class=\"card top\" style=\"margin-top:10px\"><div class=\"th\"><button class=\"x\" data-act=\"findtog\">'+(FIND.open?'▾':'▸')+'</button> <b>🔎 Поиск надёжного коллектива</b> <span class=\"mut small\">отбирает ТС по старым дням, а проверяет на последних, которые отбор «не видел»</span></div>';\n  if(!FIND.open)return h+'</div>';\n  const fo=FOLDERS.map(fd=>'<option value=\"'+esc(fd.id)+'\"'+(FIND.pool===fd.id?' selected':'')+'>папка «'+esc(fd.name)+'»</option>').join('');\n  h+='<div class=\"bar\" style=\"margin:6px 0\"><label class=\"small\">где искать <select id=\"fd_pool\"><option value=\"all\"'+(FIND.pool==='all'?' selected':'')+'>все мои избранные ТС</option>'+fo+'<option value=\"cells\"'+(FIND.pool==='cells'?' selected':'')+'>все ячейки без фильтров (честнее, но шире перебор)</option></select></label>'\n   +'<label class=\"small\">последних дней на проверку <input type=\"number\" id=\"fd_K\" min=\"2\" value=\"'+FIND.K+'\" style=\"width:55px\"></label>'\n   +'<label class=\"small\">мин. сделок <input type=\"number\" id=\"fd_minN\" min=\"10\" value=\"'+FIND.minN+'\" style=\"width:60px\"></label>'\n   +'<label class=\"small\">макс. ТС <input type=\"number\" id=\"fd_max\" min=\"1\" value=\"'+FIND.max+'\" style=\"width:55px\"></label>'\n   +'<label class=\"small\" title=\"при отборе считаем вход дороже на N¢\">отбор при входе хуже на <select id=\"fd_slip\">'+[0,1,2].map(v=>'<option value=\"'+v+'\"'+(FIND.slip===v?' selected':'')+'>'+(v?'+'+v+'¢':'как есть')+'</option>').join('')+'</select></label>'\n   +'<label class=\"small\"><input type=\"checkbox\" id=\"fd_floor\"'+(FIND.floor?' checked':'')+'> не брать входы дешевле 0.80</label>'\n   +'<button class=\"x\" data-act=\"findrun\">🔎 Искать</button></div>';\n  const R=FIND.res;\n  if(!R)return h+'<div class=\"mut small\">Нажми «Искать». Логика: на первых днях отбираются ТС, у которых даже нижняя граница побед (с поправкой на то, сколько всего ТС перебрано) выше цены входа, плюс в обеих половинах и при входе хуже на 1¢. Затем набор проверяется на последних днях, которые отбор не видел.</div></div>';\n  h+='<div class=\"small\" style=\"margin:6px 0\">Перебрано <b>'+R.N+'</b> вариантов; чтобы не поймать случайность, требуется доказательство по строгому порогу (z = '+R.z.toFixed(2)+', вместо обычных 1.96). Отсеяно: мало сделок '+R.sk.few+(FIND.floor?', дешёвые входы '+R.sk.floor:'')+', нет доказательства '+R.sk.proof+', не плюс в обеих половинах '+R.sk.half+'. Прошли отбор: <b>'+R.nCand+'</b>, взято в набор: <b>'+R.info.length+'</b>.</div>';\n  if(!R.info.length)return h+'<div class=\"note warn\">Ни одна ТС не прошла строгий отбор. Это нормально: значит, красивых результатов на самом деле почти нет, а те, что есть, скорее всего случайность. Можно смягчить: меньше «мин. сделок» или отбор без проскальзывания.</div></div>';\n  const ev=R.ev;\n  const hold=ev.sT.edge>0&&ev.teUd>=ev.trUd*0.5,weak=ev.sT.edge>0;\n  h+='<div class=\"note '+(hold?'':'warn')+'\" style=\"margin:6px 0\"><b>'+(hold?'🟢 Набор держится на невиданных днях':(weak?'🟡 На новых днях слабее, но в плюсе':'🔴 На новых днях не держится — это была подгонка'))+'</b><br>Отбор (первые дни): <b>'+money(ev.trUd)+'</b> в день, '+ev.nTr+' сделок, побед '+pct(ev.sR.wr)+', edge '+sgn(ev.sR.edge*100,1)+' п.п.<br>Проверка (последние '+R.K+' дн., отбор их не видел): <b>'+money(ev.teUd)+'</b> в день, '+ev.nTe+' сделок, побед '+pct(ev.sT.wr)+', edge '+sgn(ev.sT.edge*100,1)+' п.п., дней в минусе: '+ev.teMin+'<br><span class=\"mut small\">всё считается при входе хуже на '+(R.slip?R.slip+'¢':'0¢')+'. Если на проверке резко хуже, чем на отборе, — коллективы такого вида ломаются.</span></div>';\n  h+='<div class=\"tw\"><table><thead><tr><th class=\"l ns\">ТС</th><th class=\"ns\">сделок (отбор)</th><th class=\"ns\">edge (отбор)</th><th class=\"ns\">сделок (проверка)</th><th class=\"ns\">побед (проверка)</th><th class=\"ns\">edge (проверка)</th><th class=\"l ns\">итог</th></tr></thead><tbody>'+R.info.map(x=>'<tr><td class=\"l\">'+esc(x.f.name)+'</td><td>'+x.ntr+'</td><td class=\"'+cls(x.edgeTr)+'\">'+sgn(x.edgeTr*100,1)+' п.п.</td><td>'+x.nte+'</td><td>'+(x.nte?pct(x.wrTe):'—')+'</td><td class=\"'+cls(x.edgeTe)+'\">'+(x.nte?sgn(x.edgeTe*100,1)+' п.п.':'—')+'</td><td class=\"l\">'+(x.nte<8?'<span class=\"mut\">мало данных</span>':(x.edgeTe>0?'<span class=\"pos\">✅ держится</span>':'<span class=\"neg\">❌ сломалась</span>'))+'</td></tr>').join('')+'</tbody></table></div>';\n  h+='<div class=\"bar\" style=\"margin:8px 0 0\"><button class=\"x\" data-act=\"findsave\" title=\"сохранить набор как коллектив; страница запомнит дату и дальше будет показывать результат «после сохранения» — это настоящая проверка\">💾 Сохранить набор как коллектив (дальше проверим на будущих днях)</button><span class=\"mut small\">Выбор уже сделан по старым дням, поэтому сохраняй именно его: подправлять по результатам проверки значит снова подгонять.</span></div></div>';\n  return h;\n}\n// ---- 🧬 Перебор коллективов из 2–3 ТС (у каждой своя цена входа и свои монеты) ----\nconst CS={open:false,K:7,minN:40,pool:50,slip:2,minRoi:3,pmin:80,pmax:90,noEn:true,diff:1,vs:'roi',vz:2,res:null,busy:false};\nconst CS_VIEWS={roi:'🎯 Самые «чистые» (ROI на сделку, плюс в обеих половинах)',usd:'💰 Больше всего денег',dd:'🛡 Самая малая просадка'};\nfunction csWait(){return new Promise(r=>setTimeout(r,0));}\nfunction csProg(t){const e=document.getElementById('cs_prog');if(e)e.textContent=t;}\nasync function runCS(lo,hi,nD,stake){\n  CS.busy=true;CS.res=null;\n  try{\n  const K=Math.max(0,Math.min(Math.floor(CS.K)||0,nD-4)),trEnd=lo+nD-K,tdays=nD-K,mid=tdays>>1;\n  if(!IDX)buildIdx();\n  const gp=globalPred(),pb=periodBounds(),nC=D.coins.length,slip=CS.slip/100;\n  const prices=[];if(CS.noEn||!exHave())prices.push(null);\n  if(exHave())for(let p=CS.pmin;p<=CS.pmax;p++)prices.push(p/100);\n  const cells=[];IDX.cell.forEach((rs,k)=>{const q=String(k).split('|'),idea=D.ideas[+q[0]],combo=D.combos[+q[1]];if(!idea||!combo||String(idea).indexOf('temka:')===0)return;cells.push({k:k,idea:idea,combo:combo,rs:rs});});\n  let cand=[],variants=0,t0=Date.now();\n  const ev=(a,n)=>{ // отбор только по дням «отбора»\n    let nTr=0,sTr=0,h1=0,h2=0,cum=0,pk=0,dd=0;\n    for(let d=0;d<tdays;d++){nTr+=n[d];sTr+=a[d];if(d<mid)h1+=a[d];else h2+=a[d];cum+=a[d];if(cum>pk)pk=cum;if(pk-cum>dd)dd=pk-cum;}\n    return{nTr:nTr,sTr:sTr,h1:h1,h2:h2,dd:dd};\n  };\n  for(let ci=0;ci<cells.length;ci++){\n    const cl=cells[ci],rs=[],ds=[];\n    for(const r of cl.rs){\n      if(pb[0]!==null&&r[C.ts]<pb[0])continue;if(pb[1]!==null&&r[C.ts]>=pb[1])continue;\n      const d=dayOf(r[C.ts])-lo;if(d<0||d>=nD)continue;\n      if(gp&&!gp(r))continue;\n      rs.push(r);ds.push(d);\n    }\n    if(rs.length>=CS.minN){\n      for(let pi=0;pi<prices.length;pi++){\n        const P=prices[pi],rc=new Array(nC);\n        for(let i=0;i<rs.length;i++){\n          const r=rs[i];let np;\n          if(P===null)np=r[CI.px];else{const dc=enDecide(r,P,false,1);if(!dc||dc.no)continue;np=dc.np;}\n          const q=Math.min(0.995,np+slip),ro=r[C.won]?(1-q)/q:-1,c=r[C.coin];\n          let o=rc[c];if(!o){o={a:new Float64Array(nD),n:new Int32Array(nD)};rc[c]=o;}\n          o.a[ds[i]]+=ro;o.n[ds[i]]++;\n        }\n        const sets=[];let cnt=0;\n        for(let c=0;c<nC;c++)if(rc[c]){cnt++;sets.push({coins:[c],a:rc[c].a,n:rc[c].n});}\n        if(cnt>1){const a=new Float64Array(nD),n=new Int32Array(nD);for(let c=0;c<nC;c++)if(rc[c])for(let d=0;d<nD;d++){a[d]+=rc[c].a[d];n[d]+=rc[c].n[d];}sets.push({coins:null,a:a,n:n});}\n        for(const s of sets){\n          variants++;\n          const e=ev(s.a,s.n);\n          if(e.nTr<CS.minN||!(e.sTr>0)||!(e.h1>0)||!(e.h2>0))continue;\n          cand.push({key:cl.k,idea:cl.idea,combo:cl.combo,coins:s.coins,P:P,a:s.a,n:s.n,nTr:e.nTr,sTr:e.sTr,dd:e.dd,score:e.sTr/e.nTr*Math.sqrt(e.nTr)});\n        }\n      }\n    }\n    if(cand.length>3000){cand.sort((x,y)=>y.score-x.score);cand=cand.slice(0,1500);}\n    if(Date.now()-t0>40){csProg('Шаг 1 из 2: смотрю одиночные ТС… '+Math.round((ci+1)/cells.length*100)+'% (подходящих вариантов: '+cand.length+')');await csWait();t0=Date.now();}\n  }\n  // пул: лучшие по каждому виду\n  const N=Math.max(10,Math.floor(CS.pool)||50),pick=new Set();\n  const top=(fn,desc)=>cand.slice().sort((x,y)=>desc?fn(y)-fn(x):fn(x)-fn(y)).slice(0,N).forEach(x=>pick.add(x));\n  top(x=>x.score,true);top(x=>x.sTr,true);top(x=>x.sTr/(x.dd+0.5),true);\n  const pool=Array.from(pick),V=pool.length;\n  const tmp=new Float64Array(nD);\n  const fam=x=>{if(x._f===undefined){x._f=String(ideaTitle(x.idea)).replace(/\\s*\\(.*$/,'').trim();x._s=String(x.combo).split(' / ');}return x._f;};\n  const same=(x,y)=>{\n    if(x.key===y.key)return true;\n    if(CS.diff>=1&&x.idea===y.idea)return true;\n    if(CS.diff>=2){if(fam(x)===fam(y))return true;for(const t of x._s)if(y._s.indexOf(t)>=0)return true;}\n    return false;};\n  const lists={2:{roi:[],usd:[],dd:[]},3:{roi:[],usd:[],dd:[]}};\n  const put=(L,it)=>{L.push(it);if(L.length>40){L.sort((x,y)=>y.sc-x.sc);L.length=12;}};\n  let tested=0;\n  const doCombo=(ids)=>{\n    tested++;\n    let nTr=0;for(const i of ids)nTr+=pool[i].nTr;\n    let sTr=0,h1=0,h2=0,cum=0,pk=0,dd=0;\n    for(let d=0;d<tdays;d++){let v=0;for(const i of ids)v+=pool[i].a[d];sTr+=v;if(d<mid)h1+=v;else h2+=v;cum+=v;if(cum>pk)pk=cum;if(pk-cum>dd)dd=pk-cum;}\n    if(!(sTr>0))return;\n    const L=lists[ids.length];\n    if(h1>0&&h2>0)put(L.roi,{ids:ids.slice(),sc:sTr/nTr});\n    put(L.usd,{ids:ids.slice(),sc:sTr});\n    if(sTr/nTr*100>=CS.minRoi)put(L.dd,{ids:ids.slice(),sc:-dd});\n  };\n  t0=Date.now();\n  for(let i=0;i<V;i++){\n    for(let j=i+1;j<V;j++){\n      if(same(pool[i],pool[j]))continue;\n      doCombo([i,j]);\n      for(let k=j+1;k<V;k++){if(same(pool[k],pool[i])||same(pool[k],pool[j]))continue;doCombo([i,j,k]);}\n    }\n    if(Date.now()-t0>40){csProg('Шаг 2 из 2: перебираю пары и тройки… '+Math.round((i+1)/V*100)+'% (проверено наборов: '+tested+')');await csWait();t0=Date.now();}\n  }\n  // полная статистика по лучшим (включая невиданные дни)\n  const full=(ids)=>{\n    tmp.fill(0);let n=0,nTe=0;\n    for(const i of ids){const p=pool[i];for(let d=0;d<nD;d++){tmp[d]+=p.a[d];n+=p.n[d];if(d>=tdays)nTe+=p.n[d];}}\n    let sAll=0,sTr=0,sTe=0,cum=0,pk=0,dd=0,worst=1e9,teMinus=0;\n    for(let d=0;d<nD;d++){const v=tmp[d];sAll+=v;if(d<tdays)sTr+=v;else{sTe+=v;if(v<-1e-9)teMinus++;}cum+=v;if(cum>pk)pk=cum;if(pk-cum>dd)dd=pk-cum;if(v<worst)worst=v;}\n    return{n:n,nTe:nTe,roi:n?sAll/n:0,usd:sAll*stake,dd:dd*stake,worst:worst*stake,trUd:tdays?sTr*stake/tdays:0,teUd:K?sTe*stake/K:null,teMinus:teMinus,K:K};\n  };\n  const out={2:{},3:{}};\n  [2,3].forEach(z=>['roi','usd','dd'].forEach(v=>{const L=lists[z][v];L.sort((x,y)=>y.sc-x.sc);out[z][v]=L.slice(0,10).map(it=>({mem:it.ids.map(i=>{const p=pool[i];return{idea:p.idea,combo:p.combo,coins:p.coins,P:p.P};}),m:full(it.ids)}));}));\n  CS.res={out:out,variants:variants,nCand:cand.length,V:V,tested:tested,K:K,slip:CS.slip,at:Date.now(),nD:nD,prices:prices.length};\n  }finally{CS.busy=false;}\n}\nfunction csMemTxt(m){\n  const cn=m.coins?m.coins.map(c=>COIN_SHORT[D.coins[c]]||D.coins[c]).join('+'):'все монеты';\n  return ideaTitle(m.idea)+' · '+m.combo+' · '+cn+' · '+(m.P===null?'без особого входа':'вход '+Math.round(m.P*100)+'¢');\n}\nfunction csCard(lo,hi,nD,stake){\n  let h='<div class=\"card top\" style=\"margin-top:10px\"><div class=\"th\"><button class=\"x\" data-act=\"cstog\">'+(CS.open?'▾':'▸')+'</button> <b>🧬 Перебор коллективов из 2–3 ТС</b> <span class=\"mut small\">перебирает ячейки, монеты и цены входа, собирает пары и тройки; отбирает по старым дням, проверяет на последних</span></div>';\n  if(!CS.open)return h+'</div>';\n  h+='<div class=\"bar\" style=\"margin:6px 0\">'\n   +'<label class=\"small\">вход от <input type=\"number\" id=\"cs_pmin\" min=\"60\" max=\"97\" value=\"'+CS.pmin+'\" style=\"width:52px\">¢ до <input type=\"number\" id=\"cs_pmax\" min=\"60\" max=\"97\" value=\"'+CS.pmax+'\" style=\"width:52px\">¢ (шаг 1¢)</label>'\n   +'<label class=\"small\"><input type=\"checkbox\" id=\"cs_noen\"'+(CS.noEn?' checked':'')+'> и без особого входа</label>'\n   +'<label class=\"small\" title=\"насколько разными должны быть ТС внутри набора\">ТС в наборе <select id=\"cs_diff\"><option value=\"0\"'+(CS.diff===0?' selected':'')+'>любые (разные ячейки)</option><option value=\"1\"'+(CS.diff===1?' selected':'')+'>с разными идеями (σ 60с ≠ σ 120с)</option><option value=\"2\"'+(CS.diff===2?' selected':'')+'>совсем разные: другая идея и ни одного общего условия (edge, окно, цена)</option></select></label>'\n   +'<label class=\"small\">последних дней на проверку <input type=\"number\" id=\"cs_K\" min=\"0\" value=\"'+CS.K+'\" style=\"width:50px\"></label>'\n   +'<label class=\"small\">мин. сделок у ТС <input type=\"number\" id=\"cs_minN\" min=\"10\" value=\"'+CS.minN+'\" style=\"width:55px\"></label>'\n   +'<label class=\"small\" title=\"считаем, что купили на N¢ дороже входа (бот платит ~2¢ сверху)\">хуже на <select id=\"cs_slip\">'+[0,1,2,3].map(v=>'<option value=\"'+v+'\"'+(CS.slip===v?' selected':'')+'>'+(v?'+'+v+'¢':'как есть')+'</option>').join('')+'</select></label>'\n   +'<label class=\"small\" title=\"сколько лучших ТС из каждого рейтинга берём в перебор пар/троек (больше — дольше)\">широта перебора <input type=\"number\" id=\"cs_pool\" min=\"10\" max=\"120\" value=\"'+CS.pool+'\" style=\"width:55px\"></label>'\n   +'<label class=\"small\">для «малой просадки» ROI не ниже <input type=\"number\" id=\"cs_minRoi\" min=\"0\" value=\"'+CS.minRoi+'\" style=\"width:48px\">%</label>'\n   +'<button class=\"x\" data-act=\"csrun\"'+(CS.busy?' disabled':'')+'>🧬 Искать</button></div>';\n  if(CS.busy)return h+'<div class=\"note\" id=\"cs_prog\">Считаю…</div></div>';\n  const R=CS.res;\n  if(!R)return h+'<div class=\"mut small\">Нажми «Искать». Страница сама переберёт все ячейки × каждая монета отдельно и все вместе × все цены входа, оставит те, что в плюсе в обеих половинах старых дней, и соберёт из лучших пары и тройки (в одной тройке ячейки разные). Результат показывается тремя способами: самые чистые, больше всего денег, минимальная просадка. Последние дни (по умолчанию 7) в отборе не участвуют — по ним видно, держится ли набор.</div></div>';\n  h+='<div class=\"small\" style=\"margin:6px 0\">Просмотрено <b>'+R.variants.toLocaleString('ru-RU')+'</b> вариантов (ячейка × монеты × цена входа), прошли отбор <b>'+R.nCand+'</b>, в перебор пар/троек взято <b>'+R.V+'</b>, проверено наборов: <b>'+R.tested.toLocaleString('ru-RU')+'</b>. Цена считалась на <b>+'+R.slip+'¢</b> хуже входа. Выходных моделей, цели дня и лимита открытых здесь нет — это грубая оценка; после сохранения коллектив считается уже полностью.</div>';\n  h+='<div class=\"bar\" style=\"margin:4px 0\">'+Object.keys(CS_VIEWS).map(v=>'<button class=\"x'+(CS.vs===v?' on':'')+'\" data-act=\"csview\" data-v=\"'+v+'\" style=\"'+(CS.vs===v?'font-weight:700;outline:2px solid #6aa0ff':'')+'\">'+CS_VIEWS[v]+'</button>').join('')+'<span class=\"mut small\">|</span>'\n    +[2,3].map(z=>'<button class=\"x\" data-act=\"cssize\" data-z=\"'+z+'\" style=\"'+(CS.vz===z?'font-weight:700;outline:2px solid #6aa0ff':'')+'\">'+z+' ТС</button>').join('')+'</div>';\n  const L=R.out[CS.vz][CS.vs];\n  if(!L.length)return h+'<div class=\"note warn\">Для этого вида ничего не нашлось. Смягчи «мин. сделок», расширь цены входа, убери «хуже на» или поставь «ТС в наборе» помягче (при «совсем разных» нужны ТС с разными идеями и разными условиями — их может просто не быть).</div></div>';\n  if(R.K){let ok=0;L.forEach(x=>{if(x.m.teUd>0)ok++;});h+='<div class=\"note '+(ok>=L.length*0.6?'':'warn')+'\" style=\"margin:6px 0\"><b>Честная проверка:</b> из '+L.length+' показанных наборов на невиданных днях в плюсе <b>'+ok+'</b>. '+(ok>=L.length*0.6?'Похоже, что-то держится.':'Если в плюсе меньше ~60% — значит, это в основном подгонка: перебор всегда находит красивое прошлое.')+'</div>';}\n  h+='<div class=\"tw\"><table><thead><tr><th class=\"ns\">#</th><th class=\"l ns\">Состав (ТС · монеты · вход)</th><th class=\"ns\">сделок</th><th class=\"ns\">ROI на сделку</th><th class=\"ns\">$ всего</th><th class=\"ns\">просадка</th><th class=\"ns\">худший день</th><th class=\"ns\">отбор, $/день</th><th class=\"ns\">проверка, $/день</th><th class=\"ns\"></th></tr></thead><tbody>';\n  L.forEach((x,i)=>{\n    const m=x.m,te=m.teUd,v=te===null?'':(te>0&&te>=m.trUd*0.5?'🟢':(te>0?'🟡':'🔴'));\n    h+='<tr><td>'+(i+1)+'</td><td class=\"l\">'+x.mem.map(csMemTxt).map(t=>'• '+esc(t)).join('<br>')+'</td><td>'+m.n+'</td><td class=\"'+cls(m.roi)+'\">'+sgn(m.roi*100,1)+'%</td><td class=\"'+cls(m.usd)+'\">'+money(m.usd)+'</td><td>'+(m.dd>0.005?money(-m.dd):'$0')+'</td><td class=\"'+cls(m.worst)+'\">'+money(m.worst)+'</td><td class=\"'+cls(m.trUd)+'\">'+money(m.trUd)+'</td><td class=\"'+(te===null?'':cls(te))+'\">'+(te===null?'—':v+' '+money(te)+' <span class=\"mut small\">('+m.nTe+' сд., минус-дней '+m.teMinus+' из '+m.K+')</span>')+'</td><td><button class=\"x\" data-act=\"cssave\" data-i=\"'+i+'\">💾</button></td></tr>';\n  });\n  h+='</tbody></table></div><div class=\"mut small\" style=\"margin-top:6px\">💾 — сохранить набор как коллектив: у каждой ТС будет её цена входа и монеты. Ячейки из соседних окон/цен часто торгуют почти одно и то же — в сохранённом коллективе это видно в «Составе», там же можно убрать лишнее.</div></div>';\n  return h;\n}\n// ---- состав коллектива: у кого сколько лоссов + правка состава (удалить / добавить ТС) ----\nfunction pfsPanel(p,lo,hi,nD,stake,fd){\n  const mem=pfsMembers(p),id=esc(p.id);\n  const ov=fd&&fd.eachCap?{one:!!fd.one,mo:!!fd.mo,mon:fd.mon>0?fd.mon:3}:{one:p.one,mo:p.mo,mon:p.mon>0?p.mon:3};\n  const gd=(fd&&fd.goal!==undefined)?fd.goal:p.goal;\n  let h='<div class=\"note\" style=\"margin:4px 0 10px\"><div class=\"bar\" style=\"margin:0 0 6px\"><b>🔍 Состав «'+esc(p.name)+'»</b><span class=\"mut small\">считается с настройками этого коллектива (цель, лимит открытых, одна сделка)</span></div>';\n  if(!mem.length)h+='<div class=\"mut small\">В коллективе нет ТС (или они не найдены в избранном).</div>';\n  else{\n    const c=colFull(mem,{goal:gd,one:ov.one,mo:ov.mo,mon:ov.mon},lo,hi,nD,stake);\n    const kept=new Set(c.rows);\n    const info=mem.map((f,i)=>{\n      const k=c.rowsPer[i].filter(r=>kept.has(r));\n      let w=0,l=0,ls=0,pn=0;const ld=new Set(),dd=new Set();\n      k.forEach(r=>{const u=roiOf(r)*stake,d=dayOf(r[C.ts]);pn+=u;dd.add(d);if(u<0){l++;ls+=u;ld.add(d);}else w++;});\n      return{f:f,i:i,n:k.length,w:w,l:l,ls:ls,pn:pn,ld:ld.size,days:dd.size};\n    });\n    const totL=info.reduce((a,x)=>a+x.l,0),totLs=info.reduce((a,x)=>a+x.ls,0);\n    const srt=info.slice().sort((a,b)=>b.l-a.l||a.ls-b.ls);\n    const top=srt.filter(x=>x.l>0).slice(0,3);\n    h+='<div class=\"small\" style=\"margin:0 0 6px\">Всего в коллективе: '+c.rows.length+' сделок, <b>'+totL+' лоссов</b> на '+money(totLs)+'.'+(top.length?' Больше всего лоссов делают: '+top.map(x=>'<b>'+esc(x.f.name.length>40?x.f.name.slice(0,40)+'…':x.f.name)+'</b> ('+x.l+' шт., '+(totL?Math.round(x.l/totL*100):0)+'%)').join('; ')+'.':' Лоссов нет.')+'</div>';\n    h+='<div class=\"tw\"><table><thead><tr><th class=\"l ns\">ТС</th><th class=\"ns\">сделок</th><th class=\"ns\">побед</th><th class=\"ns\" title=\"проигранные сделки этой ТС внутри коллектива (после лимита открытых)\">лоссов</th><th class=\"ns\" title=\"какая доля всех лоссов коллектива приходится на эту ТС\">доля лоссов</th><th class=\"ns\">сумма лоссов</th><th class=\"ns\">средний лосс</th><th class=\"ns\" title=\"в скольких днях из дней, когда ТС торговала, был хотя бы один лосс\">дней с лоссом</th><th class=\"ns\">прибыль</th><th class=\"l ns\">вердикт</th><th class=\"ns\"></th></tr></thead><tbody>';\n    srt.forEach(x=>{\n      const lo2=c.loo[x.i];\n      h+='<tr><td class=\"l\">'+esc(x.f.name)+'</td><td>'+x.n+'</td><td>'+(x.n?pct(x.w/x.n):'—')+'</td><td class=\"'+(x.l?'neg':'')+'\"><b>'+x.l+'</b></td><td>'+(totL?Math.round(x.l/totL*100)+'%':'—')+'</td><td class=\"'+(x.ls<0?'neg':'')+'\">'+(x.l?money(x.ls):'—')+'</td><td>'+(x.l?money(x.ls/x.l):'—')+'</td><td>'+x.ld+' из '+x.days+'</td><td class=\"'+cls(x.pn)+'\">'+money(x.pn)+'</td><td class=\"l '+(lo2&&lo2.v==='bad'?'neg':'')+'\">'+(lo2?lo2.txt:'')+'</td><td><button class=\"x\" data-act=\"pfsrmts\" data-id=\"'+id+'\" data-fid=\"'+esc(x.f.id)+'\" title=\"убрать эту ТС из коллектива (можно вернуть кнопкой «↩»)\">✕ убрать</button></td></tr>';\n    });\n    h+='</tbody></table></div>';\n    h+=dayDetail(c.g,stake,lo,nD);\n  }\n  h+='<div class=\"bar\" style=\"margin:8px 0 0\"><button class=\"x\" data-act=\"pfstest\" data-id=\"'+id+'\">'+(PFSTEST.has(p.id)?'▾ скрыть проверку стопов':'🧪 Проверить стопы')+'</button><span class=\"mut small\">стоп «после N лоссов за день» для каждой ТС коллектива: работает ли он на этих данных</span></div>';\n  h+='<div class=\"bar\" style=\"margin:8px 0 0\"><button class=\"x\" data-act=\"pfsrel\" data-id=\"'+id+'\">'+(RELOPEN.has(p.id)?'▾ скрыть проверку надёжности':'🛡 Проверка надёжности')+'</button><span class=\"mut small\">подгонка или нет: худшая цена, после сохранения, соседи, фильтры, хвосты</span></div>';\n  if(RELOPEN.has(p.id)&&mem.length){const c2=colFull(mem,{goal:gd,one:ov.one,mo:ov.mo,mon:ov.mon},lo,hi,nD,stake);h+=relPanel(p,mem,c2,lo,hi,nD,stake,fd);}\n  if(PFSTEST.has(p.id)){const res=stopTest(()=>pfsRows(p,lo,hi,fd),lo,hi,nD,stake);h+=stopTestHtml(res,'pfsapplystop',p.id);}\n  const inn=new Set(p.ids),cand=FAVS.filter(f=>!inn.has(f.id));\n  h+='<div class=\"bar\" style=\"margin:8px 0 0\">'+(cand.length?'<select data-addts=\"'+id+'\" style=\"max-width:360px\"><option value=\"\">— выбери ТС из избранных —</option>'+cand.map(f=>'<option value=\"'+esc(f.id)+'\">'+esc(f.name.length>70?f.name.slice(0,70)+'…':f.name)+'</option>').join('')+'</select><button class=\"x\" data-act=\"pfsaddts\" data-id=\"'+id+'\">＋ добавить в коллектив</button>':'<span class=\"mut small\">Все избранные ТС уже в этом коллективе.</span>')+(p.undo?'<button class=\"x\" data-act=\"pfsundo\" data-id=\"'+id+'\" title=\"вернуть состав, который был до последней правки\">↩ вернуть прошлый состав</button>':'')+'</div>';\n  return h+'</div>';\n}\nfunction renderPfs(lo,hi,nD,stake){\n  let h='<div class=\"card top\" style=\"margin-top:10px\"><div class=\"th\"><b>📚 Сохранённые коллективы</b> <span class=\"mut small\">собери набор выше кнопкой 🤝, нажми «💾 Сохранить коллектив» и дай название (например «ТС 1»): потом клик по строке открывает этот набор, а здесь видно его статистику сразу</span></div>';\n  if(!PFS.length)return h+'<div class=\"mut small\" style=\"padding:6px 2px\">Пока ничего не сохранено.</div></div>';\n  const un=PFS.filter(p=>!folderOf(p));\n  if(!un.length)return h+'<div class=\"mut small\" style=\"padding:6px 2px\">Все сохранённые коллективы разложены по папкам (блок «📁 Папки» ниже).</div></div>';\n  h+=pfsTable(un,lo,hi,nD,stake);\n  return h+'<div class=\"mut small\" style=\"margin-top:6px\">Клик по строке — загрузить набор в «Коллективную работу» (с полным разбором, депозитом и правилами). Статистика считается по тем же фильтрам сверху (период, режим монеты, цель дня), что и у остальных.</div></div>';\n}\nfunction pfMembers(){return PF.ids.map(id=>FAVS.find(f=>f.id===id)).filter(Boolean);}\nfunction pfMemberRows(f,lo,hi){return favRowsX(f).filter(r=>{const d=dayOf(r[C.ts]);return d>=lo&&d<=hi;});}\nfunction pfRows(){\n  const lr=dayRange(),lo=lr[0],hi=lr[1];\n  let all=[];pfMembers().forEach(f=>{all=all.concat(pfMemberRows(f,lo,hi));});\n  return pfFinish(all,PF.one,PF.mo,PF.mon);\n}\nfunction renderPf(lo,hi,nD,stake){return renderPf0(lo,hi,nD,stake)+renderPfs(lo,hi,nD,stake);}\n// когда ТС набирает дневную цель: пересчёт по уже отобранным сделкам в порядке ЗАКРЫТИЯ (цель в $ и/или в сделках)\nfunction pfGoalHits(f,lo,hi){\n  const G=favGoalOf(f)||{P:S.goalP||0,L:S.goalL||0,N:S.goalN||0,K:S.goalK||0,Z:S.goalZ||0,W:S.goalW||0};\n  if(!(G.P>0||G.W>0))return null;\n  let rs;\n  if(f.type==='chain'||!f.ex)rs=favRowsNC(f);\n  else{const r0=favRowsNC(f),sv=exSnap(),enS=Object.assign({},EN);exApply(f.ex);try{rs=applyExit(applyRe(applyEntry(r0)));}finally{exApply(sv);Object.assign(EN,enS);}}\n  rs=afterCut(rgCut(rs)).filter(r=>{const d=dayOf(r[C.ts]);return d>=lo&&d<=hi;});\n  const kept=goalCutP(rs,G.P,G.L,G.N,G.K,S.stake,false,G.W,G.Z);\n  const hs=CI.sec!==undefined?CI.sec:-1,byD=new Map();\n  kept.forEach(r=>{const d=dayOf(r[C.ts]);let a=byD.get(d);if(!a){a=[];byD.set(d,a);}a.push([r[C.ts]+(hs>=0&&r[hs]!==null?r[hs]:0),roiOf(r)*S.stake,r[C.won]]);});\n  const hits=[];\n  byD.forEach((a,d)=>{\n    a.sort((x,y)=>x[0]-y[0]);\n    let real=0,wq=[],n=0;\n    for(const q of a){\n      real+=q[1];n++;let hit=false;\n      if(G.P>0&&real>=G.P-1e-9)hit=true;\n      if(G.W>0&&q[2]){wq.push(q[1]);if(wq.length>G.W)wq.shift();if(wq.length>=G.W){let sm=0;for(const x of wq)sm+=x;if(real>=sm-1e-9)hit=true;}}\n      if(hit){hits.push({d:d,sod:q[0]-d*DAYS,n:n});break;}\n    }\n  });\n  return{hits:hits,days:byD.size};\n}\nfunction fmtClock(sod){const t=((Math.round(sod)+7*3600)%86400+86400)%86400,h=Math.floor(t/3600),m=Math.floor(t%3600/60);return (h<10?'0':'')+h+':'+(m<10?'0':'')+m;}\nfunction fmtDur(sec){const h=Math.floor(sec/3600),m=Math.round(sec%3600/60);return h?h+' ч '+m+' м':m+' м';}\nfunction medianOf(a){const b=a.slice().sort((x,y)=>x-y),n=b.length;return n?(n%2?b[(n-1)/2]:(b[n/2-1]+b[n/2])/2):0;}\nfunction pfGoalCell(f,lo,hi){\n  const gh=pfGoalHits(f,lo,hi);\n  if(!gh)return '';\n  if(!gh.days)return '<td>—</td>';\n  if(!gh.hits.length)return '<td title=\"за период цель дня ни разу не набрана\">0 из '+gh.days+' дн.</td>';\n  const ms=medianOf(gh.hits.map(x=>x.sod)),mn=medianOf(gh.hits.map(x=>x.n));\n  return '<td title=\"медиана по дням, где цель набрана. Часы — по Бангкоку; день начинается в 07:00 (00:00 UTC)\">'+gh.hits.length+' из '+gh.days+' дн.<div class=\"mut small\">обычно к '+fmtClock(ms)+' (через '+fmtDur(ms)+' после старта дня), ~'+Math.round(mn)+' закр. сделок</div></td>';\n}\n// «кто тянет вниз»: коллектив без одной ТС (с теми же галочками: одна сделка на рынок, лимит открытых)\nfunction pfLoo(mem,rowsPer,lo,hi,nD,stake,opt){\n  opt=opt||{one:PF.one,mo:PF.mo,mon:PF.mon};\n  const full=metrics(prepGroup(pfFinish([].concat.apply([],rowsPer),opt.one,opt.mo,opt.mon,true),lo,nD,'none',true),nD,stake);\n  const out=[];\n  mem.forEach((f,i)=>{\n    if(mem.length<2){out.push(null);return;}\n    const others=[];rowsPer.forEach((r,j)=>{if(j!==i)others.push(r);});\n    const wo=metrics(prepGroup(pfFinish([].concat.apply([],others),opt.one,opt.mo,opt.mon,true),lo,nD,'none',true),nD,stake);\n    const dU=full.usdd-wo.usdd;\n    let v='ok',txt='✅ помогает';\n    if(dU<-1e-9){v='bad';txt='🔻 тянет вниз: без неё '+money(wo.usdd)+'/д вместо '+money(full.usdd)+'/д';}\n    else if(full.dd>0&&wo.dd<=full.dd*0.8&&dU<=0.15*Math.abs(full.usdd)){v='warn';txt='⚠️ даёт просадку: без неё −$'+wo.dd.toFixed(2)+' вместо −$'+full.dd.toFixed(2)+', а прибыли добавляет мало';}\n    else if(wo.worst>full.worst+1e-9&&dU<=0.15*Math.abs(full.usdd)){v='warn';txt='⚠️ ухудшает худший день: без неё '+money(wo.worst)+' вместо '+money(full.worst);}\n    out.push({dU:dU,wo:wo,full:full,v:v,txt:txt});\n  });\n  return out;\n}\nfunction renderPf0(lo,hi,nD,stake){\n  const mem=pfMembers();\n  let h='<div class=\"card hero\"><div class=\"bar\" style=\"margin:0 0 6px\"><b style=\"font-size:17px\">🤝 Коллективная работа</b><span class=\"mut small\">отметь кнопкой 🤝 в списке ниже несколько ТС — они будут считаться как одна команда: общая кумулятивная, прибыль по дням, просадка и вклад каждой</span></div>';\n  if(!mem.length)return h+'<div class=\"mut small\">Пока никого нет. Нажми 🤝 справа у нужных избранных ТС или собери готовый коллектив бота: <button data-act=\"pfbot\">🤖 Коллектив бота (10 ТС)</button></div></div>';\n  const rows=pfRows(),g=prepGroup(rows,lo,nD,'none',true),m=metrics(g,nD,stake);m.key='pf';m.by='pf';m.name='🤝 Коллектив ('+mem.length+' ТС)';\n  const marks=new Map();\n  mem.forEach(f=>{pfMemberRows(f,lo,hi).forEach(r=>{const k=r[C.mk]*2+r[C.side];marks.set(k,(marks.get(k)||0)+1);});});\n  h+='<div class=\"bar\" style=\"margin:0 0 6px\"><label class=\"small\"><input type=\"checkbox\" id=\"pf_one\"'+(PF.one?' checked':'')+'> одна сделка на рынок и сторону (если несколько ТС вошли в одно и то же — считаем один раз)</label><label class=\"small\" title=\"Сделка считается открытой, пока деньги заняты: от входа до расчёта рынка (закрытие + ~3 мин). Когда мест нет, новый вход коллектива пропускается.\"><input type=\"checkbox\" id=\"pf_mo\"'+(PF.mo?' checked':'')+'> одновременно открытых сделок не больше <input type=\"number\" id=\"pf_mon\" min=\"1\" value=\"'+PF.mon+'\" style=\"width:60px\"></label>'+(goalOn()?'<span class=\"badge\" title=\"Цель из блока «Дневная цель» наверху: считается для каждой ТС коллектива и сохранится вместе с коллективом\">🎯 цель коллектива: '+esc(goalText(goalSnap()))+'</span>':'<span class=\"mut small\">🎯 цель дня выключена (включи наверху — результат пересчитается и цель сохранится вместе с коллективом)</span>')+'<button data-act=\"pfopen\">Открыть полный разбор</button><button data-act=\"pfsave\" title=\"запомнить этот набор под названием, чтобы потом быстро открывать и смотреть статистику\">💾 Сохранить коллектив</button><button data-act=\"pfbot\" title=\"заменить набор на коллектив бота: 10 ТС, каждая сама по себе, пересекающиеся входы не склеиваются\">🤖 Коллектив бота (10 ТС)</button><button data-act=\"pfcopy\" title=\"текст с точными правилами всех ТС коллектива — чтобы перенести их в бота\">📋 Правила коллектива (скопировать)</button><button data-act=\"pfclear\">Очистить коллектив</button></div>';\n  if(PF.txt)h+='<div class=\"note small\">Правила коллектива (выдели всё и скопируй, если автокопирование не сработало):<br><textarea id=\"pf_txt\" readonly style=\"width:100%;height:220px;font-size:11px\">'+esc(PF.txt)+'</textarea></div>';\n  h+=topTable([m],'pf',{nomedal:true,limit:1,star:false,attrs:()=>' data-act=\"pfopen\"',cum:true,head:''});\n  h+='<div class=\"tw\"><table><thead><tr><th class=\"l ns\">ТС в коллективе</th><th class=\"ns\">сделок</th><th class=\"ns\">побед</th><th class=\"ns\">ROI</th><th class=\"ns\">прибыль</th><th class=\"ns\" title=\"доля её входов, где ещё хотя бы одна ТС коллектива вошла в тот же рынок и сторону\">пересекается с другими</th>'+((goalOn()&&(S.goalP>0||S.goalW>0))||mem.some(f=>{const g=favGoalOf(f);return g&&(g.P>0||g.W>0);})?'<th class=\"ns\" title=\"за сколько в среднем ТС набирает дневную цель (сколько дней из скольких и во сколько)\">цель дня: когда набрана</th>':'')+'<th class=\"ns\" title=\"как изменился бы весь коллектив, если убрать эту ТС\">без неё: $/день · влияние</th><th class=\"ns\"></th></tr></thead><tbody>';\n  const rowsPer=mem.map(f=>pfMemberRows(f,lo,hi)),loo=pfLoo(mem,rowsPer,lo,hi,nD,stake);\n  mem.forEach((f,fi)=>{\n    const a=rowsPer[fi],st=stats(a);let ov=0;a.forEach(r=>{if((marks.get(r[C.mk]*2+r[C.side])||0)>1)ov++;});\n    h+='<tr><td class=\"l\">'+esc(f.name)+'</td><td>'+st.n+'</td><td>'+pct(st.wr)+'</td><td class=\"'+cls(st.roi)+'\">'+sgn(st.roi*100,1)+'%</td><td class=\"'+cls(st.roi)+'\">'+money(st.roi*st.n*stake)+'</td><td>'+(a.length?Math.round(ov/a.length*100)+'%':'—')+'</td>'+pfGoalCell(f,lo,hi)+(loo[fi]?'<td class=\"'+(loo[fi].v==='bad'?'neg':loo[fi].v==='warn'?'':'pos')+'\" style=\"text-align:left\">'+money(loo[fi].wo.usdd)+'/д <span class=\"mut small\">(вклад '+(loo[fi].dU>=0?'+':'−')+'$'+Math.abs(loo[fi].dU).toFixed(2)+'/д)</span><div class=\"small\">'+loo[fi].txt+'</div></td>':'<td>—</td>')+'<td><button class=\"x\" data-act=\"pftog\" data-id=\"'+esc(f.id)+'\" title=\"убрать из коллектива\">×</button></td></tr>';\n  });\n  h+='</tbody></table></div>';\n  {const bad=[],warn=[];loo.forEach((x,i)=>{if(x&&x.v==='bad')bad.push(mem[i].name);else if(x&&x.v==='warn')warn.push(mem[i].name);});\n   if(bad.length)h+='<div class=\"note small\" style=\"margin-top:6px\">🔻 <b>Тянут коллектив вниз</b> (без них $/день выше): '+bad.map(esc).join(', ')+'</div>';\n   if(warn.length)h+='<div class=\"note small\" style=\"margin-top:6px\">⚠️ <b>Ухудшают просадку / худший день:</b> '+warn.map(esc).join(', ')+'</div>';\n   if(!bad.length&&!warn.length&&mem.length>1)h+='<div class=\"mut small\" style=\"margin-top:6px\">✅ Ни одна ТС коллектива явно не тянет его вниз.</div>';\n   if(PF.mo&&CAPINFO)h+='<div class=\"mut small\" style=\"margin-top:4px\">Лимит «одновременно не больше '+CAPINFO.N+'»: из '+CAPINFO.before+' входов пропущено '+(CAPINFO.before-CAPINFO.after)+' ('+(CAPINFO.before?Math.round((CAPINFO.before-CAPINFO.after)/CAPINFO.before*100):0)+'%).</div>';}\n  h+='<div class=\"mut small\" style=\"margin-top:6px\">Если ТС часто входят в одни и те же рынки, они не диверсифицируют друг друга (высокое «пересекается»): тогда польза от коллектива меньше, чем кажется. Дневная цель и режим монеты сверху действуют на каждую ТС отдельно.</div></div>';\n  return h;\n}\nfunction favItems(arr,lo,hi,nD,stake){\n  const items=[];\n  arr.forEach(f=>{\n    let rs=favRowsX(f).filter(r=>{const d=dayOf(r[C.ts]);return d>=lo&&d<=hi;});\n    const g=prepGroup(rs,lo,nD,'none',true);\n    const m=metrics(g,nD,stake);m.key=f.id;m.by='fav';m.name=f.name;m.fav=f;\n    items.push(m);\n  });\n  const sk=S.favSort;\n  if(sk==='usdd')items.sort((a,b)=>b.usdd-a.usdd);\n  else if(sk==='roi')items.sort((a,b)=>b.roi-a.roi);\n  else if(sk==='worst')items.sort((a,b)=>b.worst-a.worst);\n  else if(sk==='smooth')items.sort((a,b)=>((b.seq&&b.seq.smooth)||0)-((a.seq&&a.seq.smooth)||0));\n  return items;\n}\nfunction favTbl(items){\n  return topTable(items,'fav',{nomedal:true,limit:999,attrs:x=>' data-act=\"openfav\" data-id=\"'+esc(x.fav.id)+'\"',sub:x=>favSub(x.fav),cum:true,head:'',extra:x=>'<button class=\"x\" data-act=\"pftog\" data-id=\"'+esc(x.fav.id)+'\" title=\"добавить в «Коллективную работу»\" style=\"'+(PF.ids.indexOf(x.fav.id)>=0?'background:var(--good,#2a7)':'')+'\">🤝</button><button class=\"x\" title=\"переименовать\" data-act=\"favren\" data-id=\"'+esc(x.fav.id)+'\">✎</button><button class=\"x\" title=\"'+(favGoalOf(x.fav)?'цель дня сохранена в этой ТС. Нажми: обновить её текущей целью сверху (если она включена) или убрать':'сохранить в этой ТС текущую цель дня (включи её наверху)')+'\" data-act=\"favgoal\" data-id=\"'+esc(x.fav.id)+'\">🎯</button><button class=\"x\" title=\"в папку\" data-act=\"favfold\" data-id=\"'+esc(x.fav.id)+'\">📁</button><button class=\"x\" title=\"убрать из избранного\" data-act=\"favdel\" data-id=\"'+esc(x.fav.id)+'\">🗑</button>',star:false});\n}\n// папка как ОДИН общий коллектив: все ТС папки (и избранные, и из сохранённых коллективов) со своими настройками папки:\n// одна сделка на рынок, лимит одновременно открытых, дневная цель (цель папки перекрывает общую; у ТС со своей 🎯 — её собственная)\nfunction folderMembers(fd){\n  const seen=new Set(),out=[];\n  const add=f=>{if(f&&!seen.has(f.id)){seen.add(f.id);out.push(f);}};\n  FAVS.forEach(f=>{if(f.folder===fd.id)add(f);});\n  PFS.forEach(q=>{if(q.folder===fd.id)pfsMembers(q).forEach(add);});\n  return out;\n}\nfunction folderRows(fd,lo,hi){\n  let all=[];\n  if(fd.goal===undefined||fd.eachCap){\n    // каждый коллектив считается отдельно: со своими настройками, а если включено «к каждому коллективу» — с лимитом, «одной сделкой» и целью папки\n    PFS.forEach(q=>{if(q.folder===fd.id)all=all.concat(pfsRows(q,lo,hi,fd));});\n    withGoalO(fd.goal,()=>{FAVS.forEach(f=>{if(f.folder===fd.id)all=all.concat(pfMemberRows(f,lo,hi));});});\n  }else{\n    // цель папки задана, лимит общий: она перекрывает цели коллективов и общую (кроме ТС со своей 🎯), считаем все ТС папки заново\n    const g=fd.goal||{},sv={P:S.goalP,L:S.goalL,N:S.goalN,K:S.goalK,W:S.goalW,Z:S.goalZ};\n    S.goalP=g.P||0;S.goalL=g.L||0;S.goalN=g.N||0;S.goalK=g.K||0;S.goalZ=g.Z||0;S.goalW=g.W||0;\n    try{folderMembers(fd).forEach(f=>{all=all.concat(pfMemberRows(f,lo,hi));});}\n    finally{S.goalP=sv.P;S.goalL=sv.L;S.goalN=sv.N;S.goalK=sv.K;S.goalZ=sv.Z;S.goalW=sv.W;}\n  }\n  // если лимит уже применён к каждому коллективу отдельно, общий лимит поверх не накладываем\n  return fd.eachCap?pfFinish(all,false,false,3,true):pfFinish(all,fd.one,fd.mo,fd.mon>0?fd.mon:3,true);\n}\n// ---- ПОЛНЫЙ ЭКСПОРТ ПАПКИ: каждый коллектив считается со СВОИМИ настройками (цель, лимит открытых, одна сделка на рынок) ----\nfunction withGoalO(goalDef,fn){\n  if(goalDef===undefined)return fn();\n  const g=goalDef||{},sv={P:S.goalP,L:S.goalL,N:S.goalN,K:S.goalK,W:S.goalW,Z:S.goalZ};\n  S.goalP=g.P||0;S.goalL=g.L||0;S.goalN=g.N||0;S.goalK=g.K||0;S.goalZ=g.Z||0;S.goalW=g.W||0;\n  try{return fn();}finally{S.goalP=sv.P;S.goalL=sv.L;S.goalN=sv.N;S.goalK=sv.K;S.goalZ=sv.Z;S.goalW=sv.W;}\n}\nfunction colFull(mem,opt,lo,hi,nD,stake){\n  return withGoalO(opt.goal,()=>{\n    const rowsPer=mem.map(f=>pfMemberRows(f,lo,hi));\n    const rows=pfFinish([].concat.apply([],rowsPer),opt.one,opt.mo,opt.mon>0?opt.mon:3,true);\n    const g=prepGroup(rows,lo,nD,'none',true),m=metrics(g,nD,stake),sq=seqInfo(rows,true),dp=depCalc(rows,stake);\n    const o2={one:opt.one,mo:opt.mo,mon:opt.mon>0?opt.mon:3};\n    const loo=mem.length>1?pfLoo(mem,rowsPer,lo,hi,nD,stake,o2):mem.map(()=>null);\n    const gh=mem.map(f=>pfGoalHits(f,lo,hi));\n    return{rows:rows,rowsPer:rowsPer,g:g,m:m,sq:sq,dp:dp,loo:loo,gh:gh};\n  });\n}\nfunction dayStr(d){return new Date(d*86400000).toISOString().slice(0,10);}\nfunction plainTxt(h){return String(h).replace(/<[^>]+>/g,'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>');}\nfunction goalLine(g){return g&&(g.P>0||g.L>0||g.N>0||g.K>0||g.Z>0||g.W>0)?goalText(g):'нет';}\nfunction folderExport(fd){\n  const lr=dayRange(),lo=lr[0],hi=lr[1],nD=hi-lo+1,stake=S.stake;\n  const ps=PFS.filter(q=>q.folder===fd.id),fs=FAVS.filter(f=>f.folder===fd.id);\n  const items=[];\n  ps.forEach(q=>{\n    const mem=pfsMembers(q),opt=fd.eachCap?{one:!!fd.one,mo:!!fd.mo,mon:fd.mon,goal:fd.goal!==undefined?fd.goal:q.goal}:{one:!!q.one,mo:!!q.mo,mon:q.mon,goal:fd.goal!==undefined&&fd.eachCap?fd.goal:q.goal};\n    items.push({name:q.name,kind:'коллектив',mem:mem,opt:opt,res:colFull(mem,opt,lo,hi,nD,stake)});\n  });\n  fs.forEach(f=>{\n    const opt={one:false,mo:false,mon:3,goal:favGoalOf(f)?f.goal:undefined};\n    items.push({name:f.name,kind:'ТС',mem:[f],opt:opt,res:colFull([f],opt,lo,hi,nD,stake)});\n  });\n  // справочник ТС (правила) — один раз\n  const reg=new Map(),regList=[];\n  items.forEach(it=>it.mem.forEach(f=>{if(!reg.has(f.id)){reg.set(f.id,regList.length+1);regList.push(f);}}));\n  const L=[];\n  const now=new Date();\n  L.push('ПОЛНЫЙ ЭКСПОРТ ПАПКИ «'+fd.name+'» · '+now.toISOString().slice(0,16).replace('T',' ')+' UTC');\n  L.push('Период: '+(D&&D.meta?D.meta.periodLabel:'')+' · дней в расчёте: '+nD+' · ставка в расчёте: $'+stake+' на сделку · страница считает по историческим данным лаба (без проскальзывания бота)');\n  L.push((fd.eachCap?'Настройки папки применены К КАЖДОМУ коллективу (вместо его собственных): ':'Настройки папки (применяются только в «Вся папка»): ')+'одна сделка на рынок: '+(fd.one?'да':'нет')+' · лимит одновременно открытых: '+(fd.mo?(fd.mon>0?fd.mon:3):'нет')+' · цель папки: '+(fd.goal===undefined?'нет, у каждого коллектива своя':goalLine(fd.goal)));\n  L.push('Внутри: '+ps.length+' коллектив., '+fs.length+' отдельных ТС, уникальных ТС: '+regList.length);\n  L.push('Каждый коллектив ниже посчитан со СВОИМИ настройками (цель дня, лимит одновременно открытых — деньги заняты до расчёта рынка (закрытие+~3 мин), одна сделка на рынок). Дневная цель считается по закрытым сделкам, день = UTC (00:00 UTC = 07:00 Бангкок).');\n  L.push('');\n  // общий итог папки\n  {const rows=folderRows(fd,lo,hi),g=prepGroup(rows,lo,nD,'none',true),m=metrics(g,nD,stake),st=stats(rows),d=depCalc(rows,stake);\n   L.push('== ВСЯ ПАПКА КАК ОДИН КОЛЛЕКТИВ ==');\n   L.push(st.n+' сделок · побед '+pct(st.wr)+' · '+money(m.usdd)+'/день · макс. просадка −$'+m.dd.toFixed(2)+' · худший день '+money(m.worst)+' · лучший день '+money(m.best)+' · максимум открыто одновременно '+d.peakN+' · депозит ≈ $'+d.minDep.toFixed(2));\n   L.push('');}\n  // рейтинг\n  const rk=items.slice().sort((a,b)=>b.res.m.usdd-a.res.m.usdd);\n  L.push('== СВОДНАЯ ТАБЛИЦА (по $/день) ==');\n  L.push('# | название | ТС | сделок | побед | ср.цена | $/день | всего $ | макс.просадка | худший день | лучший день | дней +/−/пусто | ровность | макс.открыто | депозит | цель | лимит | одна сделка');\n  rk.forEach((it,i)=>{const r=it.res,m=r.m;\n    L.push((i+1)+' | '+it.name+' | '+it.mem.length+' | '+m.n+' | '+pct(m.wr)+' | '+(m.apx||0).toFixed(3)+' | '+money(m.usdd)+' | '+money(m.usd)+' | −$'+m.dd.toFixed(2)+' | '+money(m.worst)+' | '+money(m.best)+' | '+m.plus+'/'+m.minus+'/'+m.empty+' | '+(r.sq.smooth!=null?Math.round(r.sq.smooth*100)+'%':'—')+' | '+r.dp.peakN+' | ≈$'+r.dp.minDep.toFixed(2)+' | '+goalLine(it.opt.goal)+' | '+(it.opt.mo?it.opt.mon:'нет')+' | '+(it.opt.one?'да':'нет'));});\n  L.push('');\n  L.push('== ПОДРОБНО ПО КАЖДОМУ ==');\n  rk.forEach((it,i)=>{\n    const r=it.res,m=r.m,sq=r.sq,dp=r.dp;\n    L.push('');\n    L.push('--- '+(i+1)+'. '+it.name+' ('+it.kind+', '+it.mem.length+' ТС) ---');\n    L.push('Настройки: цель дня: '+goalLine(it.opt.goal)+' · лимит одновременно открытых: '+(it.opt.mo?it.opt.mon:'нет')+' · одна сделка на рынок и сторону: '+(it.opt.one?'да':'нет'));\n    L.push('Итог: '+m.n+' сделок ('+m.tpd.toFixed(1)+'/день) · побед '+pct(m.wr)+' · ср. цена входа '+(m.apx||0).toFixed(3)+' · прибыль '+money(m.usd)+' за '+nD+' дн. = '+money(m.usdd)+'/день · ROI на сделку '+sgn(m.roi*100,2)+'%');\n    L.push('Риск: макс. просадка −$'+m.dd.toFixed(2)+' · худший день '+money(m.worst)+' · лучший день '+money(m.best)+' · дней плюс/минус/пусто: '+m.plus+'/'+m.minus+'/'+m.empty+' · макс. проигрышей подряд '+(m.streak||0)+' · ровность роста '+(sq.smooth!=null?Math.round(sq.smooth*100)+'%':'—')+' · винстрик: чаще '+(sq.wmode||'—')+' подряд, макс '+(sq.wmax||'—')+' · вердикт '+m.verdict);\n    L.push('Деньги: максимум открыто одновременно '+dp.peakN+' ('+tz(dp.peakAt)+') · нужный депозит ≈ $'+dp.minDep.toFixed(2));\n    const dd=[],cu=[];let cum=0;\n    for(let d=0;d<nD;d++){const v=r.g.dRoi[d]*stake;cum+=v;dd.push(dayStr(lo+d).slice(5)+' '+(v>=0?'+':'−')+Math.abs(v).toFixed(2)+' ('+r.g.dN[d]+')');cu.push(dayStr(lo+d).slice(5)+' '+(cum>=0?'+':'−')+Math.abs(cum).toFixed(2));}\n    L.push('По дням ($, сделок): '+dd.join(' | '));\n    L.push('Накопленная ($): '+cu.join(' | '));\n    if(it.mem.length>1||it.kind==='коллектив'){\n      L.push('ТС внутри: [№ в справочнике] название | сделок | побед | ROI | прибыль | цель дня (дней набрана; обычно к какому часу Бангкок) | без неё $/день → вклад');\n      it.mem.forEach((f,fi)=>{\n        const a=r.rowsPer[fi],st=stats(a),lo2=r.loo[fi],gh=r.gh[fi];\n        let gt='—';if(gh){gt=gh.hits.length?(gh.hits.length+'/'+gh.days+' дн., к '+fmtClock(medianOf(gh.hits.map(x=>x.sod)))):'0/'+gh.days;}\n        L.push('  ['+reg.get(f.id)+'] '+f.name+(favGoalOf(f)?' 🎯'+goalText(f.goal):'')+' | '+st.n+' | '+pct(st.wr)+' | '+sgn(st.roi*100,1)+'% | '+money(st.roi*st.n*stake)+' | '+gt+' | '+(lo2?money(lo2.wo.usdd)+'/д → '+(lo2.dU>=0?'+':'−')+Math.abs(lo2.dU).toFixed(2)+' '+plainTxt(lo2.txt).replace(/^[^а-яА-Я]*/,''):'—'));\n      });\n    }\n  });\n  L.push('');\n  L.push('== СПРАВОЧНИК ТС (правила) ==');\n  regList.forEach((f,i)=>{L.push('['+(i+1)+'] '+f.name+(favGoalOf(f)?' · цель '+goalText(f.goal):'')+'\\n    '+plainTxt(favSub(f)));});\n  return L.join('\\n');\n}\nfunction downloadText(name,txt){\n  try{const b=new Blob([txt],{type:'text/plain;charset=utf-8'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1500);return true;}catch(e){return false;}\n}\nlet FOLDTXT={id:null,txt:''};\nfunction folderSummary(fd,lo,hi,nD,stake){\n  const mem=folderMembers(fd);\n  if(!mem.length)return '';\n  const rows=folderRows(fd,lo,hi),g=prepGroup(rows,lo,nD,'none',true),m=metrics(g,nD,stake),st=stats(rows),d=depCalc(rows,stake);\n  return '<div class=\"note small\" style=\"margin:6px 0\"><b>Вся папка как один коллектив</b> ('+mem.length+' ТС; '+(fd.goal===undefined?'у каждого коллектива своя цель и настройки':'цель папки '+(fd.goal?goalText(fd.goal):'—'))+'): '+st.n+' сделок · побед '+pct(st.wr)+' · <b class=\"'+cls(m.usdd)+'\">'+money(m.usdd)+'/день</b> · макс. просадка −$'+m.dd.toFixed(2)+' · худший день '+money(m.worst)+' · максимум открыто одновременно <b>'+d.peakN+'</b> · депозит ≈ $'+d.minDep.toFixed(2)+'</div>';\n}\nfunction folderBar(fd){\n  const id=esc(fd.id);\n  return '<div class=\"bar\" style=\"margin:6px 0 4px\"><label class=\"small\"><input type=\"checkbox\" data-fset=\"one\" data-id=\"'+id+'\"'+(fd.one?' checked':'')+'> одна сделка на рынок и сторону</label>'\n   +'<label class=\"small\"><input type=\"checkbox\" data-fset=\"mo\" data-id=\"'+id+'\"'+(fd.mo?' checked':'')+'> одновременно открытых не больше <input type=\"number\" min=\"1\" data-fset=\"mon\" data-id=\"'+id+'\" value=\"'+(fd.mon>0?fd.mon:3)+'\" style=\"width:60px\"></label>'\n   +'<label class=\"small\" title=\"Если включено: лимит открытых сделок, «одна сделка» (и цель папки, если задана) применяются к КАЖДОМУ коллективу папки отдельно, вместо его собственных. Если выключено: у каждого коллектива свои настройки, а лимит папки — один на всех вместе.\"><input type=\"checkbox\" data-fset=\"each\" data-id=\"'+id+'\"'+(fd.eachCap?' checked':'')+'> лимит к КАЖДОМУ коллективу отдельно</label>'\n   +(fd.goal?'<span class=\"badge\" title=\"цель папки: считается для каждой ТС внутри\">🎯 '+esc(goalText(fd.goal))+'</span><button class=\"x\" data-act=\"foldgoal\" data-id=\"'+id+'\" title=\"обновить текущей целью сверху (если включена) или убрать цель папки\">🎯</button>':'<button class=\"x\" data-act=\"foldgoal\" data-id=\"'+id+'\" title=\"записать в папку текущую цель дня сверху (включи её сначала)\">🎯 цель папки = текущая</button>')\n   +'<button class=\"x\" data-act=\"foldnamegoal\" data-id=\"'+id+'\" title=\"поставить дневную цель из названия: «ТС 1 (0.5X)» → $0.5 в день (только тем, у кого цели нет)\">🎯 цели из названий (0.5X → $0.5)</button>'\n   +'<button class=\"x\" data-act=\"foldexp\" data-id=\"'+id+'\" title=\"скачать файл и показать текст: итог, риск, по дням, накопленная, состав и правила каждого коллектива — считается со всеми настройками каждого коллектива\">📤 Полный экспорт папки</button>'\n   +'<button class=\"x\" data-act=\"foldtest\" data-id=\"'+id+'\" title=\"проверить стопы (после N лоссов за день / подряд) на всех коллективах папки сразу, каждый со своими настройками\">🧪 Проверить стопы на всей папке</button>'\n   +(fd.stopUndo?'<button class=\"x\" data-act=\"foldstopundo\" data-id=\"'+id+'\" title=\"вернуть цели коллективов, как было до последнего «применить стоп ко всей папке»\">↩ отменить стопы папки</button>':'')\n   +'<button class=\"x\" data-act=\"foldtake\" data-id=\"'+id+'\" title=\"записать в папку настройки из блока «Коллективная работа» наверху (одна сделка, лимит открытых, цель дня) и применить их к КАЖДОМУ коллективу папки\">📥 взять настройки сверху</button>'\n   +(fd.undo?'<button class=\"x\" data-act=\"foldundo\" data-id=\"'+id+'\" title=\"вернуть то, что было до последнего «применить ко всем внутри»\">↩️ отменить применение</button>':'')\n   +'<button class=\"x\" data-act=\"foldapply\" data-id=\"'+id+'\" title=\"записать настройки папки (одна сделка, лимит, цель) в каждый коллектив и каждую ТС внутри папки\">⚙️ применить ко всем внутри</button></div>';\n}\nfunction renderFolders(lo,hi,nD,stake){\n  let h='<div class=\"card top\" style=\"margin-top:10px\"><div class=\"th\"><b>📁 Папки</b> <span class=\"mut small\">раскладывай сюда сохранённые коллективы и избранные ТС: нажми 📁 справа у строки и выбери папку (или напиши название новой). Из общих списков выше то, что лежит в папке, убирается.</span> <button data-act=\"foldnew\">＋ Создать папку</button></div>';\n  if(!FOLDERS.length)return h+'<div class=\"mut small\" style=\"padding:6px 2px\">Папок пока нет. Нажми «＋ Создать папку».</div></div>';\n  FOLDERS.forEach(fd=>{\n    const ps=PFS.filter(p=>p.folder===fd.id),fs=FAVS.filter(f=>f.folder===fd.id),op=fd.open!==false;\n    h+='<div class=\"note\" style=\"margin-top:8px\"><div class=\"bar\" style=\"margin:0\"><button class=\"x\" data-act=\"foldtog\" data-id=\"'+esc(fd.id)+'\" title=\"свернуть / развернуть\">'+(op?'▾':'▸')+'</button><b>📁 '+esc(fd.name)+'</b><span class=\"mut small\">'+ps.length+' коллектив., '+fs.length+' ТС</span><button class=\"x\" title=\"переименовать папку\" data-act=\"foldren\" data-id=\"'+esc(fd.id)+'\">✎</button><button class=\"x\" title=\"удалить папку (внутри ничего не удаляется)\" data-act=\"folddel\" data-id=\"'+esc(fd.id)+'\">🗑</button></div>';\n    if(op){\n      h+=folderBar(fd)+folderSummary(fd,lo,hi,nD,stake);\n      if(FOLDTEST.has(fd.id)){const res=stopTest(()=>folderRows(fd,lo,hi),lo,hi,nD,stake);h+='<div class=\"note small\" style=\"margin:6px 0\"><b>🧪 Проверка стопов на всей папке</b> (каждый коллектив со своими настройками; стоп считается каждой ТС отдельно)'+stopTestHtml(res,'foldapplystop',fd.id)+'</div>';}\n      if(FOLDTXT.id===fd.id&&FOLDTXT.txt)h+='<div class=\"note small\">Полный экспорт папки (скачался файлом; если нет — выдели всё в окне и скопируй, и пришли мне):<br><textarea readonly style=\"width:100%;height:260px;font-size:11px\">'+esc(FOLDTXT.txt)+'</textarea></div>';\n      if(!ps.length&&!fs.length)h+='<div class=\"mut small\" style=\"padding:6px 2px\">Пусто: нажми 📁 у коллектива или ТС и выбери эту папку.</div>';\n      if(ps.length)h+='<div class=\"mut small\" style=\"margin:6px 0 2px\">📚 Коллективы</div>'+pfsTable(ps,lo,hi,nD,stake,fd);\n      if(fs.length)h+='<div class=\"mut small\" style=\"margin:6px 0 2px\">⭐ ТС</div>'+favTbl(favItems(fs,lo,hi,nD,stake));\n    }\n    h+='</div>';\n  });\n  return h+'</div>';\n}\nfunction renderFav(){\n  const T=S.top,stake=S.stake;\n  const lr=dayRange(),lo=lr[0],hi=lr[1],nD=hi-lo+1;TOPLO=lo;TOPND=nD;\n  const items=favItems(FAVS.filter(f=>!folderOf(f)),lo,hi,nD,stake);\n  const sk=S.favSort;\n  let h='<div class=\"card hero\"><div class=\"bar\" style=\"margin:0 0 8px\"><b style=\"font-size:17px\">⭐ Избранные</b><span class=\"mut small\">стратегии, которые ты отметил: считаются со своими фильтрами; общий «Период» вверху учитывается</span></div>';\n  h+='<div class=\"bar\" style=\"margin:0\"><label class=\"small\">Ставка, $ <input type=\"number\" id=\"stake\" min=\"1\" value=\"'+stake+'\" style=\"width:70px\"></label>';\n  h+='<label class=\"small\">Сортировка <select id=\"fav_sort\">'+[['manual','как добавлены'],['usdd','по прибыли в день'],['roi','по ROI'],['smooth','по ровности роста'],['worst','по худшему дню']].map(o=>'<option value=\"'+o[0]+'\"'+(sk===o[0]?' selected':'')+'>'+o[1]+'</option>').join('')+'</select></label>';\n  h+='<label class=\"small\"><input type=\"checkbox\" id=\"one\"'+(S.one?' checked':'')+'> один вход на рынок</label>';\n  h+='<label class=\"small\"><input type=\"checkbox\" id=\"tp_trim\"'+(T.trim?' checked':'')+'> не считать неполные крайние дни</label></div>';\n  h+='<div class=\"mut small\" style=\"margin-top:6px\">В расчёте '+nD+' дн. ('+dStr(lo)+' — '+dStr(hi)+', UTC). Чтобы добавить сюда стратегию, нажми ☆ в списке «Лучшие» или ⭐ в карточке стратегии (сохранятся и её фильтры). В браузере избранные запоминаются; чтобы перенести в другой файл страницы, используй экспорт/импорт ниже.</div></div>';\n  h+=renderPf(lo,hi,nD,stake);\n  h+=findCard(lo,hi,nD,stake);h+=csCard(lo,hi,nD,stake);\n  {let last='';try{const t=+localStorage.getItem('lab-bk-last')||0;last=t?new Date(t).toLocaleString('ru-RU'):'ещё не делалась';const old=!t||(Date.now()-t)>3*86400000;h+='<div class=\"bar\" style=\"margin:6px 0\"><button class=\"x\" data-act=\"bkexp\" title=\"скачивает файл со всеми твоими избранными, коллективами, папками и настройками страницы\">💾 Скачать резервную копию избранного</button><button class=\"x\" data-act=\"bkimp\" title=\"вернуть всё из ранее скачанного файла (заменит текущие избранные, коллективы и папки)\">📥 Загрузить из копии</button><input type=\"file\" id=\"bkfile\" accept=\".json,application/json\" style=\"display:none\"><span class=\"small '+(old?'neg':'mut')+'\">последняя копия: '+last+(old?' — избранное хранится только в этом браузере, сделай копию':'')+'</span></div>';}catch(e){}}\n  h+='<div class=\"bar\" style=\"margin:6px 0\"><button class=\"x\" data-act=\"pxfloor\" title=\"ставит нижнюю границу цены входа тем ТС, у которых нет ни нижней, ни верхней\">🧱 Нижняя граница цены для ТС без границ</button><span class=\"mut small\">только ТС, у которых нет ни нижней, ни верхней границы цены; остальные не трогаются</span></div>';\n  h+=renderFolders(lo,hi,nD,stake);\n  if(!FAVS.length)h+='<div class=\"note\">Пока пусто. Открой любую стратегию и нажми «⭐ В избранное».</div>';\n  else if(!items.length)h+='<div class=\"mut small\" style=\"margin:8px 2px\">Все избранные ТС разложены по папкам (блок «📁 Папки» выше).</div>';\n  else{\n    h+='<div class=\"card top\"><div class=\"th\"><b>Сравнение избранных</b> <span class=\"mut small\">клик по строке — полный разбор с графиком накопленной прибыли</span></div>';\n    h+=favTbl(items);\n    h+='</div>';\n  }\n  h+='<div class=\"card\"><details><summary>Экспорт / импорт / сброс</summary><div class=\"bar\"><button data-act=\"favexp\">Показать текст для копирования</button><button data-act=\"favimp\">Загрузить из текста</button><button data-act=\"favreset\">Вернуть стандартные</button></div><textarea id=\"favio\" rows=\"6\" style=\"width:100%;font:12px monospace;background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:8px\" placeholder=\"Здесь появится JSON избранных; вставь сюда JSON и нажми «Загрузить из текста»\"></textarea></details></div>';\n  return h;\n}\n\n// ---------- СОГЛАСИЯ: цепочки стратегий ----------\n// Идея: стратегия A (например, вход по 0.60-0.70) уже купила монету в эту сторону; потом в тот же рынок и в ту же сторону\n// срабатывает стратегия B (например, 0.80-0.90); потом C (0.93-0.98). Покупаем на ПОСЛЕДНЕМ шаге, когда все предыдущие уже были.\nconst bandText=b=>b[0].toFixed(2)+'–'+b[1].toFixed(2);\nconst GCACHE=new WeakMap();\nfunction groupsOf(pool){\n  let g=GCACHE.get(pool);if(g)return g;\n  const m=new Map();\n  for(const r of pool){const k=r[C.mk]*2+r[C.side];let a=m.get(k);if(!a){a=[];m.set(k,a);}a.push(r);}\n  g=[];m.forEach(a=>{a.sort((x,y)=>x[C.ts]-y[C.ts]);g.push(a);});\n  GCACHE.set(pool,g);return g;\n}\nfunction stepPred(st){\n  if(st.kind==='fav'){\n    const f=FAVS.find(x=>x.id===st.favId);\n    if(!f||f.type==='chain')return()=>false;\n    const set=new Set(favRowsRaw(f));\n    return r=>set.has(r);\n  }\n  const lo=(st.lo===null||st.lo===undefined||st.lo==='')?-Infinity:+st.lo,hi=(st.hi===null||st.hi===undefined||st.hi==='')?Infinity:+st.hi;\n  const fam=st.fam||'';\n  return r=>{\n    const p=r[CI.px];\n    if(p<lo-1e-9||p>=hi-1e-9)return false;\n    if(fam&&famOf(D.ideas[r[C.idea]])!==fam)return false;\n    return true;\n  };\n}\nfunction stepText(st){\n  if(st.kind==='fav'){const f=FAVS.find(x=>x.id===st.favId);return f?'«'+f.name+'»':'(избранная удалена)';}\n  return (st.lo===''||st.lo==null?'…':(+st.lo).toFixed(2))+'–'+(st.hi===''||st.hi==null?'…':(+st.hi).toFixed(2))+(st.fam?' ['+st.fam+']':'');\n}\nconst chainLabel=steps=>steps.map(stepText).join(' → ');\nfunction chainCompute(steps,gap,pool){\n  const preds=steps.map(stepPred),groups=groupsOf(pool),last=preds.length-1;\n  const g=(gap===''||gap===null||gap===undefined||!(+gap>0))?Infinity:+gap;\n  const chain=[],base=[],noch=[];\n  if(last<0)return{chain,base,noch};\n  for(const rs of groups){\n    let b=null;\n    for(const r of rs){if(preds[last](r)){b=r;break;}}\n    if(!b)continue;\n    base.push(b);\n    let t=-Infinity,ok=true,fin=null;\n    for(let si=0;si<=last;si++){\n      let hit=null;\n      for(const r of rs){if(si>0&&r[C.ts]<=t)continue;if(preds[si](r)){hit=r;break;}}\n      if(!hit){ok=false;break;}\n      if(si>0&&hit[C.ts]-t>g){ok=false;break;}\n      t=hit[C.ts];fin=hit;\n    }\n    if(ok)chain.push(fin);else noch.push(b);\n  }\n  return{chain:chain,base:base,noch:noch};\n}\nfunction statsRow(label,st,stake){\n  if(!st.n)return '<tr><td class=\"l\">'+label+'</td><td colspan=\"6\" class=\"mut\">нет сделок</td></tr>';\n  return '<tr><td class=\"l\">'+label+'</td><td>'+st.n+'</td><td>'+pct(st.wr)+'</td><td>'+fmt(st.apx,3)+'</td><td class=\"'+cls(st.roi)+'\">'+sgn(st.roi*100,1)+'%</td><td class=\"'+cls(st.roi)+'\">'+money(st.roi*st.n*stake)+'</td><td class=\"l\">'+st.verdict+'</td></tr>';\n}\nfunction renderChain(){\n  const ch=S.ch,stake=S.stake;\n  const pool=rowsF;\n  let h='<div class=\"card hero\"><div class=\"bar\" style=\"margin:0 0 6px\"><b style=\"font-size:17px\">🔗 Согласия: цепочки стратегий</b></div>';\n  h+='<div class=\"small mut\" style=\"margin-bottom:8px\">Ищем случаи, когда в одном рынке и в одну сторону подряд сработали несколько стратегий: например, одна купила по 0.60-0.70, потом другая по 0.80-0.90, потом третья по 0.93-0.98. Покупаем на <b>последнем</b> шаге. Фильтры сверху (монета, период, окно и др.) действуют на все шаги.</div>';\n  ch.steps.forEach((st,i)=>{\n    h+='<div class=\"fl\" data-st=\"'+i+'\"><b>Шаг '+(i+1)+(i===ch.steps.length-1?' (вход)':'')+'</b> <select data-ch=\"kind\"><option value=\"band\"'+(st.kind==='band'?' selected':'')+'>любая стратегия с ценой входа</option><option value=\"fav\"'+(st.kind==='fav'?' selected':'')+'>избранная стратегия</option></select>';\n    if(st.kind==='fav'){\n      h+=' <select data-ch=\"fav\">'+FAVS.filter(f=>f.type!=='chain').map(f=>'<option value=\"'+esc(f.id)+'\"'+(st.favId===f.id?' selected':'')+'>'+esc(f.name)+'</option>').join('')+'</select>';\n    }else{\n      h+=' от <input type=\"number\" step=\"0.01\" data-ch=\"lo\" value=\"'+(st.lo===null||st.lo===undefined?'':st.lo)+'\" style=\"width:76px\"> до <input type=\"number\" step=\"0.01\" data-ch=\"hi\" value=\"'+(st.hi===null||st.hi===undefined?'':st.hi)+'\" style=\"width:76px\"> <span class=\"mut small\">(до — не включая)</span> <select data-ch=\"fam\"><option value=\"\">все семейства</option>'+FAMS.map(f=>'<option value=\"'+esc(f)+'\"'+(st.fam===f?' selected':'')+'>'+esc(f)+'</option>').join('')+'</select>';\n    }\n    h+=(ch.steps.length>1?' <button class=\"x\" data-act=\"chdel\" title=\"убрать шаг\">×</button>':'')+'</div>';\n  });\n  h+='<div class=\"bar\" style=\"margin:8px 0 0\">'+(ch.steps.length<4?'<button data-act=\"chadd\">+ добавить шаг</button>':'')+'<label class=\"small\">Макс. пауза между шагами, с <input type=\"number\" min=\"0\" id=\"ch_gap\" value=\"'+esc(ch.gap)+'\" style=\"width:76px\" placeholder=\"любая\"></label>';\n  h+='<span class=\"mut small\">быстро: </span>'+[[[0.6,0.7],[0.8,0.9]],[[0.6,0.7],[0.8,0.9],[0.93,0.98]],[[0.7,0.8],[0.9,0.95]]].map((p,i)=>'<span class=\"chip\" data-act=\"chpreset\" data-i=\"'+i+'\">'+p.map(b=>b[0].toFixed(2)+'–'+b[1].toFixed(2)).join(' → ')+'</span>').join('')+'</div></div>';\n  // результат конструктора\n  const res=chainCompute(ch.steps,ch.gap,pool);\n  const stC=stats(res.chain),stN=stats(res.noch),stB=stats(res.base);\n  h+='<div class=\"card\"><div class=\"bar\" style=\"margin:0 0 6px\"><b>Результат цепочки: '+esc(chainLabel(ch.steps))+'</b>';\n  if(res.chain.length)h+='<button data-act=\"chopen\">Открыть полный разбор</button><button data-act=\"chfav\">⭐ В избранное</button>';\n  h+='</div>';\n  h+='<div class=\"tw\"><table><thead><tr><th class=\"l ns\">Вариант</th><th class=\"ns\">Сделок</th><th class=\"ns\">Побед</th><th class=\"ns\">Ср. цена</th><th class=\"ns\">ROI</th><th class=\"ns\">Прибыль</th><th class=\"l ns\">Вердикт</th></tr></thead><tbody>';\n  h+=statsRow('<b>С согласием</b> (все шаги сработали)',stC,stake)+statsRow('Последний шаг БЕЗ согласия (раньше ничего не было)',stN,stake)+statsRow('Последний шаг целиком (с согласием и без)',stB,stake);\n  h+='</tbody></table></div>';\n  if(stC.n&&stN.n){\n    const lift=(stC.roi-stN.roi)*100;\n    h+='<div class=\"note small\">'+(lift>2?'<b>Согласие помогает:</b> ROI с согласием выше, чем у того же входа без него, на '+lift.toFixed(1)+' п.п.':(lift<-2?'<b>Согласие не помогает:</b> без него вход даже лучше на '+(-lift).toFixed(1)+' п.п. ROI.':'<b>Заметной разницы нет:</b> ROI с согласием и без почти одинаковый ('+sgn(lift,1)+' п.п.).'))+' Сравнивай и число сделок: если с согласием их стало в разы меньше, прибыль в долларах может упасть.</div>';\n  }\n  if(stC.n>=2)h+=cumChart(res.chain);\n  h+='</div>';\n  return h;\n}\nfunction renderPeriodBar(){\n  const g=PRESET_GROUPS[PRESET_GROUPS.length-1],gi=PRESET_GROUPS.length-1;\n  let h='<div class=\"card\"><div class=\"bar\" style=\"margin:0\"><b>Период</b>'+g.p.map((p,i)=>'<span class=\"chip'+(presetOn(p)?' on':'')+'\" data-act=\"preset\" data-g=\"'+gi+'\" data-i=\"'+i+'\">'+esc(p.t)+'</span>').join('');\n  h+='<label class=\"small\">с <input type=\"date\" id=\"dFrom\" value=\"'+esc(S.dFrom)+'\"></label><label class=\"small\">по <input type=\"date\" id=\"dTo\" value=\"'+esc(S.dTo)+'\"></label><button data-act=\"fclear\">Сбросить период</button></div></div>';\n  return h;\n}\nlet helpOpen=false;\nfunction render(){\n  const m=D.meta;\n  const d0=m.firstTs?new Date(m.firstTs).toLocaleString():'—',d1=m.lastTs?new Date(m.lastTs).toLocaleString():'—';\n  document.getElementById('meta').innerHTML='Период: '+esc(m.periodLabel)+' ('+d0+' — '+d1+') · рынков '+m.markets+' · сделок '+N+(TEMKA.size?' (без «темок»)':'')+(m.sampled?' · <span class=\"neg\">⚠ файл не влез: в странице случайная выборка '+m.rowsEmbedded+(m.trades?' из '+m.trades:'')+' сделок — суммы в $ занижены, проценты примерно верны. Полная версия: «лаб ссылка»</span>':(m.droppedExp?' · в странице <b>все сделки</b> кроме новых «Монета»-идей (убрано '+m.droppedExp+', чтобы влезло)':' · в странице <b>все сделки</b>'))+' · собрано '+new Date(m.generatedAt).toLocaleString();\n  applyFilters();saveHash();\n  for(const k in CUMREG)delete CUMREG[k];cumSeq=0;\n  const ae=document.activeElement,aid=ae&&ae.id;\n  let h=renderFilters();\n  if(helpOpen)h+=renderHelp();\n  if(S.sel)h+=renderDetail();else h+=renderTabs()+(S.tab==='top'?renderTop():S.tab==='fav'?renderFav():S.tab==='chain'?renderChain():S.tab==='combo'?renderCombo():renderTable());\n  document.getElementById('app').innerHTML=h;\n  if(aid){const e=document.getElementById(aid);if(e&&e.focus)e.focus();}\n}\n\n// ---------- панель «Выходы и добор» (минимализм: три независимые строки) ----------\nconst UNITS=[['pct','% от цены входа'],['usd','$ на ставку'],['c','центов']];\nconst UNITS_SL=UNITS.concat([['abs','цена bid, ¢ (продать, когда bid ≤)']]);\nfunction unitSel(id,cur,list){return '<select id=\"'+id+'\">'+(list||UNITS).map(u=>'<option value=\"'+u[0]+'\"'+(u[0]===cur?' selected':'')+'>'+u[1]+'</option>').join('')+'</select>';}\nconst sw=(id,on)=>'<label class=\"swt\"><input type=\"checkbox\" id=\"'+id+'\"'+(on?' checked':'')+'><i></i></label>';\nfunction smartPanel(rs){\n  if(S.sel&&S.sel.flip)return'';\n  if(!exHave())return'';\n  if(entryOn())return'<div class=\"card xp\"><b>Умные условия</b> <span class=\"mut small\">— отключены, пока включён «особый вход»</span></div>';\n  const num=(id,v,mn,mx)=>'<input type=\"number\" id=\"'+id+'\" min=\"'+mn+'\" max=\"'+mx+'\" step=\"1\" value=\"'+v+'\" style=\"width:70px\">';\n  const row=(on,swid,title,hint,body)=>'<div class=\"xr'+(on?' on':'')+'\">'+sw(swid,on)+'<span class=\"xt\">'+title+'</span>'+(on?body:'<span class=\"mut small\">'+hint+'</span>')+'</div>';\n  let h='<div class=\"card xp\"><div class=\"xh\"><b>Умные условия</b><span class=\"mut small\">отдельные галочки: включай любые — кумулятив и статистика пересчитаются</span></div>';\n  h+=row(CR.on,'x_cr_on','Выход при обвале','продать, если цена дошла до верха и резко упала…','<span class=\"small\">если bid дошёл до</span>'+num('x_cr_h',CR.h,2,99)+'<span class=\"small\">¢ и потом упал до</span>'+num('x_cr_l',CR.l,1,98)+'<span class=\"small\">¢ — продать сразу, не ждать проигрыша</span>');\n  h+=row(RE.b.on,'x_rb_on','Вход после выноса','«рост, рост, вынос вниз, потом возврат» — купить на возврате…','<span class=\"small\">цена дошла до</span>'+num('x_rb_p',RE.b.peak,2,99)+'<span class=\"small\">¢, потом упала до</span>'+num('x_rb_l',RE.b.low,1,98)+'<span class=\"small\">¢, потом вернулась до</span>'+num('x_rb_b',RE.b.buy,2,98)+'<span class=\"small\">¢ — купить по этой цене</span>');\n  h+=row(RE.c.on,'x_rc_on','Вход после дна','упала до нижней границы, потом отросла — купить на отскоке…','<span class=\"small\">цена упала до</span>'+num('x_rc_l',RE.c.low,1,98)+'<span class=\"small\">¢, потом отросла до</span>'+num('x_rc_b',RE.c.buy,2,98)+'<span class=\"small\">¢ — купить по этой цене</span>');\n  if(CR.on&&exOn()){\n    let n=0,sv=0,ls=0;for(const r of rs){if(r[XK]==='cr'){n++;if(r[XK+1])ls++;else sv++;}}\n    h+='<div class=\"small\" style=\"margin-top:6px\">Выход при обвале сработал <b>'+n+'</b> раз: спас <b>'+sv+'</b> проигрышей, срезал <b>'+ls+'</b> побед (они бы выиграли).</div>';\n  }\n  if(reOn()){\n    const sig=selRowsNoRe().filter(hasPath),b=stats(sig),n=stats(rs),sb=b.roi*b.n*S.stake,sn=n.roi*n.n*S.stake;\n    h+='<div class=\"xres\"><div><span class=\"mut small\">сигналов по условиям ТС</span><b>'+b.n+'</b></div><div><span class=\"mut small\">условие входа сработало</span><b>'+n.n+' <span class=\"small mut\">('+(b.n?Math.round(n.n/b.n*100):0)+'%)</span></b></div><div><span class=\"mut small\">итог обычным входом</span><b class=\"'+cls(sb)+'\">'+money(sb)+'</b></div><div class=\"xar\">→</div><div><span class=\"mut small\">итог с новым входом</span><b class=\"'+cls(sn)+'\">'+money(sn)+'</b></div></div>';\n    h+='<div class=\"small\" style=\"margin-top:6px\"><label title=\"как в боте: покупаем только если реальный ask не выше уровня покупки + N¢ (по умолчанию 3)\">не покупать, если ask выше уровня больше чем на <input type=\"number\" id=\"ep_gap\" min=\"0\" max=\"99\" value=\"'+REGAP+'\" style=\"width:50px\">¢</label> <label title=\"дополнительный запас сверху к реальному ask. 0 — платим ровно ask\">запас к цене +<input type=\"number\" id=\"ep_xs\" min=\"0\" max=\"20\" value=\"'+REXS+'\" style=\"width:50px\">¢</label></div>';\n    h+='<div class=\"small mut\" style=\"margin-top:6px\">Покупка по цене «возврата» + спред, держим до конца рынка. Можно совмещать со стопом, тейком и обвалом (они считаются от момента покупки). Если сделки в новом входе нет — цена не прошла нужный путь. </div>';\n  }\n  if(CR.on||reOn()){\n    const all=selRowsNoRe();let np=0;for(const r of all)if(hasPath(r))np++;\n    h+='<div class=\"small\" style=\"margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(240,180,60,.12)\"><b>⚠ Точный путь цены есть у '+np+' из '+all.length+' сделок.</b> Эти условия считаются только по ним: нужно знать, что цена делала каждую секунду. '+(reOn()?'Остальные сделки в расчёт «входа после выноса/дна» не берутся. ':'У остальных сделок выход при обвале не применяется. ')+(np<30?'Сделок с путём слишком мало — выводам верить нельзя. ':'')+'Путь цены (bid и ask шагом 2 с) берётся из записи рынков и теперь есть у всех ТС. Если путь пропал — этого рынка нет в записи (старые дни до записи ленты цен): такие сделки честно посчитать нельзя.</div>';\n  }\n  return h+'</div>';\n}\nfunction exPanel(rs){\n  if(entryOn())return'<div class=\"card xp\"><b>Тейк-профит · Стоп · Добор</b> <span class=\"mut small\">— отключены, пока включён «особый вход»</span></div>';\n  if(S.sel&&S.sel.flip)return'<div class=\"card xp\"><div class=\"small mut\">Для перевёрнутой торговли выходы не считаются.</div></div>';\n  if(!exHave())return'<div class=\"card xp\"><b>Тейк-профит · Стоп · Добор</b><div class=\"note warn small\" style=\"margin-top:8px\">В этом файле нет данных о пути цены после входа (нужен LAB v4.4+). Обнови бота и выгрузи страницу заново — старые сделки тоже пересчитаются.</div></div>';\n  const row=(key,title,hint,body)=>'<div class=\"xr'+(X[key].on?' on':'')+'\">'+sw('x_'+key+'_on',X[key].on)+'<span class=\"xt\">'+title+'</span>'+(X[key].on?body:'<span class=\"mut small\">'+hint+'</span>')+'</div>';\n  let h='<div class=\"card xp\"><div class=\"xh\"><b>Тейк-профит · Стоп · Добор</b><span class=\"mut small\">включай что нужно — всё ниже пересчитается</span><span class=\"small\" style=\"margin-left:auto\" title=\"На сколько центов хуже уровня стопа реально продаёшь. Влияет на все расчёты стопов на странице.\"><label title=\"Стоп считается по реальным бидам: берём момент, когда bid дошёл до уровня, и цену bid через N секунд — как продал бы бот. Проскальзывание угадывать не нужно.\">&nbsp;<input type=\"checkbox\" id=\"x_slipauto\"'+(SLIPAUTO?' checked':'')+'> по реальным бидам</label> <span class=\"small\" title=\"Сколько секунд проходит от касания уровня до продажи (бот видит цену, отправляет ордер)\">задержка <input type=\"number\" id=\"x_slipd\" min=\"0\" max=\"30\" step=\"2\" value=\"'+SLIPD+'\" style=\"width:46px\"> с</span> <span class=\"small\" title=\"Работает, только если пути цены нет или галочка выключена: на сколько центов хуже уровня продаём.\">проскальзывание (запасное) <input type=\"number\" id=\"x_slip\" min=\"0\" max=\"50\" step=\"1\" value=\"'+Math.round(SLIP*100)+'\" style=\"width:50px\"> ¢</span></span></div>';\n  h+=row('tp','Тейк-профит','продать, когда прибыль достигла…','<span class=\"small\">продать при прибыли</span><input type=\"number\" id=\"x_tp_v\" min=\"0.5\" step=\"0.5\" value=\"'+X.tp.v+'\">'+unitSel('x_tp_u',X.tp.u));\n  h+=row('sl','Стоп','выйти, когда убыток достиг…','<span class=\"small\">'+(X.sl.u==='abs'?'продать, когда bid ≤':'выйти при убытке')+'</span><input type=\"number\" id=\"x_sl_v\" min=\"0.5\" step=\"0.5\" value=\"'+X.sl.v+'\">'+unitSel('x_sl_u',X.sl.u,UNITS_SL)+'<span class=\"small\" title=\"Если для ТС записан путь цены по секундам: продаём не «уровень минус проскальзывание», а по реальному bid через N секунд после касания. 0 — выключено. Работает только для сделок с записанным путём (бот пишет его недавно); остальные считаются как обычно.\">· по реальному пути, задержка</span><input type=\"number\" id=\"x_sl_lat\" min=\"0\" max=\"30\" step=\"1\" value=\"'+(X.sl.lat||0)+'\" style=\"width:56px\"><span class=\"small\">с</span><label class=\"small\" style=\"margin-left:10px\" title=\"Стоп не срабатывает в первые N секунд после входа: ранние провалы цены чаще всего возвращаются. Если на N-й секунде bid всё ещё ниже уровня стопа — продаём тогда.\"><input type=\"checkbox\" id=\"x_sl_afo\"'+(X.sl.afo?' checked':'')+'> не раньше, чем через</label><input type=\"number\" id=\"x_sl_aft\" min=\"1\" max=\"120\" step=\"1\" value=\"'+X.sl.aft+'\" style=\"width:56px\"><span class=\"small\">с после входа</span><br><label class=\"small\" title=\"Падение бывает медленным (цена сползает, такие сделки чаще выигрывают) и резким (чаще настоящий провал). Если за 5 с до момента, когда токен упал на 10¢/20¢ от входа, bid упал меньше N — стоп НЕ срабатывает, держим до конца. Берётся из колонок fs10/fs20 (нужны свежие данные ЛАБа). Работает для стопов глубже 10¢: у более мелких стопов падение ещё не измерено.\"><input type=\"checkbox\" id=\"x_sl_fs\"'+(X.sl.fs.on?' checked':'')+'> только резкое падение: bid за 5 с упал не меньше</label><input type=\"number\" id=\"x_sl_fsv\" min=\"0\" max=\"1\" step=\"0.05\" value=\"'+X.sl.fs.v+'\" style=\"width:64px\"><span class=\"small\">(0.30 = 30¢)</span><label class=\"small\" style=\"margin-left:10px\" title=\"После касания уровня стопа не продаём по рынку, а ставим продажу на уровне стопа и ждём N секунд: вернулся bid на 1¢ выше уровня — продали по уровню; нет — продаём по рынку (bid минус 2¢). Считается только для сделок с записанным путём по секундам, остальные — обычный стоп.\"><input type=\"checkbox\" id=\"x_sl_rb\"'+(X.sl.rb.on?' checked':'')+'> после касания ждать отката</label><input type=\"number\" id=\"x_sl_rbn\" min=\"1\" max=\"60\" step=\"1\" value=\"'+X.sl.rb.n+'\" style=\"width:56px\"><span class=\"small\">с</span>');\n  let lb='<span class=\"small\">продавать частями, цели от входа:</span>'+unitSel('x_ld_u',X.ld.u)+'<div class=\"xsteps\">',lu=0;\n  X.ld.parts.forEach((q,i)=>{lu+=q.f;lb+='<div class=\"xs\"><input type=\"number\" id=\"x_lf_'+i+'\" min=\"1\" max=\"99\" step=\"5\" value=\"'+q.f+'\" style=\"width:56px\"><span class=\"small\">% акций — когда прибыль</span><input type=\"number\" id=\"x_lv_'+i+'\" min=\"0.5\" step=\"0.5\" value=\"'+q.v+'\"><span class=\"small\">'+({c:'¢',pct:'%',usd:'$'}[X.ld.u]||'')+'</span><button class=\"x\" data-act=\"lddel\" data-i=\"'+i+'\" title=\"убрать\">✕</button></div>';});\n  lb+='<div class=\"small mut\">остаток '+Math.max(0,100-lu)+'% ждёт итога рынка (или стопа, если он включён)</div>'+(X.ld.parts.length<4?'<button class=\"xadd\" data-act=\"ldadd\">+ часть</button>':'')+'</div>';\n  h+=row('ld','Лесенка','продавать частями на нескольких целях, остаток ждёт…',lb);\n  h+=row('tt','Выход у верха','продать, когда bid дошёл до N¢ (не ждать итога рынка)…','<span class=\"small\">продать, когда bid дошёл до</span><input type=\"number\" id=\"x_tt_v\" min=\"50\" max=\"99\" step=\"1\" value=\"'+X.tt.v+'\"><span class=\"small\">¢ (цена в центах, напр. 95)</span>');\n  h+=row('gr','Сетка входа','набирать позицию лимитками ниже цены сигнала…','<span class=\"small\">ступеней</span><input type=\"number\" id=\"x_gr_n\" min=\"2\" max=\"10\" step=\"1\" value=\"'+X.gr.n+'\" style=\"width:56px\"><span class=\"small\">шаг вниз</span><input type=\"number\" id=\"x_gr_s\" min=\"1\" max=\"30\" step=\"1\" value=\"'+X.gr.step+'\" style=\"width:56px\"><span class=\"small\">¢ — первая ступень сразу по сигналу, остальные лимитки ниже; на каждую $'+(S.stake/X.gr.n).toFixed(2)+' ('+X.gr.n+' ступеней = ставка $'+S.stake+', если заполнятся все). Лесенка и добор при включённой сетке не считаются.</span>');\n  let ab='<div class=\"xsteps\">';\n  X.add.steps.forEach((a,i)=>{ab+='<div class=\"xs\" data-xs=\"'+i+'\"><span class=\"small\">когда цена</span><select id=\"x_am_'+i+'\"><option value=\"c\"'+(a.m==='c'?' selected':'')+'>выросла на ¢</option><option value=\"p\"'+(a.m==='p'?' selected':'')+'>дошла до</option></select><input type=\"number\" id=\"x_av_'+i+'\" min=\"1\" max=\"99\" step=\"1\" value=\"'+a.v+'\"><span class=\"small\">'+(a.m==='p'?'(цена в центах, напр. 75)':'¢ от входа')+'</span><span class=\"small\">докупить на $</span><input type=\"number\" id=\"x_au_'+i+'\" min=\"0.5\" step=\"0.5\" value=\"'+a.usd+'\"><button class=\"x\" data-act=\"xdel\" data-i=\"'+i+'\" title=\"убрать\">✕</button></div>';});\n  ab+='<button class=\"xadd\" data-act=\"xadd\">+ заявка</button></div>';\n  h+=row('add','Добор','докупать, когда сделка пошла вверх…',ab);\n  if(exOn()){\n    const base=selRowsPlain(),sb=stats(base),sx=stats(rs),st=S.stake;\n    const a0=sb.roi*sb.n*st,a1=sx.roi*sx.n*st;\n    let tt2=0,ttW=0,ttL=0,ttWv=0,ttLv=0,sl=0,slS=0,slN=0,slV=0,tp=0,tpW=0,tpL=0,tpWv=0,tpLv=0,ad=0;const stp=[];\n    for(const r of rs){\n      const k=r[XK];if(k===undefined||k===null)continue;\n      const was=r[XK+1],dl=r[XI]-r[XK+3];\n      if(k==='sl'){sl++;if(was){slN++;}else slS++;}\n      else if(k==='tt'){tt2++;if(was){ttW++;ttWv+=dl;}else{ttL++;ttLv+=dl;}}\n      else if(k==='tp'){tp++;if(was){tpW++;tpWv+=dl;}else{tpL++;tpLv+=dl;}}\n      const ss=r[XK+2]||[];if(ss.length)ad++;ss.forEach(q=>{const o=stp[q[0]]||(stp[q[0]]={n:0,p:0});o.n++;o.p+=q[1];});\n    }\n    h+='<div class=\"xres\"><div><span class=\"mut small\">без выходов</span><b class=\"'+cls(a0)+'\">'+money(a0)+'</b></div><div class=\"xar\">→</div><div><span class=\"mut small\">с настройками</span><b class=\"'+cls(a1)+'\">'+money(a1)+'</b></div><div><span class=\"mut small\">разница</span><b class=\"'+cls(a1-a0)+'\">'+money(a1-a0)+'</b></div></div>';\n    const bits=[];\n    if(X.tp.on)bits.push('тейк сработал <b>'+tp+'</b> раз (из них <b>'+tpW+'</b> и так выиграли бы — недобрали '+money(tpWv*st)+'; <b>'+tpL+'</b> потом проиграли бы — сохранили '+money(tpLv*st)+')');\n    if(X.tt.on)bits.push('выход у верха сработал <b>'+tt2+'</b> раз (из них <b>'+ttW+'</b> и так выиграли бы — недобрали '+money(ttWv*st)+'; <b>'+ttL+'</b> потом проиграли бы — сохранили '+money(ttLv*st)+')');\n    if(X.gr.on){const cn=new Array(X.gr.n).fill(0);let nn=0;for(const r of rs){const q=r[XK+4];if(q){nn++;q.forEach((v,i)=>{if(v)cn[i]++;});}}bits.push('сетка: заполнено ступеней — '+cn.map((c,i)=>(i+1)+'-я: <b>'+(nn?Math.round(c/nn*100):0)+'%</b>').join(', ')+' сделок');}\n    if(X.ld.on){const cnt=X.ld.parts.map(()=>0);let anyN=0;for(const r of rs){if(r[XK]==='ld'){anyN++;(r[XK+4]||[]).forEach((v,i)=>{if(v)cnt[i]++;});}}bits.push('лесенка: хотя бы одна часть продана в <b>'+anyN+'</b> сделках ('+X.ld.parts.map((q,i)=>'цель '+(i+1)+': <b>'+cnt[i]+'</b>').join(', ')+')');}\n    if(X.sl.on)bits.push('стоп сработал <b>'+sl+'</b> раз (спас <b>'+slS+'</b> проигрышей, выбил шумом <b>'+slN+'</b> побед)');\n    if(X.sl.on&&sl>0){let sd=0,sn=0,bg=0;rs.forEach(r=>{if(r[XK]!=='sl')return;const px=r[CI.px],lv=px-xDist(X.sl.u,X.sl.v,px,S.stake),ex=px*(1+r[XI]);if(!(ex>0))return;const d=lv-ex;sd+=d;sn++;if(d>0.15)bg++;});if(sn)bits.push('стоп продаётся в среднем на <b>'+(sd/sn*100).toFixed(1)+'¢</b> ниже уровня (провалов глубже 15¢: <b>'+bg+'</b> из '+sn+(SLIPAUTO?'; считается по реальным бидам, задержка '+SLIPD+' с':'; проскальзывание '+Math.round(SLIP*100)+'¢')+')');}\n    if(X.add.on)bits.push('добор в <b>'+ad+'</b> сделках'+(X.add.steps.length>1?' ('+X.add.steps.map((a,i)=>'заявка '+(i+1)+': '+((stp[i]&&stp[i].n)||0)).join(', ')+')':''));\n    h+='<div class=\"small\" style=\"margin-top:6px\">'+bits.join(' · ')+'</div>';\n    h+='<div class=\"small mut\" style=\"margin-top:4px\">Считается по bid (по чему реально можно продать); стоп — с проскальзыванием '+Math.round(SLIP*100)+'¢. Если за секунду сработало несколько условий, порядок определяется по записанному времени касания цены. «Побед» и ROI ниже — уже с учётом выходов; Edge и вердикт ✅/❌ в этом режиме не показываются.'+(X.sl.on&&X.sl.afo?' «Не раньше N с» считается по замерам bid (d5…d120) и точному пути, где он записан; окно «Перебор» это условие не учитывает.':'')+'</div>';\n  }\n  return h+'</div>';\n}\nfunction xChange(t){\n  const id=t.id;let m;\n  if(id==='x_en_on'){EN.on=t.checked;}\n  else if(id==='x_opt_on'){OPT.on=t.checked;OPT.res=null;}\n  else if(id==='x_slipauto'){SLIPAUTO=t.checked;OPT.res=null;}\n  else if(id==='x_slipd'){SLIPD=Math.max(0,Math.min(30,Math.floor(+t.value||0)));OPT.res=null;}\n  else if(id==='x_slip'){SLIP=Math.max(0,Math.min(0.5,(+t.value||0)/100));OPT.res=null;}\n  else if(id==='x_sl_fs'){X.sl.fs.on=t.checked;}\n  else if(id==='x_sl_fsv'){X.sl.fs.v=Math.max(0,Math.min(1,+t.value||0));}\n  else if(id==='x_sl_rb'){X.sl.rb.on=t.checked;}\n  else if(id==='x_sl_rbn'){X.sl.rb.n=Math.max(1,Math.min(60,Math.floor(+t.value||10)));}\n  else if(id==='x_sl_afo'){X.sl.afo=t.checked;}\n  else if(id==='x_sl_aft'){X.sl.aft=Math.max(1,Math.min(120,Math.floor(+t.value||30)));}\n  else if(id==='x_sl_lat'){X.sl.lat=Math.max(0,Math.min(30,Math.floor(+t.value||0)));}\n  else if(id==='x_cr_on'){CR.on=t.checked;}\n  else if(id==='x_cr_h'){CR.h=Math.max(2,Math.min(99,+t.value||90));}\n  else if(id==='x_cr_l'){CR.l=Math.max(1,Math.min(98,+t.value||50));}\n  else if(id==='x_rb_on'){RE.b.on=t.checked;}\n  else if(id==='x_rb_p'){RE.b.peak=Math.max(2,Math.min(99,+t.value||85));}\n  else if(id==='x_rb_l'){RE.b.low=Math.max(1,Math.min(98,+t.value||50));}\n  else if(id==='x_rb_b'){RE.b.buy=Math.max(2,Math.min(98,+t.value||80));}\n  else if(id==='x_rc_on'){RE.c.on=t.checked;}\n  else if(id==='x_rc_l'){RE.c.low=Math.max(1,Math.min(98,+t.value||50));}\n  else if(id==='x_rc_b'){RE.c.buy=Math.max(2,Math.min(98,+t.value||85));}\n  else if(id==='x_en_p'){EN.p=Math.max(2,Math.min(98,+t.value||89));}\n  else if(id==='x_en_rl'){EN.rl=t.checked;}\n  else if(id==='x_en_slip'){const v=+t.value;EN.slip=isFinite(v)?Math.max(0,Math.min(10,v)):1;}\n  else if((m=/^x_(tp|sl|add|ld|tt|gr)_on$/.exec(id))){X[m[1]].on=t.checked;}\n  else if((m=/^x_(tp|sl)_v$/.exec(id))){X[m[1]].v=Math.max(0,+t.value||0);}\n  else if((m=/^x_(tp|sl)_u$/.exec(id))){if(m[1]==='sl'){const was=X.sl.u;X.sl.u=t.value;if(t.value==='abs')X.sl.v=58;else if(was==='abs')X.sl.v=t.value==='pct'?28:(t.value==='c'?20:1);}else X[m[1]].u=t.value;}\n  else if(id==='x_tt_v'){X.tt.v=Math.max(50,Math.min(99,+t.value||95));}\n  else if(id==='x_gr_n'){X.gr.n=Math.max(2,Math.min(10,Math.floor(+t.value||5)));}\n  else if(id==='x_gr_s'){X.gr.step=Math.max(1,Math.min(30,Math.floor(+t.value||5)));}\n  else if(id==='x_ld_u'){X.ld.u=t.value;X.ld.parts.forEach(q=>{q.v=X.ld.u==='pct'?(q.v>40?20:q.v):(X.ld.u==='usd'?1:q.v);});}\n  else if((m=/^x_l([fv])_(\\d+)$/.exec(id))){const q=X.ld.parts[+m[2]];if(q){if(m[1]==='f')q.f=Math.max(1,Math.min(99,Math.floor(+t.value||1)));else q.v=Math.max(0.5,+t.value||1);}}\n  else if((m=/^x_a([mvu])_(\\d+)$/.exec(id))){const a=X.add.steps[+m[2]];if(a){if(m[1]==='m'){a.m=t.value;a.v=t.value==='p'?75:10;}else if(m[1]==='v')a.v=Math.max(1,+t.value||1);else a.usd=Math.max(0.5,+t.value||1);}}\n  render();\n}\n// ---------- перебор стопов и тейков ----------\n// Всё считается по тем же правилам, что и обычные стоп/тейк (xSim), только для сотен вариантов сразу.\nfunction optPrep(rs){\n  const a=rs.filter(r=>!isNul(r[CI.mfe])&&!isNul(r[CI.mae])&&!isNul(r[CI.px])).sort((x,y)=>x[C.ts]-y[C.ts]);\n  const n=a.length,P={pa:a.map(r=>denseOf(r)),rows:a,n:n,px:new Float64Array(n),ma:new Float64Array(n),mf:new Float64Array(n),won:new Uint8Array(n),hold:new Float64Array(n),fs10:new Float64Array(n).fill(NaN),fs20:new Float64Array(n).fill(NaN),nfs:0,h:Math.floor(n/2),tot:0,h1:0,h2:0};\n  for(let i=0;i<n;i++){const r=a[i];P.px[i]=r[CI.px];if(CI.fs10!==undefined&&!isNul(r[CI.fs10]))P.fs10[i]=r[CI.fs10];if(CI.fs20!==undefined&&!isNul(r[CI.fs20])){P.fs20[i]=r[CI.fs20];P.nfs++;}P.ma[i]=r[CI.mae];P.mf[i]=r[CI.mfe];P.won[i]=r[C.won]?1:0;P.hold[i]=(P.won[i]-P.px[i])/P.px[i];if(i<P.h)P.h1+=P.hold[i];else P.h2+=P.hold[i];P.tot+=P.hold[i];}\n  {const A=oaNew();for(let i=0;i<n;i++)oaAdd(A,P.hold[i]);P.hs=oaFin(A);}\n  return P;\n}\nfunction optGrid(kind,st,light){\n  const g=[],cmax=light?40:(kind==='sl'?60:40);\n  for(let v=light?2:1;v<=cmax;v++)g.push({u:'c',v:v});\n  if(kind==='sl')for(let v=40;v<=85;v+=(light?5:1))g.push({u:'abs',v:v});\n  for(let v=light?5:2;v<=(kind==='sl'?(light?60:90):100);v+=(light?5:2))g.push({u:'pct',v:v});\n  if(!light){const step=st<=10?0.25:Math.round(st/20*100)/100,top=kind==='sl'?st:st*2;for(let v=step;v<=top+1e-9;v+=step)g.push({u:'usd',v:Math.round(v*100)/100});}\n  return g;\n}\n// показатели варианта по порядку сделок: винрейт, ровность роста (R² кумулятивной), макс. просадка, худшая сделка, проигрышей подряд\nfunction oaNew(){return{n:0,sx:0,sy:0,sxx:0,syy:0,sxy:0,cum:0,pk:0,dd:0,w:0,mn:0,lc:0,lm:0};}\nfunction oaAdd(a,p){const i=a.n++;a.cum+=p;a.sx+=i;a.sy+=a.cum;a.sxx+=i*i;a.syy+=a.cum*a.cum;a.sxy+=i*a.cum;if(a.cum>a.pk)a.pk=a.cum;const d=a.pk-a.cum;if(d>a.dd)a.dd=d;if(p>1e-9){a.w++;a.lc=0;}else{a.lc++;if(a.lc>a.lm)a.lm=a.lc;}if(p<a.mn)a.mn=p;}\nfunction oaFin(a){const n=a.n;let sm=0;if(n>=10){const num=n*a.sxy-a.sx*a.sy,den=(n*a.sxx-a.sx*a.sx)*(n*a.syy-a.sy*a.sy);sm=(den>1e-12&&num>0)?(num*num)/den:0;}return{wr:n?a.w/n:0,sm:sm,dd:a.dd,mn:a.mn,lmax:a.lm};}\n// «только резкое падение»: стоп пропускаем, если bid за 5 с до просадки −10¢/−20¢ упал меньше T (медленное падение — держим)\n// важно: фильтр берёт только то, что УЖЕ известно в момент стопа: стоп глубже 20¢ — падение до −20¢, глубже 10¢ — до −10¢; для стопов мельче 10¢ фильтра нет (он бы подсматривал вперёд)\nfunction fsSkip(P,i,s,T){if(!(T>0))return false;let v;if(s>=0.2-1e-9)v=P.fs20[i];else if(s>=0.1-1e-9)v=P.fs10[i];else return false;return v===v&&v<T-1e-9;}\nfunction fsOk(g,st){return g.u==='c'?g.v>=10:g.u==='pct'?g.v>=13:g.u==='usd'?g.v>=0.125*st:g.u==='abs'?g.v<=72:false;}\nconst FST=[0.15,0.2,0.25,0.3,0.35,0.4,0.5];\n// по какой цене продалось бы: первое касание уровня по пути bid (шаг 2 с), продажа через SLIPD с по тогдашнему bid (FAK по лучшему bid)\nfunction autoExit(a,lv){\n  let j=-1;for(let q=0;q<a.length;q++){const b=a[q];if(b!==null&&b>=0&&b/100<=lv+1e-9){j=q;break;}}\n  if(j<0)return null;\n  let k=Math.min(a.length-1,j+Math.round(SLIPD/2));\n  while(k>j&&(a[k]===null||a[k]<0))k--;\n  return Math.max(0.01,a[k]/100);\n}\nfunction exP(P,i,px,s){\n  if(SLIPAUTO&&P.pa&&P.pa[i]){const e=autoExit(P.pa[i],px-s);if(e!==null)return e;}\n  return Math.max(0.01,px-s-SLIP);\n}\nfunction optStop(P,u,v,st,T){\n  let tot=0,h1=0,h2=0,hits=0;const A=oaNew();\n  for(let i=0;i<P.n;i++){\n    const px=P.px[i],s=xDist(u,v,px,st);let p=P.hold[i];\n    if(s>0&&px-s>0.02&&P.ma[i]<=-s+1e-9&&!fsSkip(P,i,s,T)){p=(exP(P,i,px,s)-px)/px;hits++;}\n    tot+=p;if(i<P.h)h1+=p;else h2+=p;oaAdd(A,p);\n  }\n  return Object.assign({u:u,v:v,fs:T||0,tot:tot,h1:h1,h2:h2,hits:hits},oaFin(A));\n}\nfunction optTake(P,u,v,st){\n  let tot=0,h1=0,h2=0,hits=0;const A=oaNew();\n  for(let i=0;i<P.n;i++){\n    const px=P.px[i],g=xDist(u,v,px,st);let p=P.hold[i];\n    if(g>0&&px+g<=0.995&&P.mf[i]>=g-1e-9){p=g/px;hits++;}\n    tot+=p;if(i<P.h)h1+=p;else h2+=p;oaAdd(A,p);\n  }\n  return Object.assign({u:u,v:v,tot:tot,h1:h1,h2:h2,hits:hits},oaFin(A));\n}\nfunction optCombos(P,sl,tk,st){\n  const out=[];\n  const nS=sl.length,nT=tk.length;\n  const sv=[],tv=[],sA=[],tA=[];\n  for(let j=0;j<nS;j++){const a=new Float64Array(P.n),t=new Float64Array(P.n);for(let i=0;i<P.n;i++){const px=P.px[i],s=xDist(sl[j].u,sl[j].v,px,st);if(s>0&&px-s>0.02&&P.ma[i]<=-s+1e-9&&!fsSkip(P,i,s,sl[j].fs)){a[i]=s;t[i]=tLevel(P.rows[i],'dn',DNL,s*100);}else{a[i]=0;t[i]=Infinity;}}sA.push(a);sv.push(t);}\n  for(let k=0;k<nT;k++){const a=new Float64Array(P.n),t=new Float64Array(P.n);for(let i=0;i<P.n;i++){const px=P.px[i],g=xDist(tk[k].u,tk[k].v,px,st);if(g>0&&px+g<=0.995&&P.mf[i]>=g-1e-9){a[i]=g;t[i]=tLevel(P.rows[i],'tp',UPL,g*100);}else{a[i]=0;t[i]=Infinity;}}tA.push(a);tv.push(t);}\n  for(let j=0;j<nS;j++)for(let k=0;k<nT;k++){\n    let tot=0,h1=0,h2=0,hits=0;const A=oaNew();\n    for(let i=0;i<P.n;i++){\n      const px=P.px[i];let p=P.hold[i];\n      const sh=sA[j][i]>0,th=tA[k][i]>0;\n      if(sh&&th){\n        if(tv[k][i]<sv[j][i]){p=tA[k][i]/px;}else{p=(exP(P,i,px,sA[j][i])-px)/px;}hits++;\n      }else if(sh){p=(exP(P,i,px,sA[j][i])-px)/px;hits++;}\n      else if(th){p=tA[k][i]/px;hits++;}\n      tot+=p;if(i<P.h)h1+=p;else h2+=p;oaAdd(A,p);\n    }\n    out.push(Object.assign({u:sl[j].u,v:sl[j].v,fs:sl[j].fs||0,tu:tk[k].u,tv:tk[k].v,tot:tot,h1:h1,h2:h2,hits:hits},oaFin(A)));\n  }\n  return out;\n}\nfunction optTopFam(list,per){\n  const by={};list.forEach(x=>{const k=x.u+(x.fs>0?'f':'');(by[k]=by[k]||[]).push(x);});\n  let out=[];for(const k in by){by[k].sort((a,b)=>b.tot-a.tot);out=out.concat(by[k].slice(0,per));}\n  return out;\n}\nfunction optRun(rs,st){\n  const P=optPrep(rs);\n  if(P.n<20)return{P:P,n:P.n,small:true,st:st};\n  const stops=[];optGrid('sl',st).forEach(g=>{stops.push(optStop(P,g.u,g.v,st,0));if(P.nfs>=20&&fsOk(g,st))FST.forEach(T=>stops.push(optStop(P,g.u,g.v,st,T)));});\n  const takes=optGrid('tp',st).map(g=>optTake(P,g.u,g.v,st));\n  const combos=optCombos(P,optTopFam(stops,6),optTopFam(takes,6),st);\n  return{P:P,n:P.n,nfs:P.nfs,st:st,stops:stops,takes:takes,combos:combos,hold:{tot:P.tot,h1:P.h1,h2:P.h2}};\n}\nfunction optTxt(x,kind){const f=(u,v)=>u==='c'?v+'¢':(u==='pct'?v+'%':'$'+v);const sf=x=>(x.u==='abs'?'стоп: bid ≤ '+x.v+'¢':'стоп −'+f(x.u,x.v))+(x.fs>0?' + только резкое падение ≥'+x.fs.toFixed(2):'');if(x.tu)return sf(x)+' + тейк +'+f(x.tu,x.tv);const k=kind||OPT.tab;return k==='tp'?'тейк +'+f(x.u,x.v):sf(x);}\nfunction optDiv(sorted){\n  const near=(x,y)=>{\n    if(x.u!==y.u||(x.tu||'')!==(y.tu||'')||((x.fs>0)!==(y.fs>0)))return false;\n    const c=(a,b)=>Math.abs(a-b)<=Math.max(1,0.2*Math.max(a,b));\n    if(!c(x.v,y.v))return false;\n    if(x.tu&&!c(x.tv,y.tv))return false;\n    if(x.fs>0&&Math.abs(x.fs-y.fs)>0.1+1e-9)return false;\n    return true;\n  };\n  const out=[];for(const x of sorted){if(!out.some(y=>near(x,y)))out.push(x);}return out;\n}\nfunction optTabsHtml(){let h='';[['sl','Стопы'],['tp','Тейки'],['cb','Комбинации'],['dip','Вход после дна'],['vyn','Вход после выноса'],['crash','Выход при обвале']].forEach(t=>{h+='<button data-act=\"opttab\" data-t=\"'+t[0]+'\"'+(OPT.tab===t[0]?' class=\"on\"':'')+'>'+t[1]+'</button>';});return h;}\n// ===== ПОДБОР ФИЛЬТРОВ (как в старой версии страницы): правила ищутся на первых 60% сделок (по времени), проверяются на последних 40%, которые поиск не видел =====\nfunction ruleText(r){\n  return r.conds.map(c=>{const nf=NUMF_BY[c.col];const d=nf?nf.d:2;const lab=nf?nf.label:c.col;\n    if(c.lo!==null&&c.hi!==null){return c.lo===c.hi?lab+' = '+fmt(c.lo,d):lab+' от '+fmt(c.lo,d)+' до '+fmt(c.hi,d);}\n    return c.lo!==null?lab+' ≥ '+fmt(c.lo,d):lab+' ≤ '+fmt(c.hi,d);}).join('  И  ');\n}\nfunction autoFit(rs,opt){\n  opt=opt||{};\n  const s=rs.slice().sort((a,b)=>a[C.ts]-b[C.ts]);\n  const n=s.length;\n  if(n<150)return{err:'Слишком мало сделок для подбора (нужно хотя бы 150, сейчас '+n+'). Ослабь фильтры.'};\n  const cut=Math.floor(n*0.6);\n  const won=new Uint8Array(n),roi=new Float64Array(n);\n  for(let i=0;i<n;i++){won[i]=s[i][C.won];roi[i]=roiOf(s[i]);}\n  const feats=[];\n  for(const f of NUMF){\n    if(f.col==='mfe'||f.col==='mae')continue; // знание задним числом — в подбор не берём\n    const ci=CI[f.col];if(ci===undefined)continue;const v=new Float64Array(n);let nn=0;const uniq=new Set();\n    for(let i=0;i<n;i++){const x=s[i][ci];if(x===null||x===undefined){v[i]=NaN;}else{v[i]=x;nn++;if(uniq.size<=40)uniq.add(x);}}\n    if(nn<n*0.5||uniq.size<2)continue;\n    if(f.col==='px'&&opt.skipPx)continue;\n    feats.push({col:f.col,v});\n  }\n  const cands=[];\n  for(const f of feats){\n    const vals=[];for(let i=0;i<cut;i++)if(!isNaN(f.v[i]))vals.push(f.v[i]);\n    vals.sort((a,b)=>a-b);if(vals.length<60)continue;\n    const q=p=>vals[Math.min(vals.length-1,Math.floor(p*vals.length))];\n    const qs=[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9].map(q);\n    const uq=[...new Set(qs)];\n    const few=new Set(vals.slice(0,5000)).size<=8;\n    if(few){const u=[...new Set(vals)].sort((a,b)=>a-b);u.forEach(x=>{cands.push({col:f.col,lo:x,hi:x});});for(let j=1;j<u.length;j++){cands.push({col:f.col,lo:u[j],hi:null});cands.push({col:f.col,lo:null,hi:u[j-1]});}}\n    else{\n      uq.forEach(t=>{cands.push({col:f.col,lo:t,hi:null});cands.push({col:f.col,lo:null,hi:t});});\n      const b5=[0,0.2,0.4,0.6,0.8,1].map(p=>p===1?vals[vals.length-1]:q(p));\n      for(let a=0;a<5;a++)for(let b=a+1;b<=5;b++){if(a===0&&b===5)continue;if(a===0||b===5)continue;cands.push({col:f.col,lo:b5[a],hi:b5[b]});}\n    }\n  }\n  const FM={};feats.forEach(f=>{FM[f.col]=f.v;});\n  const mask=(conds,from,to)=>{\n    const m=new Uint8Array(to-from);\n    for(let i=from;i<to;i++){let ok=1;for(let j=0;j<conds.length;j++){const c=conds[j],x=FM[c.col][i];if(x!==x||(c.lo!==null&&x<c.lo)||(c.hi!==null&&x>c.hi)){ok=0;break;}}m[i-from]=ok;}\n    return m;\n  };\n  const evalM=(m,from)=>{let k=0,w=0,r=0,r2=0;for(let i=0;i<m.length;i++)if(m[i]){k++;w+=won[from+i];const x=roi[from+i];r+=x;r2+=x*x;}const mean=k?r/k:0,sd=k>1?Math.sqrt(Math.max(0,(r2-k*mean*mean)/(k-1))):0;return{n:k,w,roi:mean,z:(k>1&&sd>0)?mean/(sd/Math.sqrt(k)):0};};\n  const minTr=Math.max(40,Math.floor(cut*0.06)),minTe=Math.max(20,Math.floor((n-cut)*0.06));\n  let tested=0;\n  const singles=[];\n  for(const c of cands){\n    const conds=[c];tested++;\n    const e=evalM(mask(conds,0,cut),0);\n    if(e.n<minTr)continue;\n    if(e.roi>0&&e.z>=1.5)singles.push({conds,tr:e});\n  }\n  singles.sort((a,b)=>b.tr.z-a.tr.z);\n  const top=[],seen={};\n  for(const x of singles){const k=x.conds[0].col;if((seen[k]||0)>=2)continue;seen[k]=(seen[k]||0)+1;top.push(x);if(top.length>=14)break;}\n  const combined=singles.slice(0,60);\n  for(let i=0;i<top.length;i++)for(let j=i+1;j<top.length;j++){\n    if(top[i].conds[0].col===top[j].conds[0].col)continue;\n    const conds=[top[i].conds[0],top[j].conds[0]];tested++;\n    const e=evalM(mask(conds,0,cut),0);\n    if(e.n<minTr)continue;\n    if(e.roi>0&&e.z>=1.5)combined.push({conds,tr:e});\n  }\n  combined.sort((a,b)=>b.tr.z-a.tr.z);\n  const picked=[];\n  for(const x of combined){\n    const key=x.conds.map(c=>c.col).sort().join('+');\n    let same=0;for(const p of picked){if(p.key===key)same++;}\n    if(same>=1)continue;x.key=key;picked.push(x);if(picked.length>=12)break;\n  }\n  const base=evalM(new Uint8Array(cut).fill(1),0),baseTe=evalM(new Uint8Array(n-cut).fill(1),cut);\n  const out=picked.map(x=>{\n    const te=evalM(mask(x.conds,cut,n),cut);\n    const all=evalM(mask(x.conds,0,n),0);\n    let ap=0,k=0;const am=mask(x.conds,0,n);for(let i=0;i<n;i++){if(am[i]){ap+=s[i][CI.px];k++;}}\n    const wl=wilson(all.w,all.n),apx=k?ap/k:0;\n    let status;\n    if(te.n<minTe)status='мало данных на проверке';\n    else if(Math.abs(te.roi-baseTe.roi)<0.002&&te.n>=0.8*baseTe.n)status='ничего не добавляет (как без правила)';\n    else if(te.roi>0&&te.roi<=baseTe.roi)status='не лучше, чем без правила';\n    else if(te.roi>0&&wl[0]>apx)status='держится ✅';\n    else if(te.roi>0)status='держится, но не доказано ⚠️';\n    else status='не держится ❌';\n    return{conds:x.conds,tr:x.tr,te,all,apx,lo:wl[0],status,baseRoi:baseTe.roi};\n  });\n  const sel=out.filter(o=>o.te.n>=minTe),holds=sel.filter(o=>o.te.roi>o.baseRoi+0.002).length;\n  const kit=fitSteps(s,s[cut][C.ts],Math.max(30,Math.ceil(n*0.25)));\n  return{out,tested,base,baseTe,nTrain:cut,nTest:n-cut,selected:sel.length,holds,minTr,minTe,steps:kit.steps,singles:kit.singles,kbase:kit.base,tab:'set',pick:kit.steps.map(()=>true)};\n}\n\nfunction fitBest(R,tcut,used,minKeep){\n  const out=[];\n  for(const f of NUMF){\n    if(f.col==='mfe'||f.col==='mae'||used.has(f.col)||CI[f.col]===undefined)continue;\n    const ci=CI[f.col],a=[];\n    for(const r of R){const v=r[ci];if(v!==null&&v!==undefined&&v===v)a.push([v,roiOf(r),r[C.ts]<tcut?1:0]);}\n    const m=a.length;\n    if(m<minKeep)continue;\n    a.sort((x,y)=>x[0]-y[0]);\n    if(a[0][0]===a[m-1][0])continue;\n    const ptr=new Float64Array(m+1),pte=new Float64Array(m+1),ntr=new Int32Array(m+1);\n    for(let i=0;i<m;i++){ptr[i+1]=ptr[i]+(a[i][2]?a[i][1]:0);pte[i+1]=pte[i]+(a[i][2]?0:a[i][1]);ntr[i+1]=ntr[i]+a[i][2];}\n    const Q=20,qv=[];for(let q=0;q<=Q;q++)qv.push(a[Math.min(m-1,Math.round(q/Q*(m-1)))][0]);\n    const lb=v=>{let lo=0,hi=m;while(lo<hi){const md=(lo+hi)>>1;if(a[md][0]<v)lo=md+1;else hi=md;}return lo;};\n    const ub=v=>{let lo=0,hi=m;while(lo<hi){const md=(lo+hi)>>1;if(a[md][0]<=v)lo=md+1;else hi=md;}return lo;};\n    let best=null;\n    for(let qa=0;qa<=Q;qa++)for(let qb=qa;qb<=Q;qb++){\n      if(qa===0&&qb===Q)continue;\n      const i0=qa===0?0:lb(qv[qa]),i1=qb===Q?m:ub(qv[qb]);\n      const keep=i1-i0;if(keep<minKeep)continue;\n      const nTr=ntr[i1]-ntr[i0];if(nTr<10)continue;\n      const sTr=ptr[i1]-ptr[i0];\n      if(!best||sTr>best.sTr)best={col:f.col,lo:qa===0?null:qv[qa],hi:qb===Q?null:qv[qb],sTr:sTr,sTe:pte[i1]-pte[i0],n:keep,nTr:nTr,nTe:keep-nTr};\n    }\n    if(best)out.push(best);\n  }\n  out.sort((x,y)=>y.sTr-x.sTr);\n  return out;\n}\nconst fitIn=(r,f)=>{const v=r[CI[f.col]];return v!==null&&v!==undefined&&v===v&&(f.lo===null||v>=f.lo)&&(f.hi===null||v<=f.hi);};\nfunction fitSteps(s,tcut,minKeep,noSingles){\n  const sum=(R,tr)=>{let a=0,c=0;for(const r of R){if((r[C.ts]<tcut)===tr){a+=roiOf(r);c++;}}return{s:a,c:c};};\n  const b0=sum(s,true),b1=sum(s,false);\n  const base={n:s.length,sTr:b0.s,nTr:b0.c,sTe:b1.s,nTe:b1.c};\n  const singles=noSingles?[]:fitBest(s,tcut,new Set(),minKeep).filter(x=>x.sTr>b0.s+1e-9).slice(0,10);\n  const steps=[],used=new Set();let R=s,cur=b0.s;\n  for(let k=0;k<3;k++){\n    const c=fitBest(R,tcut,used,minKeep).filter(x=>x.sTr>cur+1e-9);\n    if(!c.length)break;\n    const f=c[0];used.add(f.col);R=R.filter(r=>fitIn(r,f));cur=f.sTr;\n    const a=sum(R,true),b=sum(R,false);\n    steps.push({col:f.col,lo:f.lo,hi:f.hi,n:R.length,sTr:a.s,nTr:a.c,sTe:b.s,nTe:b.c});\n  }\n  return{steps:steps,singles:singles,base:base};\n}\n// вывод по результату на проверке: [значок, класс, подсказка]\nfunction fitVerdict(x,base){\n  const te=x.nTe?x.sTe/x.nTe:0,bte=base.nTe?base.sTe/base.nTe:0;\n  if(x.nTe<8)return['❔','fv-n','слишком мало сделок на проверке'];\n  if(te>bte&&x.sTe>0)return['✅ держится','fv-g','на проверке лучше, чем без фильтра, и в плюсе'];\n  if(te>bte)return['⚠️ спорно','fv-w','на проверке лучше, чем без фильтра, но всё ещё в минусе'];\n  return['❌ подгонка','fv-b','на проверке не лучше, чем без фильтра'];\n}\nfunction fitApplyConds(list){\n  list.forEach(c=>{S.flt=S.flt.filter(x=>!(x.t==='num'&&x.col===c.col));S.flt.push({t:'num',col:c.col,lo:c.lo,hi:c.hi});});\n  S.fit=null;applyFilters();render();\n}\nfunction fitSelKey(){return S.sel?String(S.sel.key)+'|'+(S.sel.favId||'')+'|'+(S.sel.flip?1:0):'';}\nfunction renderFit(rs){\n  if(S.sel&&S.sel.flip)return'';\n  if(!S.fit||S.fit.selKey!==fitSelKey())return '<div class=\"card xp\"><div class=\"bar\" style=\"margin:0\"><button class=\"pri\" data-act=\"fit\">🧠 Подобрать фильтры для этой стратегии</button><span class=\"mut small\">ищет условия (цена, секунды, z, биржи, спред…), при которых результат лучше, и проверяет их на сделках, которые при поиске не использовались</span></div></div>';\n  const f=S.fit,st=S.stake;\n  if(f.err)return '<div class=\"card xp\"><div class=\"note warn\">'+esc(f.err)+'</div><div class=\"bar\"><button data-act=\"fitclear\">Закрыть</button></div></div>';\n  const d=x=>money(x*st);\n  const cell=(s,c)=>c?'<td class=\"'+cls(s)+'\"><b>'+d(s)+'</b><div class=\"mut small\" style=\"font-weight:400\">'+c+' сд. · '+(s>=0?'+':'−')+Math.abs(s/c*100).toFixed(1)+'% на сд.</div></td>':'<td class=\"mut\">—</td>';\n  const badge=v=>'<span class=\"fvb '+v[1]+'\" title=\"'+esc(v[2])+'\">'+v[0]+'</span>';\n  const kb=f.kbase;\n  let h='<style>.fvb{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap;border:1px solid var(--line)}.fv-g{background:rgba(76,195,138,.16);color:var(--good)}.fv-w{background:rgba(224,176,74,.16);color:var(--warn)}.fv-b{background:rgba(242,118,109,.14);color:var(--bad)}.fv-n{background:var(--chip);color:var(--mut)}.fvtabs{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 8px}.fvtabs button{border-radius:999px}.fvtabs button .c{opacity:.7;margin-left:4px}</style>';\n  h+='<div class=\"card xp\"><div class=\"bar\" style=\"margin:0 0 8px\"><b style=\"font-size:15px\">🧠 Подбор фильтров</b><button data-act=\"fitclear\" style=\"margin-left:auto\">Закрыть</button></div>';\n  h+='<div class=\"kpis\" style=\"grid-template-columns:repeat(auto-fill,minmax(170px,1fr))\">'\n    +'<div class=\"kpi\"><b>'+kb.n+'</b><span>сделок в расчёте</span></div>'\n    +'<div class=\"kpi\"><b class=\"'+cls(kb.sTr)+'\">'+d(kb.sTr)+'</b><span>без фильтров · подбор (первые '+kb.nTr+')</span></div>'\n    +'<div class=\"kpi\"><b class=\"'+cls(kb.sTe)+'\">'+d(kb.sTe)+'</b><span>без фильтров · проверка (последние '+kb.nTe+')</span></div>'\n    +'<div class=\"kpi\"><b>'+f.tested+'</b><span>вариантов проверено</span></div></div>';\n  h+='<div class=\"note warn small\">Фильтры ищутся на первых 60% сделок по времени, а проверяются на последних 40%, которых поиск не видел. Верь только <b>✅ держится</b> (на проверке лучше обычного и в плюсе). Если большая часть находок ❌ — это подгонка под прошлое: среди сотен вариантов «удачные» находятся всегда. Расчёт идёт с учётом включённых выше стопов, тейков и входов.</div>';\n  const tabs=[['set','⭐ Лучший набор',f.steps.length],['rules','🧩 Правила (1–2 условия)',f.out.length],['single','🔎 Одиночные фильтры',f.singles.length]];\n  h+='<div class=\"fvtabs\">'+tabs.map(t=>'<button data-act=\"fittab\" data-t=\"'+t[0]+'\"'+(f.tab===t[0]?' class=\"on\"':'')+'>'+t[1]+'<span class=\"c\">'+t[2]+'</span></button>').join('')+'</div>';\n  if(S.sel&&(S.sel.favId||S.sel.rows))h+='<div class=\"small mut\" style=\"margin:0 0 6px\">Это избранная ТС со своими фильтрами: «Применить» добавит условия в блок «Фильтры» сверху, и они сразу начнут действовать и на эту ТС.</div>';\n  if(f.tab==='set'){\n    if(!f.steps.length)return h+'<div class=\"mut small\" style=\"padding:6px 2px\">Ни один фильтр не улучшил результат на сделках подбора — тут нечего «подкрутить».</div></div>';\n    h+='<div class=\"small mut\" style=\"margin:0 0 6px\">Алгоритм берёт лучший фильтр, потом лучший второй поверх него, потом третий. Галочками можно оставить только нужные.</div>';\n    h+='<div class=\"tw\"><table><thead><tr><th class=\"ns\"></th><th class=\"l ns\">Шаг · фильтр</th><th class=\"ns\">сделок после</th><th class=\"ns\">подбор</th><th class=\"ns\">проверка</th><th class=\"ns\">вывод</th><th class=\"ns\"></th></tr></thead><tbody>';\n    f.steps.forEach((x,i)=>{\n      h+='<tr><td><input type=\"checkbox\" data-act=\"fitpick\" data-i=\"'+i+'\"'+(f.pick[i]?' checked':'')+'></td><td class=\"l\" style=\"white-space:normal;min-width:240px\"><span class=\"mut\">'+(i+1)+'.</span> <b>'+esc(ruleText({conds:[{col:x.col,lo:x.lo,hi:x.hi}]}))+'</b>'+(i?'<div class=\"mut small\" style=\"font-weight:400\">поверх шагов 1–'+i+'</div>':'')+'</td><td>'+x.n+'</td>'+cell(x.sTr,x.nTr)+cell(x.sTe,x.nTe)+'<td>'+badge(fitVerdict(x,kb))+'</td><td><button data-act=\"fitstep\" data-i=\"'+i+'\">только этот</button></td></tr>';\n    });\n    h+='</tbody></table></div>';\n    const nPick=f.pick.filter(Boolean).length;\n    h+='<div class=\"bar\" style=\"margin:8px 0 0\"><button class=\"pri\" data-act=\"fitsel\"'+(nPick?'':' disabled')+'>Применить выбранные ('+nPick+')</button><span class=\"mut small\">цифры шагов 2–3 посчитаны вместе с предыдущими; если снять первый шаг, результат будет другим</span></div>';\n  }else if(f.tab==='rules'){\n    if(!f.out.length)return h+'<div class=\"mut small\" style=\"padding:6px 2px\">Правил, которые уверенно улучшают результат на сделках подбора, не нашлось.</div></div>';\n    h+='<div class=\"small mut\" style=\"margin:0 0 6px\">Из '+f.selected+' лучших на подборе на проверке лучше обычного оказались <b>'+f.holds+'</b>. Без фильтров: подбор ROI '+sgn(f.base.roi*100,1)+'%, проверка ROI '+sgn(f.baseTe.roi*100,1)+'%.</div>';\n    h+='<div class=\"tw\"><table><thead><tr><th class=\"l ns\">Правило</th><th class=\"ns\">Подбор</th><th class=\"ns\">Проверка</th><th class=\"ns\">Все: сделок</th><th class=\"ns\">Нижн. гр. / цена</th><th class=\"l ns\">Вывод</th><th class=\"ns\"></th></tr></thead><tbody>';\n    f.out.forEach((o,i)=>{\n      const cls2=o.status.indexOf('✅')>=0?'fv-g':(o.status.indexOf('⚠️')>=0?'fv-w':(o.status.indexOf('❌')>=0?'fv-b':'fv-n'));\n      h+='<tr><td class=\"l\" style=\"white-space:normal;min-width:260px\"><b>'+esc(ruleText(o))+'</b></td><td class=\"'+cls(o.tr.roi)+'\">'+sgn(o.tr.roi*100,1)+'%<div class=\"mut small\" style=\"font-weight:400\">'+o.tr.n+' сд.</div></td><td class=\"'+(o.te.n?cls(o.te.roi):'')+'\">'+(o.te.n?sgn(o.te.roi*100,1)+'%':'—')+'<div class=\"mut small\" style=\"font-weight:400\">'+o.te.n+' сд.'+(o.te.n?' · побед '+pct(o.te.w/o.te.n,0):'')+'</div></td><td>'+o.all.n+'</td><td>'+pct(o.lo)+' / '+fmt(o.apx,3)+'</td><td class=\"l\"><span class=\"fvb '+cls2+'\">'+esc(o.status)+'</span></td><td><button data-act=\"applyfit\" data-i=\"'+i+'\">Применить</button></td></tr>';\n    });\n    h+='</tbody></table></div>';\n  }else{\n    if(!f.singles.length)return h+'<div class=\"mut small\" style=\"padding:6px 2px\">Одиночных фильтров, которые улучшили бы результат на подборе, не нашлось.</div></div>';\n    h+='<div class=\"small mut\" style=\"margin:0 0 6px\">Лучший диапазон по каждой колонке отдельно (по прибыли на подборе). Каждый можно применить сам по себе.</div>';\n    h+='<div class=\"tw\"><table><thead><tr><th class=\"l ns\">Фильтр</th><th class=\"ns\">сделок</th><th class=\"ns\">подбор</th><th class=\"ns\">проверка</th><th class=\"ns\">вывод</th><th class=\"ns\"></th></tr></thead><tbody>';\n    f.singles.forEach((x,i)=>{h+='<tr><td class=\"l\" style=\"white-space:normal;min-width:240px\"><b>'+esc(ruleText({conds:[{col:x.col,lo:x.lo,hi:x.hi}]}))+'</b></td><td>'+x.n+'</td>'+cell(x.sTr,x.nTr)+cell(x.sTe,x.nTe)+'<td>'+badge(fitVerdict(x,kb))+'</td><td><button data-act=\"fitone\" data-i=\"'+i+'\">Применить</button></td></tr>';});\n    h+='</tbody></table></div>';\n  }\n  return h+'</div>';\n}\nfunction optPanel(){\n  if(S.sel&&S.sel.flip)return'';\n  if(!exHave())return'';\n  let h='<div class=\"card xp\"><div class=\"xr'+(OPT.on?' on':'')+'\" style=\"border:0;padding:0\">'+sw('x_opt_on',OPT.on)+'<span class=\"xt\" style=\"min-width:0\">🧮 Перебор всех стопов и тейков</span>';\n  if(!OPT.on)return h+'<span class=\"mut small\">включи галочку — алгоритм проверит сотни вариантов стопа и тейка (в ¢, % и $) и их комбинации</span></div></div>';\n  h+='<span class=\"small mut\">'+(SLIPAUTO?'стоп считается по реальным бидам (задержка продажи <b>'+SLIPD+' с</b>)':'проскальзывание стопа: <b>'+Math.round(SLIP*100)+'¢</b>')+' (меняется в блоке «Тейк-профит · Стоп» выше)</span></div>';\n  const ENT=['dip','vyn','crash'];\n  if(entryOn())return h+'<div class=\"small mut\" style=\"margin-top:6px\">Выключи «особый вход» — перебор считается от обычного входа ТС.</div></div>';\n  if(ENT.indexOf(OPT.tab)>=0){\n    h+='<div class=\"bar\" style=\"margin:8px 0 6px\">'+optTabsHtml()+'</div>';\n    return h+epPanel(selRowsPlain(),S.stake,OPT.tab)+'</div>';\n  }\n  const rs=selRowsEx(),st=S.stake;\n  if(reOn())h+='<div class=\"small\" style=\"margin:6px 0\">⚙ Стопы и тейки перебираются поверх включённого входа ('+(RE.b.on?'после выноса '+RE.b.peak+'→'+RE.b.low+'→'+RE.b.buy:'')+(RE.c.on?(RE.b.on?', ':'')+'после дна '+RE.c.low+'→'+RE.c.buy:'')+').</div>';\n  const key=[S.sel?S.sel.key:'',rs.length,st,SLIP,SLIPAUTO,SLIPD,S.flt.length,reOn()?JSON.stringify(RE):''].join('|');\n  if(!OPT.res||OPT.key!==key){OPT.res=optRun(rs,st);OPT.key=key;}\n  const R=OPT.res;\n  if(R.small)return h+'<div class=\"small mut\" style=\"margin-top:6px\">Мало сделок с путём цены ('+R.n+') — нужно хотя бы 20.</div></div>';\n  const usd=x=>(x*st);\n  h+='<div class=\"bar\" style=\"margin:8px 0 6px\">';\n  h+=optTabsHtml();\n  h+='<span class=\"mut small\" style=\"margin-left:8px\">единицы:</span>';\n  [['','все'],['c','¢'],['pct','%'],['usd','$'],['abs','цена bid']].forEach(t=>{h+='<button data-act=\"optfam\" data-f=\"'+t[0]+'\"'+(OPT.fam===t[0]?' class=\"on\"':'')+'>'+t[1]+'</button>';});\n  h+='<span class=\"mut small\" style=\"margin-left:8px\">резкое падение:</span>';\n  [['','все'],['no','без'],['yes','только с ним']].forEach(t=>{h+='<button data-act=\"optfs\" data-f=\"'+t[0]+'\"'+(OPT.fsf===t[0]?' class=\"on\"':'')+'>'+t[1]+'</button>';});\n  h+='<button data-act=\"optdiv\" style=\"margin-left:8px\"'+(OPT.div?' class=\"on\"':'')+' title=\"не показывать почти одинаковые варианты (стоп 20¢ и 21¢, 10% и 11%…) — только заметно разные настройки\">🎯 разные настройки</button>';\n  h+='<button data-act=\"optrob\"'+(OPT.rob?' class=\"on\"':'')+' title=\"показывать только варианты, которые лучше «без выходов» и на 1-й, и на 2-й половине сделок\">только надёжные</button>';\n  h+='</div><div class=\"bar\" style=\"margin:0 0 6px\"><span class=\"mut small\">сортировать по:</span>';\n  [['best','⭐ лучшему по всему (прибыль и риск)'],['gain','прибыли'],['wr','винрейту'],['sm','ровности роста'],['dd','просадке (меньше)'],['mn','худшему убытку (меньше)'],['lmax','проигрышей подряд (меньше)'],['hits','срабатываниям (реже)'],['half','худшей из половин']].forEach(t=>{h+='<button data-act=\"optsort\" data-s=\"'+t[0]+'\"'+(OPT.sort===t[0]?' class=\"on\"':'')+'>'+t[1]+'</button>';});\n  h+='</div>'+limHtml();\n  if(R.nfs<20)h+='<div class=\"small mut\" style=\"margin:-2px 0 6px\">«Резкое падение» не перебирается: у сделок нет данных fs10/fs20 (появятся у сделок после обновления ЛАБа).</div>';\n  let list=OPT.tab==='sl'?R.stops:(OPT.tab==='tp'?R.takes:R.combos);\n  if(OPT.fam)list=list.filter(x=>x.u===OPT.fam);\n  list=list.filter(x=>x.hits>=5);\n  if(OPT.fsf==='no')list=list.filter(x=>!(x.fs>0));else if(OPT.fsf==='yes')list=list.filter(x=>x.fs>0);\n  const gain=x=>x.tot-R.hold.tot;\n  const OSORT={best:['⭐ Лучшее по всему',x=>bestScore(x)],gain:['Прибыль',x=>x.tot],wr:['Винрейт',x=>x.wr],sm:['Ровность роста',x=>x.sm],dd:['Меньше просадка',x=>-x.dd],mn:['Меньше худший убыток',x=>x.mn],lmax:['Меньше проигрышей подряд',x=>-x.lmax],hits:['Реже срабатывает',x=>-x.hits],half:['Худшая из половин',x=>Math.min(x.h1-R.hold.h1,x.h2-R.hold.h2)]};\n  const osf=(OSORT[OPT.sort]||OSORT.gain)[1];\n  list=list.slice().sort((a,b)=>osf(b)-osf(a)||gain(b)-gain(a));\n  // проверка «на будущее»: вариант выбираем по 1-й половине, смотрим результат на 2-й\n  let bestH1=null;list.forEach(x=>{if(!bestH1||x.h1-R.hold.h1>bestH1.h1-R.hold.h1)bestH1=x;});\n  if(OPT.rob)list=list.filter(x=>x.tot>R.hold.tot&&x.h1>R.hold.h1&&x.h2>R.hold.h2);\n  if(limOn())list=list.filter(limOk);\n  if(OPT.div)list=optDiv(list);\n  const shown=list.slice(0,15);OPT.list=shown;\n  h+='<div class=\"small\" style=\"margin-bottom:6px\">Без выходов (держим до конца): <b class=\"'+cls(usd(R.hold.tot))+'\">'+money(usd(R.hold.tot))+'</b> на '+R.n+' сделках, ставка $'+st+'. Победы '+Math.round(R.P.hs.wr*100)+'%, ровность '+Math.round(R.P.hs.sm*100)+'%, макс. просадка $'+(R.P.hs.dd*st).toFixed(1)+', худшая сделка −$'+Math.abs(R.P.hs.mn*st).toFixed(2)+'. Ниже — что изменилось бы с каждым вариантом.</div>';\n  h+='<div class=\"tw\"><table><thead><tr><th class=\"l ns\">Вариант</th><th class=\"ns\">сработал раз</th><th class=\"ns\">итог $</th><th class=\"ns\">лучше/хуже, чем без выходов</th><th class=\"ns\" title=\"прибавка на первой половине сделок по времени\">1-я половина</th><th class=\"ns\" title=\"прибавка на второй половине сделок\">2-я половина</th><th class=\"ns\" title=\"доля сделок, закрытых в плюс (с учётом выходов)\">побед</th><th class=\"ns\" title=\"100% — идеальная прямая вверх\">ровность роста</th><th class=\"ns\" title=\"самое большое падение кумулятивной прибыли от пика\">макс. просадка</th><th class=\"ns\" title=\"самая убыточная сделка\">худшая сделка</th><th class=\"ns\" title=\"самая длинная серия сделок без плюса подряд\">без плюса подряд</th><th class=\"ns\"></th></tr></thead><tbody>';\n  shown.forEach((x,i)=>{\n    const d=gain(x),d1=x.h1-R.hold.h1,d2=x.h2-R.hold.h2;\n    h+='<tr><td class=\"l\"><b>'+optTxt(x)+'</b></td><td>'+x.hits+' ('+Math.round(x.hits/R.n*100)+'%)</td><td class=\"'+cls(usd(x.tot))+'\">'+money(usd(x.tot))+'</td><td class=\"'+cls(d)+'\"><b>'+(d>=0?'+':'−')+'$'+Math.abs(usd(d)).toFixed(1)+'</b></td><td class=\"'+cls(d1)+'\">'+(d1>=0?'+':'−')+'$'+Math.abs(usd(d1)).toFixed(1)+'</td><td class=\"'+cls(d2)+'\">'+(d2>=0?'+':'−')+'$'+Math.abs(usd(d2)).toFixed(1)+'</td><td>'+Math.round(x.wr*100)+'%</td><td>'+Math.round(x.sm*100)+'%</td><td>$'+(x.dd*st).toFixed(1)+'</td><td>−$'+Math.abs(x.mn*st).toFixed(2)+'</td><td>'+x.lmax+'</td><td><button data-act=\"optapply\" data-i=\"'+i+'\">применить</button></td></tr>';\n  });\n  h+='</tbody></table></div>';\n  if(bestH1){\n    const d2=bestH1.h2-R.hold.h2;\n    h+='<div class=\"small\" style=\"margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(120,160,255,.10)\"><b>Проверка на честность.</b> Лучший вариант по первой половине сделок — <b>'+optTxt(bestH1)+'</b>. На второй половине, которую он не «видел», он дал <b class=\"'+cls(d2)+'\">'+(d2>=0?'+':'−')+'$'+Math.abs(usd(d2)).toFixed(1)+'</b> '+(d2>0?'(относительно «без выходов»: пока держится).':'(хуже, чем без выходов: скорее всего это подгонка).')+'</div>';\n  }\n  h+='<div class=\"small mut\" style=\"margin-top:6px\">Перебор сотен вариантов почти всегда находит «красивый» результат даже на случайных данных. Верь только тому, что в плюсе и на 1-й, и на 2-й половине, и срабатывает не в паре сделок. Комбинации считаются из лучших стопов и тейков каждой единицы. Выход по стопу считается с проскальзыванием, цена продажи — по bid. Реально бот стопы пока не ставит.</div></div>';\n  return h;\n}\n// ===== ПЕРЕБОР ВХОДОВ И ОБВАЛА (шаг 1¢): «вход после дна», «вход после выноса», «выход при обвале» =====\n// Считается по точному пути bid (каждые 2 с) — поэтому только по сделкам, у которых этот путь сохранён.\n// 1-й проход: быстро считает ВСЕ комбинации (сумма, половины, винрейт). 2-й: для лучших ~150 считает всё остальное (просадка, ровность, серии).\n\n// ===== ограничения + рейтинг «лучшее по всему» (общие для всех списков с перебором) =====\nconst LIM={wr:0,dd:0,mn:0,lm:0,sm:0,half:false};\nfunction limOn(){return LIM.wr>0||LIM.dd>0||LIM.mn>0||LIM.lm>0||LIM.sm>0||LIM.half;}\nfunction limOk(x){\n  const st=S.stake||5;\n  if(LIM.wr>0&&x.wr*100<LIM.wr-1e-9)return false;\n  if(LIM.dd>0&&x.dd*st>LIM.dd+1e-9)return false;\n  if(LIM.mn>0&&-x.mn*st>LIM.mn+1e-9)return false;\n  if(LIM.lm>0&&x.lmax>LIM.lm)return false;\n  if(LIM.sm>0&&x.sm*100<LIM.sm-1e-9)return false;\n  if(LIM.half&&!(x.h1>0&&x.h2>0))return false;\n  return true;\n}\n// рейтинг: прибыль на худшей из двух половин ×2, делённая на (просадка + худший убыток). Чем выше — тем лучше соотношение прибыли и риска\nfunction bestScore(x){const m=Math.min(x.h1,x.h2),risk=Math.max(0.02,x.dd+Math.abs(x.mn));return m>0?2*m/risk:m;}\nfunction limHtml(){\n  const inp=(id,v,w)=>'<input type=\"number\" id=\"'+id+'\" min=\"0\" value=\"'+(v||0)+'\" style=\"width:'+(w||56)+'px\">';\n  let h='<div class=\"bar\" style=\"margin:0 0 6px;align-items:center\"><span class=\"mut small\" title=\"0 = не важно. Показываются только варианты, которые проходят все условия; из них выбирается лучший по выбранной сортировке\">допустимо (0 = не важно):</span>';\n  h+='<label class=\"small\">винрейт не ниже '+inp('lim_wr',LIM.wr)+'%</label>';\n  h+='<label class=\"small\">просадка не больше $'+inp('lim_dd',LIM.dd)+'</label>';\n  h+='<label class=\"small\">худшая сделка не хуже −$'+inp('lim_mn',LIM.mn)+'</label>';\n  h+='<label class=\"small\">минусов подряд не больше '+inp('lim_lm',LIM.lm,48)+'</label>';\n  h+='<label class=\"small\">ровность не ниже '+inp('lim_sm',LIM.sm)+'%</label>';\n  h+='<label class=\"small\" title=\"прибыль должна быть и в 1-й, и во 2-й половине сделок\"><input type=\"checkbox\" id=\"lim_half\"'+(LIM.half?' checked':'')+'> плюс на обеих половинах</label>';\n  if(limOn())h+='<button data-act=\"limreset\">сбросить</button>';\n  h+='</div>';\n  return h;\n}\nconst EOPT={pm:30,tab:'dip',sort:'gain',rob:false,div:false,mt:30,ml:15,res:null,key:'',run:null,list:[]};\nfunction epPrep(rs){\n  const a=rs.filter(r=>hasPath(r)&&!isNul(r[CI.px])).sort((x,y)=>x[C.ts]-y[C.ts]);\n  const E=[];\n  for(const r of a){\n    const s=bidSer(r),n=s.length;if(n<2)continue;\n    const t=new Float32Array(n),b=new Int16Array(n);\n    for(let i=0;i<n;i++){t[i]=s[i][0];b[i]=Math.round(s[i][1]*100);}\n    const sp=r[CI.spr],spr=(isNul(sp)?0.01:Math.max(0,sp))+REXS/100,won=r[C.won]?1:0;\n    const pb=new Float64Array(101),pa=new Float64Array(101);for(let B=1;B<=100;B++){const np=Math.min(0.99,B/100+spr);pb[B]=(won-np)/np;const na=Math.min(0.99,B/100+REXS/100);pa[B]=(won-na)/na;}\n    const a=new Int16Array(n);for(let i=0;i<n;i++){const q=s[i][2];a[i]=q===null||q===undefined?-1:Math.round(q*100);}\n    E.push({a:a,pa:pa,t:t,b:b,n:n,px:r[CI.px],won:won,pb:pb,hold:(won-r[CI.px])/r[CI.px],sec:isNul(r[CI.sec])?null:r[CI.sec],ts:r[C.ts]});\n  }\n  return E;\n}\n// fl[L] = первый индекс (с from), где bid ≤ L ¢\nfunction epLE(e,from){const fl=new Int16Array(100).fill(-1);let cm=101;for(let i=from;i<e.n;i++){const v=e.b[i];if(v<cm){for(let L=Math.max(v,0);L<cm&&L<=99;L++)fl[L]=i;cm=v;}}return fl;}\n// kb[B] = первый индекс (с from), где bid ≥ B ¢\nfunction epGE(e,from){const kb=new Int16Array(100).fill(-1);let cx=0;for(let i=from;i<e.n;i++){const v=e.b[i];if(v>cx){for(let B=cx+1;B<=v&&B<=99;B++)kb[B]=i;cx=v;}}return kb;}\n// fl[B] = первый индекс (с from), где bid в диапазоне [B; B+gap] — только так бот мог купить (потолок цены); если цена перепрыгнула — не покупаем\nfunction epFill(e,from,gap){const kb=new Int16Array(100).fill(-1);for(let i=from;i<e.n;i++){const v=e.b[i],a=e.a[i];if(a>=100)continue;const lo=a>=0?Math.max(1,a-gap):Math.max(1,v-Math.max(0,gap-1));for(let B=lo;B<=v&&B<=99;B++)if(kb[B]<0)kb[B]=i;}return kb;}\n// точная симуляция одного варианта (так же, как reFind/crashT на странице) → pnl или null (нет сделки); EPH=1 если обвал сработал\nlet EPH=0;\nfunction epSim(kind,e,a,b,c,ml){\n  const bb=e.b,n=e.n;EPH=0;\n  if(kind==='crash'){\n    let st=0;\n    for(let i=0;i<n;i++){const v=bb[i];if(st===0){if(v>=a)st=1;}else if(v<=b){EPH=1;const ex=Math.max(0.01,(Math.min(b,v)-1)/100);return (ex-e.px)/e.px;}}\n    return e.hold;\n  }\n  let st=kind==='dip'?1:0;\n  for(let i=0;i<n;i++){\n    const v=bb[i];\n    if(st===0){if(v>=a)st=1;}\n    else if(st===1){if(v<=b)st=2;}\n    else if(v>=c&&(e.a[i]>=0?(e.a[i]<=c+REGAP&&e.a[i]<=99):(v<=c+Math.max(0,REGAP-1)&&v<=98))){if(e.sec!==null&&e.sec-e.t[i]<ml)continue;return e.a[i]>=0?e.pa[e.a[i]]:e.pb[v];}\n  }\n  return null;\n}\nfunction epRange(kind){return kind==='dip'?{l0:1,l1:98}:(kind==='vyn'?{p0:50,l0:5}:{h0:20});}\nfunction epAcc(kind){\n  const N=kind==='vyn'?1000000:10000;\n  return{N:new Int32Array(N),W:new Int32Array(N),T:new Float64Array(N),H1:new Float64Array(N),H2:new Float64Array(N)};\n}\nfunction epRow(kind,e,half,A,ml){\n  const N=A.N,W=A.W,T=A.T,H1=A.H1,H2=A.H2,H=half?H2:H1,pb=e.pb,sec=e.sec,tt=e.t;\n  const cLE={},cGE={};\n  const le=i=>cLE[i]||(cLE[i]=epLE(e,i+1)),ge=i=>cGE[i]||(cGE[i]=epFill(e,i+1,REGAP));\n  if(kind==='dip'){\n    const fl=epLE(e,0);\n    for(let L=1;L<=98;L++){\n      const i=fl[L];if(i<0)continue;const kb=ge(i);\n      for(let B=Math.max(L,EOPT.pm);B<=99;B++){const k=kb[B];if(k<0)continue;if(sec!==null&&sec-tt[k]<ml)continue;const p=e.a[k]>=0?e.pa[e.a[k]]:pb[e.b[k]],x=L*100+B;N[x]++;if(p>1e-9)W[x]++;T[x]+=p;H[x]+=p;}\n    }\n  }else if(kind==='vyn'){\n    const k0=epGE(e,0);\n    for(let P=50;P<=99;P++){\n      const i=k0[P];if(i<0)continue;const fl=le(i);\n      for(let L=5;L<P;L++){\n        const j=fl[L];if(j<0)continue;const kb=ge(j);const base=(P*100+L)*100;\n        for(let B=Math.max(L,EOPT.pm);B<=99;B++){const k=kb[B];if(k<0)continue;if(sec!==null&&sec-tt[k]<ml)continue;const p=e.a[k]>=0?e.pa[e.a[k]]:pb[e.b[k]],x=base+B;N[x]++;if(p>1e-9)W[x]++;T[x]+=p;H[x]+=p;}\n      }\n    }\n  }else{ // crash: T/H считаем как ИЗМЕНЕНИЕ к «держим до конца» (прибавим потом базу)\n    const k0=epGE(e,0),ph=e.hold,wh=ph>1e-9?1:0;\n    for(let Hh=20;Hh<=99;Hh++){\n      const i=k0[Hh];if(i<0)continue;const fl=le(i);\n      for(let L=1;L<Hh;L++){\n        const j=fl[L];if(j<0)continue;\n        const ex=Math.max(0.01,(Math.min(L,e.b[j])-1)/100),pc=(ex-e.px)/e.px,d=pc-ph,x=Hh*100+L;\n        N[x]++;W[x]+=(pc>1e-9?1:0)-wh;T[x]+=d;H[x]+=d;\n      }\n    }\n  }\n}\n// второй проход: полные показатели варианта\nfunction epFull(kind,E,h,a,b,c,ml){\n  const A=oaNew();let n=0,tot=0,h1=0,h2=0,hits=0;const lst=[];\n  for(let i=0;i<E.length;i++){\n    const p=epSim(kind,E[i],a,b,c,ml);if(p===null)continue;\n    if(EPH)hits++;\n    lst.push([E[i].ts,p,i<h?0:1]);\n  }\n  if(kind!=='crash')lst.sort((x,y)=>x[0]-y[0]);\n  lst.forEach(q=>{n++;tot+=q[1];if(q[2])h2+=q[1];else h1+=q[1];oaAdd(A,q[1]);});\n  return Object.assign({k:kind,a:a,b:b,c:c,n:n,hits:kind==='crash'?hits:n,tot:tot,h1:h1,h2:h2},oaFin(A));\n}\nfunction epTop(arr,key,k,seen,out){\n  const o=arr.slice().sort((x,y)=>key(y)-key(x));\n  for(let i=0;i<Math.min(k,o.length);i++){if(!seen[o[i]]){seen[o[i]]=1;out.push(o[i]);}}\n}\n// запуск: асинхронно, кусками (чтобы страница не зависала). done(res) вызывается в конце.\nfunction epRun(kind,rs,ml,mt,done,prog,tok){\n  const E=epPrep(rs),nE=E.length;\n  const h=Math.floor(nE/2),R={kind:kind,n:nE,h:h,ml:ml,mt:mt,list:[],base:null};\n  if(nE<20){R.small=true;setTimeout(()=>done(R),0);return;}\n  const bs=oaNew();let bt=0,b1=0,b2=0;\n  E.forEach((e,i)=>{bt+=e.hold;if(i<h)b1+=e.hold;else b2+=e.hold;oaAdd(bs,e.hold);});\n  R.base=Object.assign({n:nE,tot:bt,h1:b1,h2:b2},oaFin(bs));\n  const A=epAcc(kind);let i=0;\n  const step=()=>{\n    if(tok&&tok.dead)return;\n    const t0=performance.now();\n    while(i<nE&&performance.now()-t0<45){epRow(kind,E[i],i<h?0:1,A,ml);i++;}\n    if(prog)prog(i/nE);\n    if(i<nE){setTimeout(step,0);return;}\n    setTimeout(()=>{\n      if(tok&&tok.dead)return;\n      // собрать допустимые варианты\n      const ids=[],minHit=kind==='crash'?10:mt;\n      const N=kind==='vyn'?1000000:10000;\n      for(let x=0;x<N;x++){if(A.N[x]>=minHit)ids.push(x);}\n      R.nvar=ids.length;\n      const tot=x=>A.T[x]+(kind==='crash'?bt:0),h1v=x=>A.H1[x]+(kind==='crash'?b1:0),h2v=x=>A.H2[x]+(kind==='crash'?b2:0);\n      const pool=[],seen={};\n      epTop(ids,tot,45,seen,pool);\n      if(kind!=='crash')epTop(ids,x=>tot(x)/A.N[x],45,seen,pool);\n      epTop(ids,x=>kind==='crash'?(bs.w+A.W[x])/nE:A.W[x]/A.N[x],30,seen,pool);\n      epTop(ids,x=>Math.min(h1v(x),h2v(x)),45,seen,pool);\n      epTop(ids,h1v,10,seen,pool);\n      const decx=x=>kind==='dip'?{k:kind,a:0,b:Math.floor(x/100),c:x%100}:(kind==='vyn'?{k:kind,a:Math.floor(x/10000),b:Math.floor(x/100)%100,c:x%100}:{k:kind,a:Math.floor(x/100),b:x%100,c:0});\n      const pickDiv=(key,k)=>{const o=ids.slice().sort((x,y)=>key(y)-key(x));const pk=[];for(let q=0;q<o.length&&pk.length<k;q++){const d=decx(o[q]);let ok=true;for(const y of pk){if(epDist(d,y.d)<5){ok=false;break;}}if(ok)pk.push({id:o[q],d:d});}pk.forEach(y=>{if(!seen[y.id]){seen[y.id]=1;pool.push(y.id);}});};\n      pickDiv(tot,14);if(kind!=='crash')pickDiv(x=>tot(x)/A.N[x],14);pickDiv(x=>Math.min(h1v(x),h2v(x)),14);pickDiv(x=>kind==='crash'?(bs.w+A.W[x])/nE:A.W[x]/A.N[x],10);\n      let bestH1=null;ids.forEach(x=>{if(bestH1===null||h1v(x)>h1v(bestH1))bestH1=x;});\n      if(bestH1!==null&&!seen[bestH1]){seen[bestH1]=1;pool.push(bestH1);}\n      const dec=x=>kind==='dip'?[0,Math.floor(x/100),x%100]:(kind==='vyn'?[Math.floor(x/10000),Math.floor(x/100)%100,x%100]:[Math.floor(x/100),x%100,0]);\n      let j=0;\n      const st2=()=>{\n        if(tok&&tok.dead)return;\n        const t1=performance.now();\n        while(j<pool.length&&performance.now()-t1<45){\n          const d=dec(pool[j]),f=epFull(kind,E,h,d[0],d[1],d[2],ml);\n          f.id=pool[j];R.list.push(f);j++;\n        }\n        if(prog)prog(1);\n        if(j<pool.length){setTimeout(st2,0);return;}\n        R.bestH1=bestH1===null?null:R.list.find(f=>f.id===bestH1)||null;\n        done(R);\n      };\n      st2();\n    },0);\n  };\n  step();\n}\nconst EPS={best:['⭐ Лучшее по всему',x=>bestScore(x)],gain:['Прибыль',x=>x.tot],roi:['Прибыль на сделку',x=>x.n?x.tot/x.n:0],wr:['Винрейт',x=>x.wr],half:['Худшая из половин',x=>Math.min(x.h1,x.h2)],sm:['Ровность роста',x=>x.sm],dd:['Меньше просадка',x=>-x.dd],mn:['Меньше худший убыток',x=>x.mn],lmax:['Меньше проигрышей подряд',x=>-x.lmax],n:['Больше сделок',x=>x.n]};\nfunction epTxt(x){\n  if(x.k==='dip')return 'дно ≤'+x.b+'¢ → купить при ≥'+x.c+'¢';\n  if(x.k==='vyn')return 'рост до '+x.a+'¢ → вынос до ≤'+x.b+'¢ → купить при ≥'+x.c+'¢';\n  return 'bid дошёл до '+x.a+'¢, упал до ≤'+x.b+'¢ → продать';\n}\nfunction epApply(x){\n  if(x.k==='dip'){RE.c.on=true;RE.c.low=x.b;RE.c.buy=x.c;RE.b.on=false;}\n  else if(x.k==='vyn'){RE.b.on=true;RE.b.peak=x.a;RE.b.low=x.b;RE.b.buy=x.c;RE.c.on=false;}\n  else{CR.on=true;CR.h=x.a;CR.l=x.b;}\n}\nfunction epDist(x,y){\n  if(x.k==='dip')return Math.max(Math.abs(x.b-y.b),Math.abs(x.c-y.c));\n  if(x.k==='vyn')return Math.max(Math.abs(x.a-y.a),Math.abs(x.b-y.b),Math.abs(x.c-y.c));\n  return Math.max(Math.abs(x.a-y.a),Math.abs(x.b-y.b));\n}\nfunction epDiv(sorted,gap){const out=[];for(const x of sorted){let ok=true;for(const y of out){if(epDist(x,y)<gap){ok=false;break;}}if(ok)out.push(x);}return out;}\nfunction epFilter(list,R){\n  let l=list.filter(x=>x.hits>=(x.k==='crash'?10:R.mt));\n  if(EOPT.rob)l=l.filter(x=>x.tot>R.base.tot&&x.h1>R.base.h1&&x.h2>R.base.h2);\n  if(limOn())l=l.filter(limOk);\n  const f=(EPS[EOPT.sort]||EPS.gain)[1];\n  l=l.slice().sort((a,b)=>f(b)-f(a)||b.tot-a.tot);\n  return EOPT.div?epDiv(l,5):l;\n}\nfunction epHead(){\n  let h='<div class=\"bar\" style=\"margin:0 0 6px\"><span class=\"mut small\">сортировать по:</span>';\n  Object.keys(EPS).forEach(k=>{h+='<button data-act=\"epsort\" data-s=\"'+k+'\"'+(EOPT.sort===k?' class=\"on\"':'')+'>'+EPS[k][0].toLowerCase()+'</button>';});\n  h+='<button data-act=\"epdiv\" style=\"margin-left:8px\"'+(EOPT.div?' class=\"on\"':'')+' title=\"показывать не соседние значения (61→61, 62→62, 63→63…), а заметно разные настройки: отличие минимум 5¢ хотя бы по одному числу\">🎯 разные настройки</button>';\n  h+='<button data-act=\"eprob\"'+(EOPT.rob?' class=\"on\"':'')+' title=\"только варианты, которые лучше обычного входа ТС и на 1-й, и на 2-й половине сделок\">только надёжные</button>';\n  h+='</div>'+limHtml();\n  return h;\n}\nfunction epPanel(rs,st,tabKind){\n  let h='';\n  const kn=tabKind;\n  h+='<div class=\"bar\" style=\"margin:0 0 6px\"><label class=\"small\">мин. сделок <input type=\"number\" id=\"ep_mt\" min=\"1\" value=\"'+EOPT.mt+'\" style=\"width:60px\"></label><label class=\"small\" title=\"так же, как в боте (команда «лаб дно … спред N»): покупаем только если реальный ask не выше уровня покупки + N¢. Если цена перепрыгнула — сделки нет. По умолчанию 3, как в боте.\">не дороже +<input type=\"number\" id=\"ep_gap\" min=\"0\" max=\"99\" value=\"'+REGAP+'\" style=\"width:50px\">¢ от уровня</label><label class=\"small\" title=\"не рассматривать покупки дешевле N¢: у таких токенов стакан тонкий, спред большой, а страница видит только bid — расчёт по ним нереалистично красивый\">покупать не дешевле <input type=\"number\" id=\"ep_pm\" min=\"1\" max=\"98\" value=\"'+EOPT.pm+'\" style=\"width:50px\">¢</label><label class=\"small\" title=\"дополнительный запас сверху к реальному ask (на проскальзывание при покупке). 0 — платим ровно ask\">запас к цене +<input type=\"number\" id=\"ep_xs\" min=\"0\" max=\"20\" value=\"'+REXS+'\" style=\"width:50px\">¢</label><label class=\"small\" title=\"не покупать, если до конца рынка осталось меньше N секунд (в боте так же; 0 — без ограничения)\">не позже чем за <input type=\"number\" id=\"ep_ml\" min=\"0\" value=\"'+EOPT.ml+'\" style=\"width:60px\"> с до конца</label></div>';\n  const key=[kn,rs.length,S.sel?S.sel.key:'',EOPT.ml,EOPT.mt,REGAP,REXS,EOPT.pm,S.flt.length].join('|');\n  if(!(EOPT.res&&EOPT.key===key)){\n    if(!(EOPT.run&&EOPT.run.key===key)){\n      if(EOPT.run)EOPT.run.dead=true;\n      const tok={key:key,dead:false};EOPT.run=tok;\n      epRun(kn,rs,EOPT.ml,EOPT.mt,R=>{if(tok.dead)return;EOPT.res=R;EOPT.key=key;EOPT.run=null;render();},p=>{const el=document.getElementById('ep_prog');if(el)el.textContent=Math.round(p*100)+'%';},tok);\n    }\n    return h+'<div class=\"small mut\" style=\"margin:8px 0\">⏳ Перебираю все варианты с шагом 1¢… <b id=\"ep_prog\">0%</b></div>';\n  }\n  const R=EOPT.res;\n  if(R.small)return h+'<div class=\"small mut\">Мало сделок с точным путём цены ('+R.n+') — нужно хотя бы 20. Путь хранится только для сделок, которые реально торговались.</div>';\n  const usd=x=>x*st;\n  h+=epHead();\n  const list=epFilter(R.list,R),shown=list.slice(0,8);EOPT.list=shown;\n  const b=R.base;\n  h+='<div class=\"small\" style=\"margin-bottom:6px\">Обычный вход ТС (без этого правила): <b class=\"'+cls(usd(b.tot))+'\">'+money(usd(b.tot))+'</b> на '+R.n+' сделках с путём цены (ставка $'+st+'; победы '+Math.round(b.wr*100)+'%, ровность '+Math.round(b.sm*100)+'%, просадка $'+(b.dd*st).toFixed(1)+'). Проверено вариантов: <b>'+R.nvar+'</b> (все значения с шагом 1¢). Показаны лучшие 8.</div>';\n  h+='<div class=\"tw\"><table><thead><tr><th class=\"l ns\">Вариант</th><th class=\"ns\">'+(kn==='crash'?'сработал раз':'сделок')+'</th><th class=\"ns\">итог $</th><th class=\"ns\">лучше/хуже обычного входа</th><th class=\"ns\">1-я половина</th><th class=\"ns\">2-я половина</th><th class=\"ns\">побед</th><th class=\"ns\">ровность</th><th class=\"ns\">макс. просадка</th><th class=\"ns\">худшая сделка</th><th class=\"ns\">минусов подряд</th><th class=\"ns\"></th></tr></thead><tbody>';\n  const sg=v=>(v>=0?'+':'−')+'$'+Math.abs(usd(v)).toFixed(1);\n  shown.forEach((x,i)=>{\n    const d=x.tot-b.tot,d1=x.h1-b.h1,d2=x.h2-b.h2;\n    h+='<tr><td class=\"l\"><b>'+epTxt(x)+'</b></td><td>'+x.hits+(kn==='crash'?'':' ('+Math.round(x.n/R.n*100)+'%)')+'</td><td class=\"'+cls(x.tot)+'\">'+money(usd(x.tot))+'</td><td class=\"'+cls(d)+'\"><b>'+sg(d)+'</b></td><td class=\"'+cls(d1)+'\">'+sg(d1)+'</td><td class=\"'+cls(d2)+'\">'+sg(d2)+'</td><td>'+Math.round(x.wr*100)+'%</td><td>'+Math.round(x.sm*100)+'%</td><td>$'+(x.dd*st).toFixed(1)+'</td><td>−$'+Math.abs(x.mn*st).toFixed(2)+'</td><td>'+x.lmax+'</td><td><button data-act=\"epapply\" data-i=\"'+i+'\">применить</button></td></tr>';\n  });\n  if(!shown.length)h+='<tr><td class=\"l mut\" colspan=\"12\">Ничего не подошло под фильтры.</td></tr>';\n  h+='</tbody></table></div>';\n  if(R.bestH1){\n    const x=R.bestH1,d2=x.h2-b.h2;\n    h+='<div class=\"small\" style=\"margin-top:8px;padding:8px 10px;border-radius:8px;background:rgba(120,160,255,.10)\"><b>Проверка на честность.</b> Лучший вариант по первой половине сделок — <b>'+epTxt(x)+'</b>. На второй половине, которую он «не видел», он дал <b class=\"'+cls(d2)+'\">'+sg(d2)+'</b> относительно обычного входа ТС ('+(d2>0?'пока держится':'на второй половине не лучше обычного — похоже на подгонку')+').</div>';\n  }\n  h+='<div class=\"small mut\" style=\"margin-top:6px\">Это поиск лучшего среди '+R.nvar+' вариантов по прошлому: на таком числе вариантов «красивое» находится и на случайных данных. Верь тем, что в плюсе на обеих половинах, дают достаточно сделок и стоят рядом с похожими соседями (проверь соседние значения). Сортировка по просадке/ровности/сериям идёт среди ~150 лучших по прибыли, прибыли на сделку, винрейту и половинам. Покупка — по ask = цена + спред сделки; не позже чем за '+EOPT.ml+' с до конца.</div>';\n  return h;\n}\n// ===== СПИСОК ЛУЧШИХ ТС С ПЕРЕБОРОМ (выходы / вход после дна / после выноса / обвал) =====\nconst SC={kind:'exit',sort:'gain',rob:true,show:8,res:null,key:'',run:null,rows:[]};\nfunction scKey(items,T,st){return [SC.kind,T.by,TOPLO,TOPND,items.length,T.minN,st,Math.round(SLIP*100),EOPT.ml,EOPT.mt,REGAP,REXS,EOPT.pm,SLIPAUTO,SLIPD,S.q,S.one?1:0,S.flt.length].join('|');}\nfunction scCands(items,T,kind){\n  let c=items.filter(x=>x.n>=T.minN).sort((a,b)=>b.usd-a.usd);\n  if(kind!=='exit'){c=c.map(x=>({x:x,pn:x.g.rows.filter(hasPath).length})).filter(o=>o.pn>=40).sort((a,b)=>b.pn-a.pn).slice(0,20).map(o=>o.x);}\n  else c=c.slice(0,60);\n  return c;\n}\nfunction scStart(items,T,st,key){\n  if(SC.run)SC.run.dead=true;\n  const tok={key:key,dead:false};SC.run=tok;\n  const cands=scCands(items,T,SC.kind),kind=SC.kind,out=[];let i=0;\n  const upd=f=>{const el=document.getElementById('sc_prog');if(el)el.textContent=Math.round(f*100)+'% ('+Math.min(i+1,cands.length)+' из '+cands.length+')';};\n  const finish=()=>{if(tok.dead)return;SC.res=out;SC.key=key;SC.run=null;render();};\n  const next=()=>{\n    if(tok.dead)return;\n    if(i>=cands.length){finish();return;}\n    const x=cands[i];upd(i/cands.length);\n    if(kind==='exit'){\n      setTimeout(()=>{if(tok.dead)return;const R=optRun(x.g.rows,st);if(!R.small)out.push({x:x,R:R});i++;next();},0);\n    }else{\n      epRun(kind,x.g.rows,EOPT.ml,EOPT.mt,R=>{if(tok.dead)return;if(!R.small)out.push({x:x,R:R});i++;next();},null,tok);\n    }\n  };\n  next();\n}\n// лучший вариант в одном ТС по выбранной сортировке\nfunction scBest(o){\n  const R=o.R;\n  if(SC.kind==='exit'){\n    const hold=R.hold;\n    const OS={best:x=>bestScore(x),gain:x=>x.tot,roi:x=>x.tot,wr:x=>x.wr,sm:x=>x.sm,dd:x=>-x.dd,mn:x=>x.mn,lmax:x=>-x.lmax,half:x=>Math.min(x.h1-hold.h1,x.h2-hold.h2),n:x=>-x.hits};\n    const f=OS[SC.sort]||OS.gain;\n    let all=[];R.stops.forEach(x=>{x.kd='sl';all.push(x);});R.takes.forEach(x=>{x.kd='tp';all.push(x);});R.combos.forEach(x=>{x.kd='cb';all.push(x);});\n    all=all.filter(x=>x.hits>=5&&x.tot>hold.tot&&(!SC.rob||(x.h1>hold.h1&&x.h2>hold.h2))&&limOk(x));\n    let b=null;all.forEach(x=>{if(!b||f(x)>f(b)||(f(x)===f(b)&&x.tot>b.tot))b=x;});\n    return b?{v:b,key:f(b),base:Object.assign({},hold,R.P.hs),n:R.n}:null;\n  }\n  const base=R.base,fe=(EPS[SC.sort]||EPS.gain)[1];\n  let all=R.list.filter(x=>x.hits>=(x.k==='crash'?10:EOPT.mt)&&x.tot>base.tot&&(!SC.rob||(x.h1>base.h1&&x.h2>base.h2))&&limOk(x));\n  let b=null;all.forEach(x=>{if(!b||fe(x)>fe(b)||(fe(x)===fe(b)&&x.tot>b.tot))b=x;});\n  return b?{v:b,key:fe(b),base:base,n:R.n}:null;\n}\nfunction scTxt(x){\n  if(SC.kind!=='exit')return epTxt(x);\n  return optTxt(x,x.kd);\n}\n// ===== ПОИСК ФИЛЬТРОВ ПО ВСЕМ ТС: для каждой ТС подбираем до 3 фильтров на первых 60% сделок и проверяем на последних 40%; показываем ТС, которым фильтры дают больше всего =====\nconst FS={sort:'test',only:true,minN:100,show:10,res:null,key:'',run:null,rows:[],goal:true,mp:0,mt:0,wr:0,dd:0,mk:0,ctx:{lo:0,nD:1,st:5}};\nfunction fsKey(items,T,st){return ['fs',T.by,TOPLO,TOPND,items.length,FS.minN,st,S.q,S.one?1:0,S.flt.length,S.fsv||0].join('|');}\nfunction fsOne(x){\n  const s=x.g.rows.slice().sort((a,b)=>a[C.ts]-b[C.ts]),n=s.length;\n  if(n<FS.minN||n<60)return null;\n  const cut=Math.floor(n*0.6),tcut=s[cut][C.ts];\n  const kit=fitSteps(s,tcut,Math.max(30,Math.ceil(n*0.25)),true);\n  if(!kit.steps.length)return{x:x,none:true};\n  const conds=kit.steps.map(t=>({col:t.col,lo:t.lo,hi:t.hi}));\n  const kept=s.filter(r=>conds.every(c=>fitIn(r,c)));\n  const stat=rs=>{let w=0,cum=0,pk=0,dd=0;for(const r of rs){w+=r[C.won];cum+=roiOf(r);if(cum>pk)pk=cum;if(pk-cum>dd)dd=pk-cum;}return{wr:rs.length?w/rs.length:0,dd:dd};};\n  const fin=kit.steps[kit.steps.length-1];\n  let m=null;\n  try{const g2=prepGroup(kept,FS.ctx.lo,FS.ctx.nD,S.one?'ms':'none');m=metrics(g2,FS.ctx.nD,FS.ctx.st);}catch(e){m=null;}\n  return{x:x,steps:kit.steps,base:kit.base,fin:fin,sb:stat(s),sk:stat(kept),nKept:kept.length,conds:conds,m:m};\n}\nfunction fsStart(items,T,st,key){\n  if(FS.run)FS.run.dead=true;\n  const tok={key:key,dead:false};FS.run=tok;FS.ctx={lo:TOPLO,nD:TOPND,st:st};\n  const cands=items.filter(x=>x.n>=FS.minN).sort((a,b)=>b.n-a.n),out=[];let i=0,none=0;\n  const upd=()=>{const el=document.getElementById('fs_prog');if(el)el.textContent=Math.round(i/Math.max(1,cands.length)*100)+'% ('+i+' из '+cands.length+')';};\n  const next=()=>{\n    if(tok.dead)return;\n    const t0=Date.now();\n    while(i<cands.length&&Date.now()-t0<40){const r=fsOne(cands[i]);if(r){if(r.none)none++;else out.push(r);}i++;}\n    if(i>=cands.length){FS.res={rows:out,none:none,total:cands.length};FS.key=key;FS.run=null;render();return;}\n    upd();setTimeout(next,0);\n  };\n  setTimeout(next,0);\n}\nfunction fsOk(r){const b=r.base,f=r.fin;if(f.nTe<15)return false;const te=f.sTe/f.nTe,bte=b.nTe?b.sTe/b.nTe:0;return f.sTe>0&&te>bte;}\nconst FS_SORTS={day:['прибыли в день',r=>r.m?r.m.usdd:-99],test:['прибыли на проверке',r=>r.fin.sTe],gain:['приросту от фильтров (проверка)',r=>r.fin.sTe-r.base.sTe],total:['общей прибыли с фильтрами',r=>r.fin.sTr+r.fin.sTe],roi:['прибыли на сделку (проверка)',r=>r.fin.nTe?r.fin.sTe/r.fin.nTe:-9],wr:['винрейту с фильтрами',r=>r.sk.wr],dd:['просадке (меньше)',r=>-r.sk.dd]};\nfunction fsSection(items,T,st){\n  let h='<div class=\"card top\"><div class=\"th\"><b>🎛 Фильтры, которые меняют всё</b> <span class=\"mut small\">для каждой ТС подбирается до 3 фильтров (спред, объёмы, биржи, время…); показаны ТС, которым это даёт больше всего</span></div>';\n  h+='<div class=\"bar\" style=\"margin:6px 0\"><span class=\"mut small\">сортировать по:</span>';\n  Object.keys(FS_SORTS).forEach(k=>{h+='<button data-act=\"fssort\" data-s=\"'+k+'\"'+(FS.sort===k?' class=\"on\"':'')+'>'+FS_SORTS[k][0]+'</button>';});\n  h+='<button data-act=\"fsonly\" style=\"margin-left:8px\"'+(FS.only?' class=\"on\"':'')+' title=\"только ТС, где на проверке (последние 40% сделок, которых подбор не видел) с фильтрами в плюсе, лучше чем без фильтров и не меньше 15 сделок\">только ✅ держится на проверке</button>';\n  h+='<label class=\"small\">мин. сделок в ТС <input type=\"number\" id=\"fs_minn\" min=\"30\" value=\"'+FS.minN+'\" style=\"width:64px\"></label></div>';\n  const ni=(id,v,w)=>'<input type=\"number\" id=\"'+id+'\" min=\"0\" step=\"any\" value=\"'+(v||0)+'\" style=\"width:'+(w||62)+'px\">';\n  h+='<div class=\"bar\" style=\"margin:0 0 6px;align-items:center\"><span class=\"mut small\" title=\"0 = не важно. Условия считаются уже по сделкам ПОСЛЕ найденных фильтров\">мои условия (0 = не важно):</span>'\n    +'<label class=\"small\">прибыль с фильтрами от $'+ni('fs_mp',FS.mp)+'</label>'\n    +'<label class=\"small\">на проверке от $'+ni('fs_mt',FS.mt)+'</label>'\n    +'<label class=\"small\">винрейт от '+ni('fs_wr',FS.wr,50)+'%</label>'\n    +'<label class=\"small\">просадка до $'+ni('fs_dd',FS.dd)+'</label>'\n    +'<label class=\"small\">сделок после фильтров от '+ni('fs_mk',FS.mk,56)+'</label></div>';\n  h+='<div class=\"bar\" style=\"margin:0 0 6px\"><label class=\"small\" title=\"Применить к ТС с фильтрами условия из верхней панели «Лучшие стратегии»: прибыль в день, убыточных дней, торговала в % дней, мин. сделок, ровность роста, проверка\"><input type=\"checkbox\" id=\"fs_goal\"'+(FS.goal?' checked':'')+'> учитывать цель дня сверху</label><span class=\"mut small\">(прибыль в день ≥ $'+T.goal+', убыточных дней ≤ '+T.maxLoss+', торговала в ≥ '+T.cover+'% дней, сделок ≥ '+T.minN+(T.minSm>0?', ровность ≥ '+T.minSm+'%':'')+(T.needOos?', плюс на проверке':'')+')</span></div>';\n  const key=fsKey(items,T,st);\n  if(FS.key!==key||!FS.res){\n    if(!(FS.run&&FS.run.key===key))fsStart(items,T,st,key);\n    return h+'<div class=\"small mut\" style=\"padding:8px 2px\">⏳ Подбираю фильтры для каждой ТС… <b id=\"fs_prog\">0%</b></div></div>';\n  }\n  const R=FS.res;let rows=R.rows.slice();\n  const nHold=rows.filter(fsOk).length;\n  const st0=st,nDx=FS.ctx.nD;\n  const limOkF=r=>{\n    const f=r.fin,prof=(f.sTr+f.sTe)*st0;\n    if(FS.mp>0&&prof<FS.mp-1e-9)return false;\n    if(FS.mt>0&&f.sTe*st0<FS.mt-1e-9)return false;\n    if(FS.wr>0&&r.sk.wr*100<FS.wr-1e-9)return false;\n    if(FS.dd>0&&r.sk.dd*st0>FS.dd+1e-9)return false;\n    if(FS.mk>0&&r.nKept<FS.mk)return false;\n    return true;\n  };\n  const nLim=rows.filter(limOkF).length;\n  rows=rows.filter(limOkF);\n  const goalBad=r=>r.m?critBad(r.m,T,nDx):['нет данных по дням'];\n  const nGoalFail=rows.filter(r=>goalBad(r).length).length;\n  if(FS.goal)rows=rows.filter(r=>goalBad(r).length===0);\n  if(FS.only)rows=rows.filter(fsOk);\n  const sf=FS_SORTS[FS.sort][1];rows.sort((a,b)=>sf(b)-sf(a));\n  FS.rows=rows;\n  const d=v=>money(v*st);\n  const arrow=(a,b,f)=>'<span class=\"mut\">'+a+'</span> → <b>'+b+'</b>';\n  h+='<div class=\"small mut\" style=\"margin-bottom:6px\">Проверено ТС: <b>'+R.total+'</b>. Фильтры нашлись у '+R.rows.length+', из них на проверке держатся <b>'+nHold+'</b> ('+(R.rows.length?Math.round(nHold/R.rows.length*100):0)+'%). Если эта доля около половины или меньше — большая часть находок это шум.'+((FS.mp||FS.mt||FS.wr||FS.dd||FS.mk)?' Мои условия проходят <b>'+nLim+'</b>.':'')+(FS.goal?' Цель дня сверху не проходят ещё <b>'+nGoalFail+'</b> из тех, что прошли мои условия.':'')+'</div>';\n  if(!rows.length)return h+'<div class=\"mut small\" style=\"padding:6px 2px\">Нет ТС, где фильтры уверенно держатся на проверке. Сними «только ✅», чтобы увидеть остальные.</div></div>';\n  h+='<div class=\"tw\"><table><thead><tr><th class=\"l ns\">#</th><th class=\"l ns\">ТС и фильтры</th><th class=\"ns\">сделок</th><th class=\"ns\">винрейт</th><th class=\"ns\">итог $</th><th class=\"ns\">проверка $</th><th class=\"ns\">просадка $</th><th class=\"ns\">в день</th><th class=\"ns\">вывод</th><th class=\"ns\"></th></tr></thead><tbody>';\n  rows.slice(0,FS.show).forEach((r,i)=>{\n    const b=r.base,f=r.fin,all0=b.sTr+b.sTe,all1=f.sTr+f.sTe;\n    const v=fitVerdict(f,b);\n    h+='<tr><td class=\"l\">'+(i+1)+'</td><td class=\"l\" style=\"white-space:normal;min-width:320px\"><b>'+esc(r.x.name)+'</b>'+r.steps.map((t,k)=>'<div class=\"small\" style=\"font-weight:400\"><span class=\"mut\">'+(k+1)+'.</span> '+esc(ruleText({conds:[{col:t.col,lo:t.lo,hi:t.hi}]}))+'</div>').join('')+'</td>'\n      +'<td>'+arrow(b.n,r.nKept)+'</td><td>'+arrow(pct(r.sb.wr,0),pct(r.sk.wr,0))+'</td>'\n      +'<td class=\"'+cls(all1)+'\">'+arrow(d(all0),d(all1))+'</td><td class=\"'+cls(f.sTe)+'\">'+arrow(d(b.sTe),d(f.sTe))+'<div class=\"mut small\" style=\"font-weight:400\">'+f.nTe+' сд.</div></td>'\n      +'<td>'+arrow('$'+(r.sb.dd*st).toFixed(1),'$'+(r.sk.dd*st).toFixed(1))+'</td><td'+(r.m?' class=\"'+cls(r.m.usdd)+'\" title=\"'+esc(goalBad(r).join('; ')||'цель дня выполнена')+'\"':'')+'>'+(r.m?'<b>'+money(r.m.usdd)+'</b><div class=\"mut small\" style=\"font-weight:400\">убыт. дней '+r.m.minus+' из '+r.m.act+'</div>':'—')+'</td><td><span class=\"fvb '+v[1]+'\" title=\"'+esc(v[2])+'\">'+v[0]+'</span></td>'\n      +'<td><button data-act=\"fsopen\" data-i=\"'+i+'\">открыть и применить</button></td></tr>';\n  });\n  h+='</tbody></table></div>';\n  if(rows.length>FS.show)h+='<div class=\"bar\"><button data-act=\"fsmore\">Показать ещё 10</button><span class=\"mut small\">показано '+Math.min(FS.show,rows.length)+' из '+rows.length+'</span></div>';\n  h+='<div class=\"small mut\" style=\"margin-top:6px\">Фильтры подбираются на первых 60% сделок каждой ТС, «проверка» — последние 40%, которых подбор не видел. Но ТС здесь сотни, и мы показываем лучшие из них, поэтому часть красоты всё равно случайна: смотри на ✅, на число сделок на проверке и обязательно проверяй вперёд. «открыть и применить» добавит фильтры в блок «Фильтры» сверху и откроет ТС (вернуть как было: «Сбросить всё»).</div></div>';\n  return h;\n}\n// ===== ПОИСК ЛУЧШЕЙ ЦЕЛИ ДНЯ И СТОПА ДНЯ ПО ВСЕМ ТС =====\nconst GS={sort:'test',only:true,minN:100,show:10,res:null,key:'',run:null,rows:[],ctx:{lo:0,nD:1,st:5}};\nconst GS_P=[0,3,5,10,20],GS_L=[0,3,5,10],GS_N=[0,1,2,3],GS_K=[0,2];\n// ===== 🧪 БУМАЖНЫЕ ЛИМИТКИ: бот сам проверяет идеи по живому стакану (данные из lab-lim.json) =====\nconst PL={open:null,n:60};\nfunction plSpark(vals,total){\n  if(vals.length<2)return '';\n  let cum=0;const pts=vals.map(v=>cum+=v);\n  const W=680,H=170,pl=46,pr=8,pt=8,pb=8;let mn=Math.min(0,...pts),mx=Math.max(0,...pts);if(mx-mn<1e-9)mx=mn+1;\n  const x=i=>pl+(W-pl-pr)*i/(pts.length-1),y=v=>pt+(H-pt-pb)*(1-(v-mn)/(mx-mn));\n  let g='<svg viewBox=\"0 0 '+W+' '+H+'\" style=\"width:100%;max-width:720px;height:auto;background:var(--bg2,#1d1d1d);border-radius:6px\">';\n  [mn,(mn+mx)/2,mx].forEach(v=>{g+='<line x1=\"'+pl+'\" x2=\"'+(W-pr)+'\" y1=\"'+y(v)+'\" y2=\"'+y(v)+'\" stroke=\"#888\" stroke-opacity=\".2\"/><text x=\"2\" y=\"'+(y(v)+3)+'\" font-size=\"9\" fill=\"#999\">'+(v>=0?'+':'−')+'$'+Math.abs(v).toFixed(2)+'</text>';});\n  g+='<line x1=\"'+pl+'\" x2=\"'+(W-pr)+'\" y1=\"'+y(0)+'\" y2=\"'+y(0)+'\" stroke=\"#aaa\" stroke-dasharray=\"3 3\"/>';\n  g+='<polyline fill=\"none\" stroke=\"'+(total>=0?'#2ea043':'#e5484d')+'\" stroke-width=\"1.8\" points=\"'+pts.map((v,i)=>x(i).toFixed(1)+','+y(v).toFixed(1)).join(' ')+'\"/></svg>';\n  return g;\n}\nfunction plSection(){\n  let h='<div class=\"card top\"><div class=\"th\"><b>🧪 Бумажные лимитки (живой стакан)</b> <span class=\"mut small\">бот сам проверяет идеи про прострелы и ничего не покупает</span></div>';\n  const Q=D&&D.paperLim;\n  if(!Q||!Q.variants)return h+'<div class=\"small mut\" style=\"padding:8px 2px\">Данных пока нет: бот ещё не записал ни одного сигнала (модуль «лаб лимитки» должен поработать хотя бы несколько часов) или файл lab-lim.json не доступен странице.</div></div>';\n  const days=Q.since?((D.meta.generatedAt-Q.since)/86400000):0;\n  h+='<div class=\"note small\"><b>Чем это честнее лимиток выше.</b> Вход засчитывается, только когда <b>живой ask</b> уже опустился до цены и в стакане на этой цене реально есть 5 акций; цена входа — средняя по глубине. Выход — так же по реальному bid. Те варианты выше считают по ленте раз в 5 секунд и могут показывать покупки, которых не было. Идёт '+days.toFixed(1)+' дн. На сделку 5 акций.</div>';\n  const byV={};(Q.log||[]).forEach(r=>{(byV[r.v]=byV[r.v]||[]).push(r);});\n  h+='<div class=\"tw\"><table><thead><tr><th class=\"l ns\">Вариант</th><th class=\"l ns\">Идея</th><th class=\"ns\" title=\"сколько раз ask дошёл до нашей цены\">сигналов</th><th class=\"ns\" title=\"из них в стакане не нашлось 5 акций по этой цене: в реальности купить не вышло бы\">без глубины</th><th class=\"ns\">входов</th><th class=\"ns\" title=\"среди дошедших до резолва\">токен выиграл</th><th class=\"ns\">итог</th><th class=\"ns\">ROI</th><th class=\"ns\" title=\"дней в плюсе / в минусе\">дней +/−</th><th class=\"ns\"></th></tr></thead><tbody>';\n  Q.variants.forEach(v=>{\n    const s=Q.stats[v.id]||{trig:0,noDepth:0,fills:0,settled:0,wins:0,pnl:0,cost:0};\n    const dd={};(byV[v.id]||[]).forEach(r=>{const k=new Date(r.t).toISOString().slice(0,10);dd[k]=(dd[k]||0)+r.pnl;});\n    let pl=0,mi=0;Object.keys(dd).forEach(k=>{if(dd[k]>1e-9)pl++;else if(dd[k]<-1e-9)mi++;});\n    h+='<tr><td class=\"l\"><b>'+esc(v.id)+'</b></td><td class=\"l\" style=\"white-space:normal;min-width:260px\">'+esc(v.rule)+'</td><td>'+s.trig+'</td><td>'+s.noDepth+'</td><td>'+s.fills+'</td><td>'+(s.settled?Math.round(s.wins/s.settled*100)+'% ('+s.wins+'/'+s.settled+')':'—')+'</td><td class=\"'+cls(s.pnl)+'\"><b>'+money(s.pnl)+'</b></td><td class=\"'+cls(s.pnl)+'\">'+(s.cost>0?sgn(s.pnl/s.cost*100,1)+'%':'—')+'</td><td>'+pl+' / '+mi+'</td><td><button data-act=\"plopen\" data-id=\"'+esc(v.id)+'\"'+(PL.open===v.id?' class=\"on\"':'')+'>сделки</button></td></tr>';\n    if(PL.open===v.id){\n      const rows=(byV[v.id]||[]).slice().sort((a,b)=>a.t-b.t);\n      h+='<tr><td colspan=\"10\" style=\"text-align:left;white-space:normal\">';\n      if(!rows.length)h+='<div class=\"mut small\">Закрытых сделок по этому варианту пока нет.</div>';\n      else{\n        h+=plSpark(rows.map(r=>r.pnl),s.pnl)+'<div class=\"small mut\" style=\"margin:6px 0\">Кумулятивная по сделкам (по порядку закрытия). Цена — за акцию; сделка на 5 акций.</div>';\n        h+='<div class=\"tw\"><table><thead><tr><th class=\"l ns\">Время (UTC)</th><th class=\"l ns\">Рынок</th><th class=\"ns\">Сторона</th><th class=\"ns\">Купили на секунде</th><th class=\"ns\">Цена входа</th><th class=\"ns\">Ask на сигнале</th><th class=\"l ns\">Чем закончилось</th><th class=\"ns\">Итог</th></tr></thead><tbody>';\n        rows.slice().reverse().slice(0,PL.n).forEach(r=>{h+='<tr><td class=\"l\">'+new Date(r.t).toISOString().slice(5,16).replace('T',' ')+'</td><td class=\"l\">'+esc(r.slug)+'</td><td>'+esc(r.side)+'</td><td>'+r.sec+'с</td><td>'+r.entry.toFixed(2)+'</td><td>'+r.trig.toFixed(2)+'</td><td class=\"l\">'+esc(r.how)+(r.exit!==null?' '+r.exit.toFixed(2):'')+(r.won===null?'':(r.won?' · токен выиграл':' · токен проиграл'))+'</td><td class=\"'+cls(r.pnl)+'\">'+money(r.pnl)+'</td></tr>';});\n        h+='</tbody></table></div>';\n        if(rows.length>PL.n)h+='<div class=\"bar\"><button data-act=\"plmore\">Показать ещё 100</button><span class=\"mut small\">показано '+Math.min(PL.n,rows.length)+' из '+rows.length+'</span></div>';\n      }\n      h+='</td></tr>';\n    }\n  });\n  h+='</tbody></table></div><div class=\"small mut\" style=\"margin-top:6px\">Смотри: сколько входов (хотя бы 100), сколько «без глубины» (если почти все сигналы без глубины — идея на деле не работает), выигрывает ли токен заметно чаще цены входа. Данные обновляются при каждой сборке страницы.</div></div>';\n  return h;\n}\n// ===== 🧩 КОМБИНАЦИИ: поиск наборов ТС (коллективов), которые лучше всего работают вместе =====\nconst CB={mode:'smooth',pool:40,maxK:10,minN:60,show:5,res:null,key:'',run:null,rows:[],useFav:true,strict:{sm:95,dd:6,half:1.5,cv:60},auto:{cells:60,res:null,key:'',run:null,rows:[],show:5}};\nconst CB_MODES={smooth:['⚖️ Самая ровная','ровная кумулятивная, плюс почти каждый день, малая просадка, одинаковая прибыль по дням'],profit:['💰 Самая прибыльная','максимум $ в день; плюс в ≥70% дней и в плюсе на проверке'],safe:['🛡 Самая надёжная','плюс каждый день, большая прибыль на каждый $ просадки, много сделок'],strict:['🎯 Строгий отбор','максимум прибыли среди наборов, которые проходят ВСЕ пороги: ровность роста, малая просадка, одинаковый ROI в 1-й и 2-й половине, ровная прибыль по дням (пороги настраиваются ниже)'],auto:['🧬 Автопоиск','сам подбирает фильтры для лучших ячеек и собирает из них наборы. Подбор идёт на первых ~70% дней периода, а последние ~30% дней — «проверка»: набор должен остаться в плюсе и там. Пороги ровности/просадки/половин/дней — те же, что в «Строгом отборе» (применяются на подборе)']};\nfunction cbMerge(a,b){\n  const o=new Array(a.length+b.length);let i=0,j=0,k=0;\n  while(i<a.length&&j<b.length){if(a[i][C.ts]<=b[j][C.ts])o[k++]=a[i++];else o[k++]=b[j++];}\n  while(i<a.length)o[k++]=a[i++];while(j<b.length)o[k++]=b[j++];\n  return o;\n}\nfunction cbStrict(m,g,nD,st){\n  const Z=CB.strict;\n  const sm=g.seq&&g.seq.smooth!=null?g.seq.smooth*100:0;if(sm<Z.sm)return null;\n  if(m.dd>Z.dd/100*m.usd)return null;\n  const h=halves(g.rows);if(!h)return null;if(Math.abs(h[0]-h[1])*100>Z.half)return null;\n  let sum=0,sq=0;for(let d=0;d<nD;d++){const v=g.dRoi[d]*st;sum+=v;sq+=v*v;}\n  const mean=sum/nD,sd=Math.sqrt(Math.max(0,sq/nD-mean*mean));\n  if(!(mean>1e-9)||sd/mean*100>Z.cv)return null;\n  return m.usd;\n}\nfunction cbScore(mode,m,g,nD,st){\n  if(!(m.usd>0)||m.n<CB.minN)return null;\n  if(nD<3||m.act<Math.max(2,nD*0.5))return null;\n  if(nD>=5&&!m.oosOk)return null;\n  if(m.verdict==='❌')return null;\n  const pos=m.plus/Math.max(1,m.act);\n  if(mode==='smooth'){const sc=bbScore(m,g,nD,st);return sc?sc.score:null;}\n  const ddr=m.dd/Math.max(1e-9,m.usd);\n  if(mode==='profit'){return pos>=0.7?m.usdd:null;}\n  const ddScore=1/(1+1.5*ddr);\n  return 100*(0.35*pos+0.30*ddScore+0.20*Math.min(1,1/Math.max(1e-9,ddr)/40)+0.15*Math.min(1,m.n/300));\n}\nfunction cbStart(lo,hi,nD,st,key){\n  if(CB.run)CB.run.dead=true;\n  const tok={key:key,dead:false};CB.run=tok;\n  const groups=getGroups('cell',lo,hi);\n  let pool=[];\n  groups.forEach(g=>{\n    if(g.n<CB.minN/2)return;\n    const m=metrics(g,nD,st);\n    if(!(m.usd>0)||m.verdict==='❌')return;\n    pool.push({k:g.key,name:BY.cell.name(g.key),rows:g.rows,rank:m.roi*Math.sqrt(m.n)});\n  });\n  pool.sort((a,b)=>b.rank-a.rank);pool=pool.slice(0,CB.pool);\n  // v6.2: в перебор входят и мои избранные ТС со своими фильтрами/выходами (а не только «голые» ячейки), и сохранённые коллективы как готовые наборы\n  const seedDefs=[];\n  if(CB.useFav){\n    const allF=[];const seenF=new Set();\n    const addF=f=>{if(f&&f.type==='cell'&&!seenF.has(f.id)){seenF.add(f.id);allF.push(f);}};\n    FAVS.forEach(addF);PFS.forEach(p=>(p.favs||[]).forEach(addF));\n    const plainOf=f=>!(f.flt&&f.flt.length)&&!(f.cats&&Object.keys(f.cats).some(c=>f.cats[c]&&f.cats[c].length))&&!f.ex;\n    const favPool=[];\n    allF.forEach(f=>{\n      const rows=pfMemberRows(f,lo,hi);\n      if(rows.length<CB.minN/2)return;\n      const g=prepGroup(rows,lo,nD,'none',true),m=metrics(g,nD,st);\n      if(!(m.usd>0)||m.verdict==='❌')return;\n      if(plainOf(f)){pool=pool.filter(q=>{const pp=String(q.k).split('|');return !(D.ideas[+pp[0]]===f.idea&&D.combos[+pp[1]]===f.combo);});}\n      favPool.push({k:'fav:'+f.id,name:f.name,rows:rows,fav:f.id,rank:1e9});\n    });\n    pool=favPool.concat(pool);\n    const idxOf=id=>pool.findIndex(q=>q.fav===id);\n    const mk=(name,ids)=>{const ix=ids.map(idxOf);if(ix.some(i=>i<0)||ix.length<2)return;ix.sort((a,b)=>a-b);let rows=pool[ix[0]].rows;for(let i=1;i<ix.length;i++)rows=cbMerge(rows,pool[ix[i]].rows);seedDefs.push({name:name,ids:ix,rows:rows});};\n    PFS.forEach(p=>mk(p.name,p.ids));\n    mk('Коллектив бота',BOT_KOL_IDS);\n  }\n  const modes=['smooth','profit','safe'],out={};\n  const step=(msg)=>{const el=document.getElementById('cb_prog');if(el)el.textContent=msg;};\n  const strictOut=[];\n  function*run(){\n    let evals=0;\n    for(const mode of modes){\n      let beams=[{ids:[],rows:[],score:-1}];const seen=new Map();\n      // готовые наборы пользователя: считаем как есть и кладём в результаты\n      seedDefs.forEach(sd=>{\n        const g=prepGroup(sd.rows,lo,nD,'none',true),m=metrics(g,nD,st),sc=cbScore(mode,m,g,nD,st);\n        if(sc===null)return;\n        (out[mode]=out[mode]||[]).push({ids:sd.ids,rows:sd.rows,score:sc,m:m,mode:mode,seedName:sd.name});\n        if(mode==='smooth'){const sv=cbStrict(m,g,nD,st);if(sv!==null)strictOut.push({ids:sd.ids,rows:sd.rows,score:sv,m:m,mode:'strict',seedName:sd.name});}\n      });\n      for(let k=1;k<=CB.maxK;k++){\n        seedDefs.forEach(sd=>{if(sd.ids.length===k-1){const g=prepGroup(sd.rows,lo,nD,'none',true),m=metrics(g,nD,st),sc=cbScore(mode,m,g,nD,st);if(sc!==null)beams.push({ids:sd.ids,rows:sd.rows,score:sc});}});\n        const cand=[];\n        for(const b of beams){\n          for(let ci=0;ci<pool.length;ci++){\n            if(b.ids.indexOf(ci)>=0)continue;\n            const ids=b.ids.concat([ci]).sort((x,y)=>x-y),ky=ids.join(',');\n            if(seen.has(ky))continue;\n            const rows=b.rows.length?cbMerge(b.rows,pool[ci].rows):pool[ci].rows;\n            const g=prepGroup(rows,lo,nD,'none',true),m=metrics(g,nD,st),sc=cbScore(mode,m,g,nD,st);\n            evals++;\n            seen.set(ky,1);\n            if(sc===null)continue;\n            if(mode==='smooth'){const sv=cbStrict(m,g,nD,st);if(sv!==null){strictOut.push({ids:ids,rows:rows,score:sv,m:m,mode:'strict'});if(strictOut.length>60){strictOut.sort((a,b2)=>b2.score-a.score);strictOut.length=30;}}}\n            if(b.score>=0&&sc<b.score*1.003)continue;\n            cand.push({ids:ids,rows:rows,score:sc,m:m,mode:mode});\n            if(evals%6===0){step(mode+': шаг '+k+' из '+CB.maxK+', проверено наборов '+evals);yield;}\n          }\n        }\n        if(!cand.length)break;\n        cand.sort((a,b)=>b.score-a.score);\n        beams=cand.slice(0,2);\n        (out[mode]=out[mode]||[]).push(...cand.slice(0,2));\n        step(mode+': шаг '+k+' из '+CB.maxK+', проверено наборов '+evals);yield;\n      }\n    }\n  }\n  const gen=run();\n  const next=()=>{\n    if(tok.dead)return;\n    const t0=Date.now();let done=false;\n    while(Date.now()-t0<60){const r=gen.next();if(r.done){done=true;break;}}\n    if(done){\n      const res={};\n      out.strict=strictOut;\n      modes.concat(['strict']).forEach(md=>{\n        const arr=(out[md]||[]).slice().sort((a,b)=>b.score-a.score);\n        const sel=[];\n        arr.forEach(x=>{if(sel.length>=15)return;if(sel.some(y=>y.ids.join(',')===x.ids.join(',')))return;sel.push(x);});\n        sel.forEach(x=>{x.m.key='cb';x.m.by='cb';x.m.name=(x.seedName?'★ твой «'+x.seedName+'» · ':'')+'Набор из '+x.ids.length+' ТС';x.m.cbIds=x.ids.map(i=>pool[i].k);x.m.cbNames=x.ids.map(i=>pool[i].name);x.m.cbScore=x.score;});\n        res[md]=sel.map(x=>x.m);\n      });\n      CB.res={res:res,pool:pool.length};CB.key=key;CB.run=null;render();return;\n    }\n    setTimeout(next,0);\n  };\n  setTimeout(next,0);\n}\nfunction renderCombo(){\n  const lr=dayRange(),lo=lr[0],hi=lr[1],nD=hi-lo+1,st=S.stake;\n  let h=renderFilters();\n  h+='<div class=\"card top\"><div class=\"th\"><b>🧩 Комбинации</b> <span class=\"mut small\">страница сама подбирает наборы ТС («коллективы»), которые вместе дают лучший результат</span></div>';\n  h+='<div class=\"note small\">Как это работает: берём лучшие ТС-ячейки лаба (без доп. фильтров, как бот их и торгует), жадно добавляем по одной ту, которая сильнее всего улучшает общий результат набора, и так до тех пор, пока набор перестаёт улучшаться. Сделки всех ТС считаются независимо, пересечения не склеиваются. Три режима считаются одновременно — переключай кнопками. Фильтры сверху (период, режим монеты, цель дня, вход после результата) применяются ко всем ТС в поиске. Ты подбираешь по прошлому: чем длиннее набор и чем больше перебор, тем выше шанс, что красота — совпадение; смотри на число сделок и держи ставку маленькой.</div>';\n  h+='<div class=\"bar\" style=\"margin:6px 0\"><label class=\"small\">сколько ТС перебирать <select id=\"cb_pool\">'+[20,40,80].map(v=>'<option value=\"'+v+'\"'+(CB.pool===v?' selected':'')+'>'+v+'</option>').join('')+'</select></label><label class=\"small\">максимум ТС в наборе <select id=\"cb_maxk\">'+[4,6,10,15].map(v=>'<option value=\"'+v+'\"'+(CB.maxK===v?' selected':'')+'>'+v+'</option>').join('')+'</select></label><label class=\"small\">мин. сделок в наборе <input type=\"number\" id=\"cb_minn\" min=\"20\" value=\"'+CB.minN+'\" style=\"width:64px\"></label></div>';\n  h+='<div class=\"bar\" style=\"margin:6px 0\"><label class=\"small\" title=\"добавить в перебор твои избранные ТС со своими фильтрами и выходами, а также твои сохранённые коллективы как готовые наборы (они помечены ★)\"><input type=\"checkbox\" id=\"cb_fav\"'+(CB.useFav?' checked':'')+'> включить мои избранные ТС (с фильтрами) и сохранённые коллективы ★</label></div>';\n  h+='<div class=\"bar\" style=\"margin:6px 0\">';\n  Object.keys(CB_MODES).forEach(k=>{h+='<button data-act=\"cbmode\" data-v=\"'+k+'\"'+(CB.mode===k?' class=\"on\"':'')+' title=\"'+esc(CB_MODES[k][1])+'\">'+CB_MODES[k][0]+'</button>';});\n  h+='</div><div class=\"small mut\">'+esc(CB_MODES[CB.mode][1])+'</div>';\n  if(CB.mode==='strict'||CB.mode==='auto'){\n    const Z=CB.strict,inp=(id,v,lab,tt)=>'<label class=\"small\" title=\"'+esc(tt)+'\">'+lab+' <input type=\"number\" id=\"'+id+'\" value=\"'+v+'\" step=\"any\" style=\"width:70px\"></label>';\n    h+='<div class=\"bar\" style=\"margin:6px 0\">'+inp('cb_s_sm',Z.sm,'ровность роста ≥, %','насколько кумулятивная похожа на прямую линию вверх; 100% = идеальная прямая')+inp('cb_s_dd',Z.dd,'макс. просадка ≤, % от прибыли','самая глубокая просадка от пика, в процентах от всей прибыли набора')+inp('cb_s_half',Z.half,'разница ROI половин ≤, п.п.','ROI на 1-й и 2-й половине сделок должен отличаться не больше чем на столько')+inp('cb_s_cv',Z.cv,'разброс прибыли по дням ≤, %','стандартное отклонение дневной прибыли ÷ средняя дневная прибыль; чем меньше, тем более одинаковые дни')+'</div><div class=\"small mut\">Меняешь порог — поиск запускается заново (около минуты). Результаты отсортированы по прибыли.</div>';\n  }\n  if(CB.mode==='auto')return renderAuto(h,lo,hi,nD,st);\n  const key=['cb',lo,hi,st,CB.useFav?1:0,PFS.map(x=>x.id+x.ids.join(',')).join(';'),FAVS.length,JSON.stringify(CB.strict),CB.pool,CB.maxK,CB.minN,S.one?1:0,JSON.stringify(S.flt),S.goalP,S.goalL,S.goalN,S.goalK,S.goalZ,S.goalW,ESLIP,enKey(),S.sqm,S.sqn,S.sqc,S.rg.join(',')].join('|');\n  if(CB.key!==key||!CB.res){\n    if(!(CB.run&&CB.run.key===key))cbStart(lo,hi,nD,st,key);\n    return h+'<div class=\"small mut\" style=\"padding:8px 2px\">⏳ Ищу наборы… <b id=\"cb_prog\">0</b></div></div>';\n  }\n  const rows=CB.res.res[CB.mode]||[];\n  CB.rows=rows;\n  h+='<div class=\"small mut\" style=\"margin:6px 0\">В переборе ТС: <b>'+CB.res.pool+'</b>; найдено наборов, прошедших отбор: <b>'+rows.length+'</b>.</div>';\n  if(!rows.length&&CB.mode==='strict')return h+'<div class=\"mut small\" style=\"padding:6px 2px\">Ни один набор не прошёл все строгие пороги. Ослабь один-два порога (например, ровность 90%, разброс по дням 80%, просадка 8%) или уменьши «мин. сделок».</div></div>';\n  if(!rows.length)return h+'<div class=\"mut small\" style=\"padding:6px 2px\">Ни один набор не прошёл отбор (плюс в половине дней, плюс на проверке, без ❌). Уменьши «мин. сделок» или подожди, пока наберётся больше дней.</div></div>';\n  h+=topTable(rows,'cb',{nomedal:false,limit:CB.show,star:false,attrs:x=>' data-act=\"cbuse\" data-i=\"'+rows.indexOf(x)+'\"',cum:true,sub:x=>{\n    const d=depCalc(x.g.rows,st);\n    return (CB.mode==='strict'?'<b>прибыль '+money(x.cbScore)+'</b> · ROI половин '+(function(){const hv=halves(x.g.rows);return hv?pct(hv[0])+' / '+pct(hv[1]):'—';})()+' · ':'<b>оценка '+x.cbScore.toFixed(x.cbScore>=10?0:1)+'</b> · ')+'ровность '+(x.seq&&x.seq.smooth!=null?Math.round(x.seq.smooth*100)+'%':'—')+' · плюс в '+x.plus+' из '+x.act+' дн. · просадка $'+x.dd.toFixed(1)+' · макс. открыто '+d.peakN+' · мин. депозит $'+d.minDep.toFixed(0)+'<br><span class=\"mut\">'+x.cbNames.map(esc).join(' &nbsp;·&nbsp; ')+'</span>';}});\n  if(rows.length>CB.show)h+='<div class=\"bar\"><button data-act=\"cbmore\">Показать ещё 5</button><span class=\"mut small\">показано '+Math.min(CB.show,rows.length)+' из '+rows.length+'</span></div>';\n  h+='<div class=\"small mut\" style=\"margin-top:6px\">Клик по набору добавляет все его ТС в «Избранные» и сразу собирает их в «Коллективную работу» (там полный разбор, депозит и копирование правил).</div></div>';\n  return h;\n}\n// ===== 🧬 АВТОПОИСК: фильтры для ячеек подбираются автоматически (на первых ~70% дней), из получившихся ТС собираются наборы (тоже на подборе), потом всё проверяется на последних ~30% дней =====\nfunction autoStart(lo,hi,nD,st,key){\n  const A=CB.auto;\n  if(A.run)A.run.dead=true;\n  const tok={key:key,dead:false};A.run=tok;\n  const nTr=Math.round(nD*0.7),nTe=nD-nTr,loTe=lo+nTr,tcut=loTe*DAYS;\n  const finish=res=>{A.res=res;A.key=key;A.run=null;render();};\n  if(nTr<4||nTe<2){setTimeout(()=>finish({err:'Для автопоиска нужно хотя бы 6 дней в периоде (сейчас '+nD+'). Расширь период сверху.'}),0);return;}\n  const step=msg=>{const el=document.getElementById('cb_prog');if(el)el.textContent=msg;};\n  const groups=getGroups('cell',lo,hi);\n  const cells=groups.filter(g=>g.rows.length>=Math.max(120,CB.minN*2)).sort((a,b)=>b.rows.length-a.rows.length).slice(0,A.cells);\n  let pool=[];const out={cand:[],near:[]};let evals=0;\n  const split=rows=>{const tr=[],te=[];for(const r of rows){if(r[C.ts]<tcut)tr.push(r);else te.push(r);}return[tr,te];};\n  function*run(){\n    let ci=0;\n    for(const g of cells){\n      ci++;\n      const rows=g.rows,base=BY.cell.name(g.key);\n      const variants=[{conds:[],rows:rows}];\n      const fs=fitSteps(rows,tcut,Math.max(40,Math.ceil(rows.length*0.12)),true);\n      let cur=rows;const conds=[];\n      fs.steps.forEach(stp=>{conds.push({col:stp.col,lo:stp.lo,hi:stp.hi});cur=cur.filter(r=>fitIn(r,stp));variants.push({conds:conds.slice(),rows:cur});});\n      variants.forEach((v,vi)=>{\n        const sp=split(v.rows),tr=sp[0],te=sp[1];\n        if(tr.length<Math.max(30,CB.minN/3))return;\n        const gg=prepGroup(tr,lo,nTr,'none',true),m=metrics(gg,nTr,st);\n        if(!(m.usd>0)||m.verdict==='❌')return;\n        pool.push({cell:g.key,name:base+(v.conds.length?' + '+fltText(v.conds):''),conds:v.conds,rows:v.rows,tr:tr,te:te,rank:m.roi*Math.sqrt(m.n)});\n      });\n      step('подбираю фильтры: ячейка '+ci+' из '+cells.length+' (найдено ТС: '+pool.length+')');\n      yield;\n    }\n    pool.sort((a,b)=>b.rank-a.rank);pool=pool.slice(0,100);\n    let beams=[{ids:[],rows:[],score:-1}];const seen=new Set();\n    for(let k=1;k<=CB.maxK;k++){\n      const nb=[];\n      for(const b of beams){\n        for(let i=0;i<pool.length;i++){\n          if(b.ids.indexOf(i)>=0)continue;\n          if(b.ids.some(j=>pool[j].cell===pool[i].cell))continue;\n          const ids=b.ids.concat([i]).sort((x,y)=>x-y),ky=ids.join(',');\n          if(seen.has(ky))continue;seen.add(ky);\n          const rows=b.rows.length?cbMerge(b.rows,pool[i].tr):pool[i].tr;\n          const gg=prepGroup(rows,lo,nTr,'none',true),m=metrics(gg,nTr,st),sc=cbScore('smooth',m,gg,nTr,st);\n          evals++;\n          if(sc!==null){\n            const sv=cbStrict(m,gg,nTr,st);\n            if(sv!==null){out.cand.push({ids:ids,usd:sv});if(out.cand.length>80){out.cand.sort((a,b2)=>b2.usd-a.usd);out.cand.length=40;}}\n            if(!(b.score>=0&&sc<b.score*1.003))nb.push({ids:ids,rows:rows,score:sc});\n          }\n          if(evals%5===0){step('собираю наборы: шаг '+k+' из '+CB.maxK+', проверено '+evals);yield;}\n        }\n      }\n      if(!nb.length)break;\n      nb.sort((a,b)=>b.score-a.score);\n      beams=nb.slice(0,2);\n      beams.forEach(x=>out.near.push({ids:x.ids,usd:0,score:x.score}));\n      step('собираю наборы: шаг '+k+' из '+CB.maxK+', проверено '+evals);yield;\n    }\n  }\n  const finalize=()=>{\n    out.cand.sort((a,b)=>b.usd-a.usd);\n    const list=[],used=new Set();\n    out.cand.slice(0,25).forEach(c=>{const ky=c.ids.join(',');if(used.has(ky))return;used.add(ky);list.push({ids:c.ids,pass:true});});\n    out.near.sort((a,b)=>b.score-a.score);\n    out.near.forEach(c=>{const ky=c.ids.join(',');if(used.has(ky)||list.length>=35)return;used.add(ky);list.push({ids:c.ids,pass:false});});\n    const rows=list.map(c=>{\n      const mem=c.ids.map(i=>pool[i]);\n      let trR=mem[0].tr,teR=mem[0].te,alR=mem[0].rows;\n      for(let q=1;q<mem.length;q++){trR=cbMerge(trR,mem[q].tr);teR=cbMerge(teR,mem[q].te);alR=cbMerge(alR,mem[q].rows);}\n      const gA=prepGroup(alR,lo,nD,'none',true),mA=metrics(gA,nD,st);\n      const mTr=metrics(prepGroup(trR,lo,nTr,'none',true),nTr,st),mTe=metrics(prepGroup(teR,loTe,nTe,'none',true),nTe,st);\n      const hold=mTe.usd>0&&mTe.roi>=0.6*mTr.roi,weak=mTe.usd>0;\n      mA.key='cb';mA.by='cb';mA.name=(c.pass?'':'(не прошёл пороги на подборе) ')+'Набор из '+mem.length+' ТС';\n      mA.cbNames=mem.map(x=>x.name);mA.cbMem=mem.map(x=>({cell:x.cell,name:x.name,conds:x.conds}));\n      mA.au={tr:mTr,te:mTe,pass:c.pass,v:hold?0:(weak?1:2),vt:hold?'✅ держится':(weak?'⚠️ слабее на проверке':'❌ не держится')};\n      return mA;\n    });\n    rows.sort((a,b)=>(b.au.pass-a.au.pass)||(a.au.v-b.au.v)||(b.usd-a.usd));\n    finish({rows:rows,pool:pool.length,evals:evals,passN:out.cand.length,nTr:nTr,nTe:nTe,loTe:loTe,cells:cells.length});\n  };\n  const gen=run();\n  const next=()=>{\n    if(tok.dead)return;\n    const t0=Date.now();let fin=false;\n    while(Date.now()-t0<60){const r=gen.next();if(r.done){fin=true;break;}}\n    if(fin){finalize();return;}\n    setTimeout(next,0);\n  };\n  setTimeout(next,0);\n}\nfunction renderAuto(h,lo,hi,nD,st){\n  const A=CB.auto;\n  const key=['auto',lo,hi,st,A.cells,CB.maxK,CB.minN,S.one?1:0,JSON.stringify(S.flt),S.goalP,S.goalL,S.goalN,S.goalK,S.goalZ,S.goalW,ESLIP,S.sqm,S.sqn,S.sqc,S.rg.join(','),JSON.stringify(CB.strict)].join('|');\n  h+='<div class=\"bar\" style=\"margin:6px 0\"><label class=\"small\">сколько ячеек пробовать <select id=\"cb_acell\">'+[30,60,100].map(v=>'<option value=\"'+v+'\"'+(A.cells===v?' selected':'')+'>'+v+'</option>').join('')+'</select></label></div>';\n  h+='<div class=\"note small\">Как это работает: берём самые «крупные» ячейки лаба, для каждой сам подбираю до 3 фильтров (только на первых ~70% дней), потом жадно собираю из этих ТС наборы (тоже только на подборе) и оставляю те, что проходят пороги выше. Последние ~30% дней ни в подборе фильтров, ни в сборке наборов НЕ участвовали — по ним видно, держится ли результат. Это защита от подгонки, но не гарантия: даже «✅ держится» значит только «не развалилось на ближайших днях».</div>';\n  if(A.key!==key||!A.res){\n    if(!(A.run&&A.run.key===key))autoStart(lo,hi,nD,st,key);\n    return h+'<div class=\"small mut\" style=\"padding:8px 2px\">⏳ Ищу… это может занять несколько минут. <b id=\"cb_prog\">0</b></div></div>';\n  }\n  const R=A.res;\n  if(R.err)return h+'<div class=\"mut small\" style=\"padding:6px 2px\">'+esc(R.err)+'</div></div>';\n  A.rows=R.rows;\n  h+='<div class=\"small mut\" style=\"margin:6px 0\">Подбор: '+R.nTr+' дн., проверка: '+R.nTe+' дн. · ячеек: '+R.cells+' · ТС с фильтрами в переборе: '+R.pool+' · проверено наборов: '+R.evals+' · прошли пороги на подборе: <b>'+R.passN+'</b>.</div>';\n  if(!R.rows.length)return h+'<div class=\"mut small\" style=\"padding:6px 2px\">Ничего не нашлось. Ослабь пороги или расширь период.</div></div>';\n  if(!R.passN)h+='<div class=\"note small warn\">Ни один набор не прошёл все пороги на подборе, ниже — ближайшие по ровности. Ослабь пороги (например, ровность 90%, разброс по дням 80%).</div>';\n  h+=topTable(R.rows,'cb',{nomedal:true,limit:A.show,star:false,attrs:x=>' data-act=\"autouse\" data-i=\"'+R.rows.indexOf(x)+'\"',cum:true,sub:x=>{\n    const a=x.au,d=depCalc(x.g.rows,st);\n    const f=m=>(m.usdd<0?'−$':'$')+Math.abs(m.usdd).toFixed(1)+'/д, ROI '+pct(m.roi)+', ровность '+(m.seq&&m.seq.smooth!=null?Math.round(m.seq.smooth*100)+'%':'—')+', просадка $'+m.dd.toFixed(1);\n    return '<b>'+a.vt+'</b> · подбор: '+f(a.tr)+'<br>проверка: '+f(a.te)+' · плюс в '+a.te.plus+' из '+a.te.act+' дн.<br>макс. открыто '+d.peakN+' · мин. депозит $'+d.minDep.toFixed(0)+'<br><span class=\"mut\">'+x.cbNames.map(esc).join(' &nbsp;·&nbsp; ')+'</span>';}});\n  if(R.rows.length>A.show)h+='<div class=\"bar\"><button data-act=\"automore\">Показать ещё 5</button><span class=\"mut small\">показано '+Math.min(A.show,R.rows.length)+' из '+R.rows.length+'</span></div>';\n  h+='<div class=\"small mut\" style=\"margin-top:6px\">Клик по набору добавляет его ТС (уже с подобранными фильтрами) в «Избранные» и собирает их в «Коллективную работу». Числа в таблице сверху — за весь период, поэтому они выглядят лучше, чем честная проверка: смотри строки «подбор» и «проверка».</div></div>';\n  return h;\n}\nfunction autoUse(i){\n  const x=CB.auto.rows[i];if(!x)return;\n  if(!window.confirm('Добавить '+x.cbMem.length+' ТС (с подобранными фильтрами) в избранное и собрать из них «Коллективную работу»? Текущий коллектив будет заменён.'))return;\n  const ids=[];\n  x.cbMem.forEach(mm=>{\n    const p=String(mm.cell).split('|'),idea=D.ideas[+p[0]],combo=D.combos[+p[1]];\n    const flt=mm.conds.map(c=>({col:c.col,lo:c.lo,hi:c.hi}));\n    const js=JSON.stringify(flt);\n    let f=FAVS.find(z=>z.type==='cell'&&z.idea===idea&&z.combo===combo&&JSON.stringify(z.flt||[])===js&&!z.ex&&!(z.cats&&Object.keys(z.cats).some(c=>z.cats[c]&&z.cats[c].length)));\n    if(!f){f={id:newFavId(),type:'cell',name:mm.name,idea:idea,combo:combo,flt:flt,cats:{}};FAVS.push(f);}\n    ids.push(f.id);\n  });\n  saveFavs();PF.ids=ids;PF.one=false;PF.txt='';savePf();S.tab='fav';S.sel=null;render();window.scrollTo(0,0);\n}\nfunction cbUse(i){\n  const x=CB.rows[i];if(!x)return;\n  if(!window.confirm('Добавить '+x.cbIds.length+' ТС в избранное и собрать из них «Коллективную работу»? Текущий коллектив будет заменён.'))return;\n  const ids=[];\n  x.cbIds.forEach((k,j)=>{\n    if(String(k).indexOf('fav:')===0){const fid=String(k).slice(4);let ff=FAVS.find(z=>z.id===fid);if(!ff){PFS.forEach(pp=>(pp.favs||[]).forEach(z=>{if(!ff&&z.id===fid)ff=z;}));if(ff){FAVS.push(JSON.parse(JSON.stringify(ff)));}}ids.push(fid);return;}\n    const p=String(k).split('|'),idea=D.ideas[+p[0]],combo=D.combos[+p[1]];\n    let f=FAVS.find(z=>z.type==='cell'&&z.idea===idea&&z.combo===combo&&!(z.flt&&z.flt.length)&&!(z.cats&&Object.keys(z.cats).some(c=>z.cats[c]&&z.cats[c].length)));\n    if(!f){f={id:newFavId(),type:'cell',name:x.cbNames[j],idea:idea,combo:combo,flt:[],cats:{}};FAVS.push(f);}\n    ids.push(f.id);\n  });\n  saveFavs();PF.ids=ids;PF.txt='';savePf();S.tab='fav';S.sel=null;render();window.scrollTo(0,0);\n}\n// ===== 🏅 ЛУЧШИЕ ИЗ ЛУЧШИХ: перебор ТС × режим монеты × вход после результата × правила дня, оценка «ровная кумулятивная, плюс каждый день, малая просадка, хватает сделок» =====\nconst BB={minN:60,cap:40,show:10,all:false,res:null,key:'',run:null,rows:[]};\nconst BB_RG=[[],[3],[4],[2],[5],[1],[4,5],[1,2],[3,4],[2,3]];\nconst BB_SQ=[['',1],['loss',1],['win',1],['loss',2]];\nconst BB_P=[0,5,10,20],BB_L=[0,5,10],BB_N=[0,3];\nfunction bbKey(T,st,lo,hi){return ['bb',T.by,lo,hi,st,BB.minN,BB.cap,S.q,S.one?1:0,JSON.stringify(S.flt),CI.rg!==undefined?1:0].join('|');}\nfunction bbRuleText(v){\n  const p=[];\n  p.push(v.rg.length?'режим: '+v.rg.slice().sort((a,b)=>b-a).map(k=>REGN[k]).join(' + '):'любой режим');\n  if(v.sq)p.push('вход только после '+(v.sn>1?v.sn+' ':'')+(v.sq==='loss'?'убыточных':'прибыльных')+(v.sn>1?' подряд':' сделки'));\n  const g=[];if(v.P)g.push('цель +$'+v.P);if(v.L)g.push('стоп дня −$'+v.L);if(v.N)g.push('≤'+v.N+' входов в день');\n  if(g.length)p.push(g.join(', '));\n  return p.join(' · ');\n}\nfunction bbScore(m,g,nD,stake){\n  if(!(m.usd>0))return null;\n  const act=m.act;if(nD<3||act<Math.max(2,nD*0.5))return null;\n  if(m.n<BB.minN)return null;\n  if(nD>=5&&!m.oosOk)return null;\n  if(m.verdict==='❌')return null;\n  const sm=g.seq&&g.seq.smooth!=null?g.seq.smooth:0;\n  const pos=m.plus/Math.max(1,act);\n  const ddScore=1/(1+1.5*(m.dd/Math.max(1e-9,m.usd)));\n  let sum=0,sq=0;for(let d=0;d<nD;d++){const v=g.dRoi[d]*stake;sum+=v;sq+=v*v;}\n  const mean=sum/nD,sd=Math.sqrt(Math.max(0,sq/nD-mean*mean));\n  const cv=mean>1e-9?sd/mean:9;\n  const cvScore=Math.max(0,1-cv/1.5);\n  const samp=Math.min(1,m.n/150);\n  const score=100*(0.30*sm+0.20*pos+0.20*ddScore+0.20*cvScore+0.10*samp);\n  return{score:score,sm:sm,pos:pos,ddScore:ddScore,cv:cv,cvScore:cvScore,samp:samp};\n}\nfunction bbStart(T,st,lo,hi,nD,key){\n  if(BB.run)BB.run.dead=true;\n  const tok={key:key,dead:false};BB.run=tok;\n  const by=T.by,kf=BY[by].key,mp=new Map(),q=S.q.trim().toLowerCase();\n  for(const r of rowsF){const d=dayOf(r[C.ts]);if(d<lo||d>hi)continue;const k=kf(r);let a=mp.get(k);if(!a){a=[];mp.set(k,a);}a.push(r);}\n  let cands=[];mp.forEach((rs,k)=>{if(q&&BY[by].name(k).toLowerCase().indexOf(q)<0)return;const a=S.one?dedupe(rs):rs;if(a.length>=BB.minN*1.5)cands.push({k:k,rows:a.slice().sort((x,y)=>x[C.ts]-y[C.ts])});});\n  cands.sort((a,b)=>b.rows.length-a.rows.length);cands=cands.slice(0,BB.cap);\n  const rgs=CI.rg!==undefined?BB_RG:[[]];\n  const out=[];let i=0,nv=0;\n  const upd=()=>{const el=document.getElementById('bb_prog');if(el)el.textContent=Math.round(i/Math.max(1,cands.length)*100)+'% ('+i+' из '+cands.length+' ТС, вариантов '+nv+')';};\n  const one=c=>{\n    const loc=[];\n    for(const rg of rgs){\n      const r1=rg.length?c.rows.filter(r=>{const v=r[CI.rg];return v!==null&&v!==undefined&&rg.indexOf(v)>=0;}):c.rows;\n      if(r1.length<BB.minN)continue;\n      for(const sq of BB_SQ){\n        const r2=sq[0]?afterCut(r1,sq[0],sq[1],0):r1;\n        if(r2.length<BB.minN)continue;\n        for(const P of BB_P)for(const L of BB_L)for(const N of BB_N){\n          const r3=(P||L||N)?goalCutP(r2,P,L,N,0,st,true):r2;\n          if(r3.length<BB.minN)continue;\n          nv++;\n          const g=prepGroup(r3,lo,nD,'none',true),m=metrics(g,nD,st),sc=bbScore(m,g,nD,st);\n          if(!sc)continue;\n          m.key=c.k;m.by=by;m.name=BY[by].name(c.k);m.sc=sc;m.v={rg:rg,sq:sq[0],sn:sq[1],P:P,L:L,N:N};\n          loc.push(m);\n        }\n      }\n    }\n    loc.sort((x,y)=>y.sc.score-x.sc.score);loc.slice(0,15).forEach(m=>out.push(m));\n  };\n  const next=()=>{\n    if(tok.dead)return;\n    const t0=Date.now();\n    while(i<cands.length&&Date.now()-t0<60){one(cands[i]);i++;}\n    if(i>=cands.length){BB.res={rows:out,nv:nv,nb:cands.length};BB.key=key;BB.run=null;render();return;}\n    upd();setTimeout(next,0);\n  };\n  setTimeout(next,0);\n}\nfunction bbSection(T,st,lo,hi,nD){\n  let h='<div class=\"card top\"><div class=\"th\"><b>🏅 Лучшие из лучших</b> <span class=\"mut small\">перебор: ТС × режим монеты × вход после убытка/прибыли × правила дня; оценка: ровная кумулятивная (30%), плюс почти каждый день (20%), малая просадка (20%), одинаковая прибыль по дням (20%), достаточно сделок (10%)</span></div>';\n  h+='<div class=\"bar\" style=\"margin:6px 0\"><label class=\"small\">мин. сделок в варианте <input type=\"number\" id=\"bb_minn\" min=\"20\" value=\"'+BB.minN+'\" style=\"width:64px\"></label><label class=\"small\">сколько ТС перебирать <select id=\"bb_cap\">'+[20,40,80].map(v=>'<option value=\"'+v+'\"'+(BB.cap===v?' selected':'')+'>'+v+'</option>').join('')+'</select></label><button data-act=\"bball\"'+(BB.all?' class=\"on\"':'')+' title=\"по умолчанию показывается лучший вариант каждой ТС\">показать все варианты, не только лучший у каждой ТС</button></div>';\n  h+='<div class=\"note small\">Берутся только ТС в плюсе, с торговлей минимум в половине дней, с плюсом на последних ~40% дней (проверка, которую подбор не видел) и без ❌. Сверху (режим монеты, цель дня, вход после результата) эти настройки здесь не используются — они подбираются сами. Перебор по прошлому: чем больше вариантов, тем выше шанс, что красивое — совпадение, поэтому смотри на число сделок и держи ставку маленькой.</div>';\n  const key=bbKey(T,st,lo,hi);\n  if(BB.key!==key||!BB.res){\n    if(!(BB.run&&BB.run.key===key))bbStart(T,st,lo,hi,nD,key);\n    return h+'<div class=\"small mut\" style=\"padding:8px 2px\">⏳ Перебираю варианты… <b id=\"bb_prog\">0%</b></div></div>';\n  }\n  const R=BB.res;let rows=R.rows.slice().sort((a,b)=>b.sc.score-a.sc.score);\n  if(!BB.all){const seen=new Set();rows=rows.filter(r=>{if(seen.has(r.key))return false;seen.add(r.key);return true;});}\n  BB.rows=rows;\n  if(CI.rg===undefined)h+='<div class=\"note warn small\">В данных ещё нет разметки режима монеты — перебор идёт без неё (только вход после результата и правила дня).</div>';\n  h+='<div class=\"small mut\" style=\"margin-bottom:6px\">Проверено ТС: <b>'+R.nb+'</b>, вариантов: <b>'+R.nv+'</b>; прошли отбор: <b>'+R.rows.length+'</b>.</div>';\n  if(!rows.length)return h+'<div class=\"mut small\" style=\"padding:6px 2px\">Ни один вариант не прошёл отбор. Уменьши «мин. сделок» или подожди, пока наберётся больше дней.</div></div>';\n  h+=topTable(rows,'bb',{nomedal:false,limit:BB.show,star:false,attrs:x=>' data-act=\"bbopen\" data-i=\"'+rows.indexOf(x)+'\"',cum:true,sub:x=>'<b>оценка '+x.sc.score.toFixed(0)+'/100</b> · '+esc(bbRuleText(x.v))+'<br>ровность '+Math.round(x.sc.sm*100)+'% · плюс в '+x.plus+' из '+x.act+' дн. · худший день '+money(x.worst)+' · просадка $'+x.dd.toFixed(1)+' · '+x.n+' сделок'});\n  if(rows.length>BB.show)h+='<div class=\"bar\"><button data-act=\"bbmore\">Показать ещё 10</button><span class=\"mut small\">показано '+Math.min(BB.show,rows.length)+' из '+rows.length+'</span></div>';\n  h+='<div class=\"small mut\" style=\"margin-top:6px\">Клик по строке открывает ТС и сразу включает её режим, вход после результата и правила дня в фильтрах.</div></div>';\n  return h;\n}\nfunction gsKey(items,T,st){return ['gs',T.by,TOPLO,TOPND,items.length,GS.minN,st,S.q,S.one?1:0,S.flt.length,S.goalP,S.goalL,S.goalN,S.goalK,S.goalZ,S.goalW,ESLIP,enKey(),S.sqm,S.sqn,S.sqc,S.rg.join(',')].join('|');}\nfunction gsRuleText(r){const a=[];if(r.P>0)a.push('после +$'+r.P+' за день — стоп до конца дня');if(r.L>0)a.push('после −$'+r.L+' за день — стоп');if(r.N>0)a.push('не больше '+r.N+' '+(r.N===1?'входа':'входов')+' в день');if(r.K>0)a.push('после '+r.K+' проигрышей подряд за день — стоп');return a.length?a.join(' · '):'без правил дня';}\nfunction gsEv(rows,rule,tcut,st){\n  const k=goalCutP(rows,rule.P,rule.L,rule.N,rule.K,st,true);\n  let tr=0,te=0,nTe=0,cum=0,pk=0,dd=0,w=0,trDd=0,cumT=0,pkT=0;const days=new Map();\n  for(const r of k){\n    const v=roiOf(r)*st;w+=r[C.won];cum+=v;if(cum>pk)pk=cum;if(pk-cum>dd)dd=pk-cum;\n    const d=dayOf(r[C.ts]);days.set(d,(days.get(d)||0)+v);\n    if(r[C.ts]<tcut){tr+=v;cumT+=v;if(cumT>pkT)pkT=cumT;if(pkT-cumT>trDd)trDd=pkT-cumT;}else{te+=v;nTe++;}\n  }\n  let minus=0;days.forEach(v=>{if(v<-1e-9)minus++;});\n  return{n:k.length,tr:tr,te:te,nTe:nTe,tot:tr+te,dd:dd,trDd:trDd,wr:k.length?w/k.length:0,minus:minus,act:days.size};\n}\nfunction gsOne(x){\n  const s=x.g.rows.slice().sort((a,b)=>a[C.ts]-b[C.ts]),n=s.length,st=GS.ctx.st;\n  if(n<GS.minN||n<60)return null;\n  const tcut=s[Math.floor(n*0.6)][C.ts];\n  const base=gsEv(s,{P:0,L:0,N:0,K:0},tcut,st);\n  let best=null;\n  for(const P of GS_P)for(const L of GS_L)for(const N of GS_N)for(const K of GS_K){\n    if(!P&&!L&&!N&&!K)continue;\n    const rule={P:P,L:L,N:N,K:K},e=gsEv(s,rule,tcut,st);\n    if(e.n<n*0.4)continue;\n    const sc=e.tr-e.trDd-(base.tr-base.trDd);\n    if(!best||sc>best.sc)best={rule:rule,e:e,sc:sc};\n  }\n  if(!best||best.sc<=0)return{x:x,none:true};\n  return{x:x,rule:best.rule,e:best.e,base:base,n:n};\n}\nfunction gsStart(items,T,st,key){\n  if(GS.run)GS.run.dead=true;\n  const tok={key:key,dead:false};GS.run=tok;GS.ctx={lo:TOPLO,nD:TOPND,st:st};\n  const cands=items.filter(x=>x.n>=GS.minN).sort((a,b)=>b.n-a.n),out=[];let i=0,none=0;\n  const upd=()=>{const el=document.getElementById('gs_prog');if(el)el.textContent=Math.round(i/Math.max(1,cands.length)*100)+'% ('+i+' из '+cands.length+')';};\n  const next=()=>{\n    if(tok.dead)return;\n    const t0=Date.now();\n    while(i<cands.length&&Date.now()-t0<40){const r=gsOne(cands[i]);if(r){if(r.none)none++;else out.push(r);}i++;}\n    if(i>=cands.length){GS.res={rows:out,none:none,total:cands.length};GS.key=key;GS.run=null;render();return;}\n    upd();setTimeout(next,0);\n  };\n  setTimeout(next,0);\n}\nfunction gsOk(r){return r.e.nTe>=10&&r.e.te>0&&r.e.te>r.base.te-1e-9&&r.e.dd<=r.base.dd+1e-9;}\nconst GS_SORTS={test:['прибыли на проверке',r=>r.e.te],gain:['приросту на проверке',r=>r.e.te-r.base.te],dd:['снижению просадки',r=>r.base.dd-r.e.dd],tot:['общей прибыли',r=>r.e.tot],minus:['меньше убыточных дней',r=>r.base.minus-r.e.minus]};\nfunction gsSection(items,T,st){\n  let h='<div class=\"card top\"><div class=\"th\"><b>🎯 Лучшая цель дня и стоп дня</b> <span class=\"mut small\">для каждой ТС перебираются правила дня: остановиться после +$ или −$, лимит входов в день, стоп после серии проигрышей</span></div>';\n  h+='<div class=\"bar\" style=\"margin:6px 0\"><span class=\"mut small\">сортировать по:</span>';\n  Object.keys(GS_SORTS).forEach(k=>{h+='<button data-act=\"gssort\" data-s=\"'+k+'\"'+(GS.sort===k?' class=\"on\"':'')+'>'+GS_SORTS[k][0]+'</button>';});\n  h+='<button data-act=\"gsonly\" style=\"margin-left:8px\"'+(GS.only?' class=\"on\"':'')+' title=\"только ТС, где на проверке (последние 40% сделок, которых подбор не видел) с правилом дня прибыль в плюсе, не хуже чем без правила и просадка не больше\">только ✅ держится на проверке</button>';\n  h+='<label class=\"small\">мин. сделок в ТС <input type=\"number\" id=\"gs_minn\" min=\"30\" value=\"'+GS.minN+'\" style=\"width:64px\"></label></div>';\n  if(goalOn())h+='<div class=\"note warn small\">Сверху уже включена дневная цель — правила ниже накладываются поверх неё. Для чистого поиска сбрось её.</div>';\n  const key=gsKey(items,T,st);\n  if(GS.key!==key||!GS.res){\n    if(!(GS.run&&GS.run.key===key))gsStart(items,T,st,key);\n    return h+'<div class=\"small mut\" style=\"padding:8px 2px\">⏳ Подбираю правила дня для каждой ТС… <b id=\"gs_prog\">0%</b></div></div>';\n  }\n  const R=GS.res;let rows=R.rows.slice();\n  const nHold=rows.filter(gsOk).length;\n  if(GS.only)rows=rows.filter(gsOk);\n  const sf=GS_SORTS[GS.sort][1];rows.sort((a,b)=>sf(b)-sf(a));\n  GS.rows=rows;\n  const arrow=(a,b)=>'<span class=\"mut\">'+a+'</span> → <b>'+b+'</b>';\n  h+='<div class=\"small mut\" style=\"margin-bottom:6px\">Проверено ТС: <b>'+R.total+'</b>. Правило нашлось у '+R.rows.length+', из них на проверке держатся <b>'+nHold+'</b> ('+(R.rows.length?Math.round(nHold/R.rows.length*100):0)+'%). Если доля около половины или меньше — большая часть находок шум. Перебрано '+(GS_P.length*GS_L.length*GS_N.length*GS_K.length-1)+' правил на ТС; лучшее выбирается по «прибыль минус просадка» на первых 60% сделок.</div>';\n  if(!rows.length)return h+'<div class=\"mut small\" style=\"padding:6px 2px\">Нет ТС, где правило дня уверенно держится на проверке. Сними «только ✅», чтобы увидеть остальные.</div></div>';\n  h+='<div class=\"tw\"><table><thead><tr><th class=\"l ns\">#</th><th class=\"l ns\">ТС и правило дня</th><th class=\"ns\">сделок</th><th class=\"ns\">винрейт</th><th class=\"ns\">итог $</th><th class=\"ns\">проверка $</th><th class=\"ns\">просадка $</th><th class=\"ns\">убыт. дней</th><th class=\"ns\">вывод</th><th class=\"ns\"></th></tr></thead><tbody>';\n  rows.slice(0,GS.show).forEach((r,i)=>{\n    const b=r.base,e=r.e,ok=gsOk(r),v=ok?['✅','fv-g','на проверке лучше и просадка не больше']:(e.te>b.te&&e.te>0?['⚠️','fv-w','на проверке прибыль выше, но просадка больше или сделок мало']:['❌','fv-b','на проверке правило не помогло']);\n    h+='<tr><td class=\"l\">'+(i+1)+'</td><td class=\"l\" style=\"white-space:normal;min-width:300px\"><b>'+esc(r.x.name)+'</b><div class=\"small\" style=\"font-weight:400\">'+esc(gsRuleText(r.rule))+'</div></td>'\n      +'<td>'+arrow(b.n,e.n)+'</td><td>'+arrow(pct(b.wr,0),pct(e.wr,0))+'</td>'\n      +'<td class=\"'+cls(e.tot)+'\">'+arrow(money(b.tot),money(e.tot))+'</td><td class=\"'+cls(e.te)+'\">'+arrow(money(b.te),money(e.te))+'<div class=\"mut small\" style=\"font-weight:400\">'+e.nTe+' сд.</div></td>'\n      +'<td>'+arrow('$'+b.dd.toFixed(1),'$'+e.dd.toFixed(1))+'</td><td>'+arrow(b.minus+' из '+b.act,e.minus+' из '+e.act)+'</td>'\n      +'<td><span class=\"fvb '+v[1]+'\" title=\"'+esc(v[2])+'\">'+v[0]+'</span></td><td><button data-act=\"gsopen\" data-i=\"'+i+'\">открыть и применить</button></td></tr>';\n  });\n  h+='</tbody></table></div>';\n  if(rows.length>GS.show)h+='<div class=\"bar\"><button data-act=\"gsmore\">Показать ещё 10</button><span class=\"mut small\">показано '+Math.min(GS.show,rows.length)+' из '+rows.length+'</span></div>';\n  h+='<div class=\"small mut\" style=\"margin-top:6px\">День считается по UTC. Правило подбирается на первых 60% сделок, «проверка» — последние 40%. Остановка дня не удаляет убыточные дни волшебно: она режет и хорошие хвосты, поэтому смотри, где прибыль на проверке не упала, а просадка снизилась. «открыть и применить» включит правило в панели «🎯 Дневная цель» (вернуть как было: «Сбросить всё»).</div></div>';\n  return h;\n}\n// ===== ЛИМИТКИ НА ПРОСТРЕЛЫ: ордер на покупку ниже рынка, продажа лимиткой выше или до резолва; два способа замера рядом =====\nconst LS={open:null,chart:-1,mode:'st',w:300,x:5,sort:'L',minF:20,e:5,u:1,b:0,wd:999,cs:30};\nconst LS_W_LABEL={300:'весь рынок',120:'последние 2 мин',60:'последние 60с',30:'последние 30с'};\nfunction lsE(x){return x>0?'+'+x+'¢ лимиткой':(x<0?'через '+(-x)+'с по рынку':'держим до резолва');}\nfunction lsStat(c,L,st,mult){\n  if(!c)return null;\n  const n=c[0],f=c[1],hh=c[2],w=c[3],pnl=c[4],cost=c[5],d=c[6]||[];\n  let plus=0,minus=0;d.forEach(v=>{if(v>1e-9)plus++;else if(v<-1e-9)minus++;});\n  const k=Math.floor(d.length/2);let a1=0,a2=0;d.forEach((v,i)=>{if(i<k)a1+=v;else a2+=v;});\n  return{n:n,f:f,h:hh,fillPct:n?f/n:0,tpPct:f?hh/f:0,winPct:f?w/f:0,profit:mult?pnl*mult:pnl/L*st,roi:cost?pnl/cost:0,plus:plus,minus:minus,both:d.length>=4&&a1>0&&a2>0};\n}\nfunction lsBtns(act,cur,list,lab){let h='';list.forEach(v=>{h+='<button data-act=\"'+act+'\" data-v=\"'+v+'\"'+(cur===v?' class=\"on\"':'')+'>'+lab(v)+'</button>';});return h;}\nfunction lsSection(T,st){\n  let h='<div class=\"card top\"><div class=\"th\"><b>🪤 Лимитки на прострелы</b> <span class=\"mut small\">три способа поймать резкий провал цены токена; два замера рядом</span></div>';\n  const Q=D&&D.lim;\n  if(!Q||!Q.cells||!Object.keys(Q.cells).length)return h+'<div class=\"small mut\" style=\"padding:8px 2px\">Нет данных: нужна лента цен по рынкам. Она записывается ботом (в новой версии — в том числе для рынков без сделок).</div></div>';\n  const M=LS.mode,newM=(M==='dy'||M==='cr');\n  if(newM&&!Q.E)return h+'<div class=\"small mut\" style=\"padding:8px 2px\">Эти режимы появятся после обновления бота и страницы (нужны новые данные).</div></div>';\n  h+='<div class=\"bar\" style=\"margin:6px 0\"><span class=\"mut small\">способ:</span>'+lsBtns('lsm',M,['st','dy','cr'],v=>({st:'📌 лимитка на одной цене',dy:'🌀 динамическая (ходит за ценой)',cr:'💥 обвал на старте рынка'})[v])+'</div>';\n  if(M==='st'){\n    h+='<div class=\"bar\" style=\"margin:0 0 6px\"><span class=\"mut small\">ордер стоит:</span>'+lsBtns('lsw',LS.w,Q.W,w=>LS_W_LABEL[w])+'</div>';\n    h+='<div class=\"bar\" style=\"margin:0 0 6px\"><span class=\"mut small\">продаём:</span>'+lsBtns('lsx',LS.x,Q.X,lsE)+'</div>';\n  }else{\n    if(M==='dy'){\n      h+='<div class=\"bar\" style=\"margin:0 0 6px\"><span class=\"mut small\">лимитка подтягивается:</span>'+lsBtns('lsu',LS.u,Q.DU,v=>v===1?'каждые 5с':'каждые 15с')+'<span class=\"mut small\" style=\"margin-left:8px\">цены токена:</span>'+lsBtns('lsb',LS.b,Q.DB,v=>v?'только 15–85¢':'любые')+'</div>';\n      h+='<div class=\"bar\" style=\"margin:0 0 6px\"><span class=\"mut small\">ордер живёт:</span>'+lsBtns('lswd',LS.wd,Q.DW,v=>v>=999?'весь рынок':'первые '+(v>=120?'2 мин':v+'с'))+'</div>';\n    }else{\n      h+='<div class=\"bar\" style=\"margin:0 0 6px\"><span class=\"mut small\">окно начала рынка:</span>'+lsBtns('lscs',LS.cs,Q.CS,v=>'первые '+v+'с')+'</div>';\n    }\n    h+='<div class=\"bar\" style=\"margin:0 0 6px\"><span class=\"mut small\">продаём:</span>'+lsBtns('lse',LS.e,Q.E,lsE)+'</div>';\n  }\n  h+='<div class=\"bar\" style=\"margin:0 0 6px\"><span class=\"mut small\">сортировать:</span>'+lsBtns('lssort',LS.sort,['L','s5','wk'],v=>({L:M==='dy'?'по отступу':'по цене',s5:'по прибыли (замер 5с)',wk:'по прибыли (с прострелами)'})[v])+'<label class=\"small\">мин. исполнений <input type=\"number\" id=\"ls_minf\" min=\"1\" value=\"'+LS.minF+'\" style=\"width:64px\"></label></div>';\n  const explain={st:'Ставим лимитную покупку на фиксированную цену ниже рынка, ждём пока цена туда упадёт.',dy:'С начала рынка лимитка висит на N% ниже текущей цены токена и подтягивается за ней: цена выросла — лимитка выше, упала — ниже. Исполняется, когда токен резко проваливается глубже, чем лимитка.',cr:'Если в начале рынка токен падает до цены (например 3¢), покупаем по этой цене и продаём на отскоке: лимиткой выше или по рынку через несколько секунд.'}[M];\n  h+='<div class=\"small mut\" style=\"margin-bottom:6px\">'+explain+' Рынков в расчёте: <b>'+Q.markets+'</b> (с замером прострелов: <b>'+Q.wkMarkets+'</b>), дней: '+Q.days.length+'. '+(newM?'Прибыль считается на 5 акций за сделку':'Ставка $'+st+' на исполнение')+', комиссии и очередь в стакане не учтены.</div>';\n  h+='<div class=\"note warn small\"><b>Два замера.</b> «Замер 5с» смотрит цену в момент записи ленты (раз в 5с) — красивее, но часть прострелов не видна, а часть «исполнений» нереальна. «С прострелами» берёт минимум и максимум между замерами — ближе к правде, но есть только у данных после обновления бота. Если замеры сильно расходятся, верь второму.</div>';\n  let items;\n  if(M==='st')items=Q.L.map(L=>({k:L,fa:'s5|'+LS.w+'|'+L,fb:'wk|'+LS.w+'|'+L,lab:Math.round(L*100)+'¢',a:lsStat(Q.cells['s5|'+LS.w+'|'+L+'|'+LS.x],L,st,0),b:lsStat(Q.cells['wk|'+LS.w+'|'+L+'|'+LS.x],L,st,0)}));\n  else if(M==='dy')items=Q.DD.map(d=>({k:d,fa:'d|s5|'+d+'|'+LS.u+'|'+LS.b+'|'+LS.wd,fb:'d|wk|'+d+'|'+LS.u+'|'+LS.b+'|'+LS.wd,lab:'−'+d+'% от цены',a:lsStat(Q.cells['d|s5|'+d+'|'+LS.u+'|'+LS.b+'|'+LS.wd+'|'+LS.e],1,st,5),b:lsStat(Q.cells['d|wk|'+d+'|'+LS.u+'|'+LS.b+'|'+LS.wd+'|'+LS.e],1,st,5)}));\n  else items=Q.CP.map(pp=>({k:pp,fa:'c|s5|'+LS.cs+'|'+pp,fb:'c|wk|'+LS.cs+'|'+pp,lab:'до '+pp+'¢',a:lsStat(Q.cells['c|s5|'+LS.cs+'|'+pp+'|'+LS.e],1,st,5),b:lsStat(Q.cells['c|wk|'+LS.cs+'|'+pp+'|'+LS.e],1,st,5)}));\n  const xx=M==='st'?LS.x:LS.e;\n  const rows=items.filter(r=>(r.a&&r.a.f>=LS.minF)||(r.b&&r.b.f>=LS.minF));\n  if(LS.sort==='s5')rows.sort((x,y)=>(y.a?y.a.profit:-1e9)-(x.a?x.a.profit:-1e9));\n  else if(LS.sort==='wk')rows.sort((x,y)=>(y.b?y.b.profit:-1e9)-(x.b?x.b.profit:-1e9));\n  if(!rows.length)return h+'<div class=\"mut small\" style=\"padding:6px 2px\">Нет вариантов с таким числом исполнений. Уменьши «мин. исполнений».</div></div>';\n  const cell=(r,fk)=>r?'<td>'+r.f+' <span class=\"mut\">('+Math.round(r.fillPct*100)+'%)</span></td><td>'+(xx!==0?Math.round(r.tpPct*100)+'%':'—')+'</td><td>'+Math.round(r.winPct*100)+'%</td><td class=\"'+cls(r.profit)+'\"><b>'+money(r.profit)+'</b><div class=\"mut small\" style=\"font-weight:400\">ROI '+(r.roi*100).toFixed(1)+'%</div></td><td>'+r.plus+'/'+r.minus+(r.both?' ✅':'')+'</td><td><button data-act=\"lsf\" data-key=\"'+fk+'\"'+(LS.open===fk?' class=\"on\"':'')+'>сделки</button></td>':'<td colspan=\"6\" class=\"mut small\">нет данных</td>';\n  const sub='<th class=\"ns\">исполнилось</th><th class=\"ns\">'+(xx>0?'цель достигнута':(xx<0?'продали по рынку':'—'))+'</th><th class=\"ns\">токен выиграл</th><th class=\"ns\">прибыль</th><th class=\"ns\">дней +/−</th><th class=\"ns\"></th>';\n  h+='<div class=\"tw\"><table><thead><tr><th class=\"l ns\" rowspan=\"2\">'+(M==='st'?'купить на':(M==='dy'?'лимитка':'токен упал'))+'</th><th class=\"ns\" colspan=\"6\">замер раз в 5с (красивее)</th><th class=\"ns\" colspan=\"6\">с прострелами (min/max за 5с)</th></tr><tr>'+sub+sub+'</tr></thead><tbody>';\n  rows.forEach(r=>{h+='<tr><td class=\"l\"><b>'+r.lab+'</b></td>'+cell(r.a,r.fa)+cell(r.b,r.fb)+'</tr>';});\n  h+='</tbody></table></div><div class=\"small mut\" style=\"margin-top:6px\">«Исполнилось» — сколько раз цена дошла до нашей цены (в скобках доля от всех рынков/сторон, где ордер можно поставить). После покупки продаём как выбрано; если выход не сработал — держим до резолва. ✅ — плюс и в первой, и во второй половине дней. Монету и окно (5/15 мин) выбирай параметрами ссылки страницы: coin=btc, wm=5.</div></div>';\n  h+=lsFills(Q,st,M,xx);\n  return h;\n}\nfunction lsCsv(){\n  const Q=D&&D.lim;if(!Q||!LS.open)return;\n  const M=LS.mode,xx=M==='st'?LS.x:LS.e,R=lsRowsOf(Q,S.stake,M,xx);if(!R)return;\n  const L=['рынок;начало Бангкок;монета;окно;токен;купили на с;цена купили ¢;выход с;итог ¢ за акцию;токен выиграл;ссылка'];\n  R.rows.forEach(r=>L.push([r.slug,lsTm(r.open),r.coin,r.wm,r.sd===0?'Up':'Down',Math.round(r.ft),r.pay.toFixed(1),r.et>=0?Math.round(r.et):'до резолва',r.pc.toFixed(1),r.won?'да':'нет','https://polymarket.com/event/'+r.slug].join(';')));\n  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\\ufeff'+L.join('\\n')],{type:'text/csv;charset=utf-8'}));a.download='lab-limit-fills.csv';document.body.appendChild(a);a.click();setTimeout(()=>document.body.removeChild(a),500);\n}\nfunction lsTm(sec){const d=new Date(sec*1000+7*3600*1000);return d.toISOString().slice(5,16).replace('T',' ');}\nfunction lsRowsOf(Q,st,M,xx){\n  const f=Q.fills&&Q.fills[LS.open];if(!f)return null;\n  const E=M==='st'?Q.X:Q.E,xi=E.indexOf(xx);\n  const out=f[1].map((p,i)=>{\n    const m=Q.mk[p[0]],pay=p[2],ex=p[3],et=ex[xi*2],pc=ex[xi*2+1];\n    const won=(m[3]===m[4]);\n    const profit=M==='st'?(pc/100)/(pay/100)*st:(pc/100)*5;\n    return{i:i,slug:m[0],coin:m[1],wm:m[2],sd:m[3],won:won,open:m[5],ft:p[1],pay:pay,et:et,pc:pc,profit:profit,m:m};\n  });\n  out.sort((a,b)=>(b.open+b.ft)-(a.open+a.ft));\n  return{cnt:f[0],rows:out};\n}\nfunction lsChart(r,v){\n  const m=r.m,T=m[6],B=m[7],LO=m[8],HI=m[9],dur=m[2]*60,W=640,H=170,pl=34,pr=8,pt=8,pb=18;\n  const x=t=>pl+(W-pl-pr)*t/dur,y=c=>pt+(H-pt-pb)*(1-c/100);\n  let s='<svg viewBox=\"0 0 '+W+' '+H+'\" style=\"width:100%;max-width:680px;height:auto;background:var(--bg2,#1d1d1d);border-radius:6px\">';\n  [0,25,50,75,100].forEach(c=>{s+='<line x1=\"'+pl+'\" x2=\"'+(W-pr)+'\" y1=\"'+y(c)+'\" y2=\"'+y(c)+'\" stroke=\"#888\" stroke-opacity=\".2\"/><text x=\"2\" y=\"'+(y(c)+3)+'\" font-size=\"9\" fill=\"#999\">'+c+'¢</text>';});\n  if(v==='wk'&&LO&&HI)for(let i=0;i<T.length;i++){if(LO[i]!=null&&HI[i]!=null)s+='<line x1=\"'+x(T[i])+'\" x2=\"'+x(T[i])+'\" y1=\"'+y(LO[i])+'\" y2=\"'+y(HI[i])+'\" stroke=\"#c9a227\" stroke-width=\"3\" stroke-opacity=\".55\"/>';}\n  let pts=[];for(let i=0;i<T.length;i++)if(B[i]!=null)pts.push(x(T[i]).toFixed(1)+','+y(B[i]).toFixed(1));\n  s+='<polyline points=\"'+pts.join(' ')+'\" fill=\"none\" stroke=\"#5aa2ff\" stroke-width=\"1.6\"/>';\n  s+='<line x1=\"'+pl+'\" x2=\"'+(W-pr)+'\" y1=\"'+y(r.pay)+'\" y2=\"'+y(r.pay)+'\" stroke=\"#e5484d\" stroke-dasharray=\"4 3\"/>';\n  s+='<circle cx=\"'+x(r.ft)+'\" cy=\"'+y(r.pay)+'\" r=\"5\" fill=\"#2ea043\"/><text x=\"'+(x(r.ft)+7)+'\" y=\"'+(y(r.pay)-6)+'\" font-size=\"10\" fill=\"#2ea043\">купили '+r.pay.toFixed(1)+'¢ на '+Math.round(r.ft)+'с</text>';\n  if(r.et>=0){const ey=Math.min(100,r.pay+r.pc);s+='<circle cx=\"'+x(r.et)+'\" cy=\"'+y(ey)+'\" r=\"5\" fill=\"#f5a524\"/><text x=\"'+(x(r.et)+7)+'\" y=\"'+(y(ey)-6)+'\" font-size=\"10\" fill=\"#f5a524\">продали '+ey.toFixed(1)+'¢ на '+Math.round(r.et)+'с</text>';}\n  s+='<text x=\"'+pl+'\" y=\"'+(H-4)+'\" font-size=\"9\" fill=\"#999\">0с</text><text x=\"'+(W-pr-30)+'\" y=\"'+(H-4)+'\" font-size=\"9\" fill=\"#999\">'+dur+'с</text></svg>';\n  return s;\n}\nfunction lsCum(Q,st,M,xx){\n  const c=Q.cells[LS.open+'|'+xx];\n  if(!c)return '';\n  const parts=LS.open.split('|'),mult=M==='st'?(1/parseFloat(parts[2])*st):5;\n  const f=c[1],q=(c[7]||[]).map(v=>v*mult),days=c[6]||[],qs=Q.qs||[];\n  let cum=0,pk=0,dd=0;const pts=q.map(v=>{cum+=v;if(cum>pk)pk=cum;if(pk-cum>dd)dd=pk-cum;return cum;});\n  const total=c[4]*mult;\n  let bw=0,bl=0;q.forEach(v=>{if(v>bw)bw=v;if(v<bl)bl=v;});\n  let plus=0,minus=0;days.forEach(v=>{if(v>1e-9)plus++;else if(v<-1e-9)minus++;});\n  const kp=(v,l)=>'<div style=\"min-width:130px\"><div style=\"font-size:18px;font-weight:700\">'+v+'</div><div class=\"mut small\">'+l+'</div></div>';\n  let h='<div class=\"bar\" style=\"gap:18px;margin:8px 0;align-items:flex-start\">'\n    +kp('<span class=\"'+cls(total)+'\">'+money(total)+'</span>','итог')\n    +kp(f,'исполнений')+kp(Math.round(c[3]/Math.max(1,f)*100)+'%','токен выиграл')\n    +(xx!==0?kp(Math.round(c[2]/Math.max(1,f)*100)+'%','выход сработал'):'')\n    +kp('<span class=\"'+cls(total/Math.max(1,f))+'\">'+money(total/Math.max(1,f))+'</span>','в среднем на сделку')\n    +kp('−$'+dd.toFixed(0),'макс. просадка (по 4-часовым отрезкам)')\n    +kp(plus+' / '+minus,'дней в плюсе / в минусе')\n    +kp('+$'+bw.toFixed(0)+' / −$'+Math.abs(bl).toFixed(0),'лучший / худший отрезок 4ч')+'</div>';\n  if(pts.length>=2){\n    const W=680,H=190,pl=46,pr=8,pt=8,pb=18;let mn=Math.min(0,...pts),mx=Math.max(0,...pts);if(mx-mn<1e-9){mx=mn+1;}\n    const t0=qs[0],t1=qs[qs.length-1]||t0+1;\n    const x=t=>pl+(W-pl-pr)*(t-t0)/Math.max(1,t1-t0),y=v=>pt+(H-pt-pb)*(1-(v-mn)/(mx-mn));\n    let g='<svg viewBox=\"0 0 '+W+' '+H+'\" style=\"width:100%;max-width:720px;height:auto;background:var(--bg2,#1d1d1d);border-radius:6px\">';\n    [mn,(mn+mx)/2,mx].forEach(v=>{g+='<line x1=\"'+pl+'\" x2=\"'+(W-pr)+'\" y1=\"'+y(v)+'\" y2=\"'+y(v)+'\" stroke=\"#888\" stroke-opacity=\".2\"/><text x=\"2\" y=\"'+(y(v)+3)+'\" font-size=\"9\" fill=\"#999\">'+(v>=0?'+':'−')+'$'+Math.abs(v).toFixed(0)+'</text>';});\n    g+='<line x1=\"'+pl+'\" x2=\"'+(W-pr)+'\" y1=\"'+y(0)+'\" y2=\"'+y(0)+'\" stroke=\"#aaa\" stroke-dasharray=\"3 3\"/>';\n    g+='<polyline fill=\"none\" stroke=\"'+(total>=0?'#2ea043':'#e5484d')+'\" stroke-width=\"1.8\" points=\"'+pts.map((v,i)=>x(qs[i]).toFixed(1)+','+y(v).toFixed(1)).join(' ')+'\"/>';\n    g+='<text x=\"'+pl+'\" y=\"'+(H-4)+'\" font-size=\"9\" fill=\"#999\">'+lsTm(t0).slice(0,5)+'</text><text x=\"'+(W-pr-30)+'\" y=\"'+(H-4)+'\" font-size=\"9\" fill=\"#999\">'+lsTm(t1).slice(0,5)+'</text></svg>';\n    h+='<div class=\"small mut\">Кумулята варианта (нарастающий итог, шаг 4 часа):</div>'+g;\n  }\n  if(days.length&&Q.days){\n    h+='<details style=\"margin:8px 0\"><summary class=\"small\">По дням (UTC)</summary><div class=\"tw\"><table><thead><tr><th class=\"l ns\">день</th><th class=\"ns\">прибыль</th></tr></thead><tbody>';\n    Q.days.forEach((d,i)=>{const v=(days[i]||0)*mult;h+='<tr><td class=\"l\">'+d+'</td><td class=\"'+cls(v)+'\">'+money(v)+'</td></tr>';});\n    h+='</tbody></table></div></details>';\n  }\n  return h;\n}\nfunction lsFills(Q,st,M,xx){\n  if(!LS.open)return '';\n  const R=lsRowsOf(Q,st,M,xx),v=LS.open.indexOf('wk')>=0?'wk':'s5';\n  let h='<div class=\"card\" style=\"margin-top:10px;border:1px solid var(--bd,#555)\"><div class=\"th\"><b>Сделки выбранного варианта</b> <span class=\"mut small\">'+esc(LS.open)+' · выход: '+esc(lsE(xx))+'</span> <button data-act=\"lsf\" data-key=\"'+esc(LS.open)+'\">закрыть</button> <button data-act=\"lscsv\">скачать CSV</button></div>';\n  if(!R)return h+'<div class=\"mut small\">Нет примеров.</div></div>';\n  h+=lsCum(Q,st,M,xx);\n  h+='<div class=\"small mut\" style=\"margin:4px 0\">Исполнений всего: <b>'+R.cnt+'</b>. Ниже случайная выборка из '+R.rows.length+' — именно эти рынки можно открыть на Polymarket и сверить ленту руками. Время по Бангкоку. «Токен выиграл» — чем закончился рынок для купленного токена. Нажми «график», чтобы увидеть цену токена, цену покупки и выход'+(v==='wk'?' (жёлтые отрезки — минимум и максимум между замерами)':'')+'.</div>';\n  h+='<div class=\"tw\"><table><thead><tr><th class=\"l ns\">рынок</th><th class=\"ns\">начало (Бангкок)</th><th class=\"ns\">токен</th><th class=\"ns\">купили на</th><th class=\"ns\">по цене</th><th class=\"ns\">выход</th><th class=\"ns\">итог за акцию</th><th class=\"ns\">прибыль</th><th class=\"ns\">токен выиграл</th><th class=\"ns\"></th></tr></thead><tbody>';\n  R.rows.forEach(r=>{\n    const ext=r.et>=0?(xx>0?'лимитка +'+xx+'¢ на '+Math.round(r.et)+'с':'по рынку на '+Math.round(r.et)+'с'):'держали до резолва';\n    h+='<tr><td class=\"l\"><a href=\"https://polymarket.com/event/'+esc(r.slug)+'\" target=\"_blank\" rel=\"noopener\">'+esc(r.slug)+'</a><div class=\"mut small\" style=\"font-weight:400\">'+esc(r.coin)+' · '+r.wm+' мин</div></td><td>'+lsTm(r.open)+'</td><td>'+(r.sd===0?'Up':'Down')+'</td><td>'+Math.round(r.ft)+'с</td><td>'+r.pay.toFixed(1)+'¢</td><td class=\"small\">'+ext+'</td><td class=\"'+cls(r.pc)+'\">'+(r.pc>=0?'+':'')+r.pc.toFixed(1)+'¢</td><td class=\"'+cls(r.profit)+'\"><b>'+money(r.profit)+'</b></td><td>'+(r.won?'да':'нет')+'</td><td><button data-act=\"lsch\" data-i=\"'+r.i+'\"'+(LS.chart===r.i?' class=\"on\"':'')+'>график</button></td></tr>';\n    if(LS.chart===r.i)h+='<tr><td colspan=\"10\" style=\"text-align:left\">'+lsChart(r,v)+'</td></tr>';\n  });\n  return h+'</tbody></table></div></div>';\n}\nfunction scSection(items,T,st){\n  let h='<div class=\"card top\"><div class=\"th\"><b>🔎 Лучшие ТС с перебором</b> <span class=\"mut small\">для каждой ТС уже подобран лучший вариант — открывать каждую не нужно</span></div>';\n  h+='<div class=\"bar\" style=\"margin:6px 0\"><span class=\"mut small\">что перебираем:</span>';\n  [['exit','Выходы (стопы, тейки, комбинации)'],['dip','Вход после дна'],['vyn','Вход после выноса'],['crash','Выход при обвале']].forEach(t=>{h+='<button data-act=\"sckind\" data-v=\"'+t[0]+'\"'+(SC.kind===t[0]?' class=\"on\"':'')+'>'+t[1]+'</button>';});\n  h+='</div><div class=\"bar\" style=\"margin:0 0 6px\"><span class=\"mut small\">сортировать по:</span>';\n  [['best','⭐ лучшему по всему (прибыль и риск)'],['gain','прибыли'],['roi','прибыли на сделку'],['wr','винрейту'],['sm','ровности роста'],['dd','просадке (меньше)'],['mn','худшему убытку (меньше)'],['lmax','минусов подряд (меньше)'],['half','худшей из половин'],['n','числу сделок']].forEach(t=>{h+='<button data-act=\"scsort\" data-s=\"'+t[0]+'\"'+(SC.sort===t[0]?' class=\"on\"':'')+'>'+t[1]+'</button>';});\n  h+='<button data-act=\"scrob\" style=\"margin-left:8px\"'+(SC.rob?' class=\"on\"':'')+' title=\"только варианты, которые лучше «без выходов / обычного входа» и на 1-й, и на 2-й половине сделок\">только надёжные</button></div>'+limHtml();\n  if(SC.kind!=='exit')h+='<div class=\"bar\" style=\"margin:0 0 6px\"><label class=\"small\">мин. сделок <input type=\"number\" id=\"ep_mt\" min=\"1\" value=\"'+EOPT.mt+'\" style=\"width:60px\"></label><label class=\"small\">не позже чем за <input type=\"number\" id=\"ep_ml\" min=\"0\" value=\"'+EOPT.ml+'\" style=\"width:60px\"> с до конца</label><label class=\"small\" title=\"так же, как в боте (команда «лаб дно … спред N»): покупаем только если реальный ask не выше уровня покупки + N¢. Если цена перепрыгнула — сделки нет. По умолчанию 3, как в боте.\">не дороже +<input type=\"number\" id=\"ep_gap\" min=\"0\" max=\"99\" value=\"'+REGAP+'\" style=\"width:50px\">¢ от уровня</label><label class=\"small\" title=\"не рассматривать покупки дешевле N¢: у таких токенов стакан тонкий, спред большой, а страница видит только bid — расчёт по ним нереалистично красивый\">покупать не дешевле <input type=\"number\" id=\"ep_pm\" min=\"1\" max=\"98\" value=\"'+EOPT.pm+'\" style=\"width:50px\">¢</label><label class=\"small\" title=\"дополнительный запас сверху к реальному ask (на проскальзывание при покупке). 0 — платим ровно ask\">запас к цене +<input type=\"number\" id=\"ep_xs\" min=\"0\" max=\"20\" value=\"'+REXS+'\" style=\"width:50px\">¢</label><span class=\"mut small\">вход/обвал считаются только по ТС с точным путём цены (≥40 сделок)</span></div>';\n  const key=scKey(items,T,st);\n  if(SC.key!==key||!SC.res){\n    if(!(SC.run&&SC.run.key===key))scStart(items,T,st,key);\n    return h+'<div class=\"small mut\" style=\"padding:8px 2px\">⏳ Перебираю варианты по каждой ТС… <b id=\"sc_prog\">0%</b></div></div>';\n  }\n  const rows=[];SC.res.forEach(o=>{const b=scBest(o);if(b)rows.push({o:o,b:b});});\n  rows.sort((a,b)=>b.b.key-a.b.key||b.b.v.tot-a.b.v.tot);\n  SC.rows=rows;\n  const sg=v=>(v>=0?'+':'−')+'$'+Math.abs(v*st).toFixed(1);\n  const showN=SC.show;\n  h+='<div class=\"small mut\" style=\"margin-bottom:6px\">Проверено ТС: '+SC.res.length+'. В каждой выбран лучший вариант по выбранной сортировке (из сотен/тысяч с шагом 1¢). Итог — за весь период на ставку $'+st+(SC.kind==='exit'?', проскальзывание стопа '+Math.round(SLIP*100)+'¢':'')+'.</div>';\n  if(!rows.length)return h+'<div class=\"mut small\" style=\"padding:6px 2px\">Нет ТС, где нашёлся вариант лучше обычного (с текущими фильтрами).</div></div>';\n  h+='<div class=\"tw\"><table><thead><tr><th class=\"l ns\">#</th><th class=\"l ns\">ТС</th><th class=\"l ns\">Лучший вариант</th><th class=\"ns\">итог $</th><th class=\"ns\">лучше/хуже обычного</th><th class=\"ns\">1-я</th><th class=\"ns\">2-я</th><th class=\"ns\">побед</th><th class=\"ns\">ровность</th><th class=\"ns\">просадка</th><th class=\"ns\">худшая</th><th class=\"ns\">минусов подряд</th><th class=\"ns\">'+(SC.kind==='exit'||SC.kind==='crash'?'сработал':'сделок')+'</th><th class=\"ns\"></th></tr></thead><tbody>';\n  rows.slice(0,showN).forEach((r,i)=>{\n    const x=r.b.v,b=r.b.base,d=x.tot-b.tot,d1=x.h1-b.h1,d2=x.h2-b.h2;\n    const hits=x.hits+(SC.kind==='exit'?' ('+Math.round(x.hits/r.o.R.n*100)+'%)':(SC.kind==='crash'?'':' ('+Math.round(x.n/r.o.R.n*100)+'%)'));\n    h+='<tr><td class=\"l\">'+(i+1)+'</td><td class=\"l nm\">'+esc(r.o.x.name)+'<div class=\"mut small\" style=\"font-weight:400\">'+r.b.n+' сделок в расчёте · без правила '+money(b.tot*st)+'</div></td><td class=\"l\"><b>'+scTxt(x)+'</b></td><td class=\"'+cls(x.tot)+'\"><b>'+money(x.tot*st)+'</b></td><td class=\"'+cls(d)+'\">'+sg(d)+'</td><td class=\"'+cls(d1)+'\">'+sg(d1)+'</td><td class=\"'+cls(d2)+'\">'+sg(d2)+'</td><td>'+Math.round(x.wr*100)+'%</td><td>'+Math.round(x.sm*100)+'%</td><td>$'+(x.dd*st).toFixed(1)+'</td><td>−$'+Math.abs(x.mn*st).toFixed(2)+'</td><td>'+x.lmax+'</td><td>'+hits+'</td><td><button data-act=\"scopen\" data-i=\"'+i+'\">открыть и применить</button></td></tr>';\n  });\n  h+='</tbody></table></div>';\n  if(rows.length>showN)h+='<div class=\"bar\"><button data-act=\"scmore\">Показать ещё 8</button><span class=\"mut small\">показано '+Math.min(showN,rows.length)+' из '+rows.length+'</span></div>';\n  h+='<div class=\"small mut\" style=\"margin-top:6px\">Для каждой ТС здесь — лучший из тысяч вариантов, поэтому часть «красоты» — подгонка. «Только надёжные» оставляет то, что лучше обычного на обеих половинах сделок. «Открыть и применить» — ТС откроется с выставленными условиями, можно смотреть каждую сделку.</div></div>';\n  return h;\n}\nfunction scApplyTo(x){\n  if(SC.kind==='exit'){\n    X.tp.on=false;X.sl.on=false;X.sl.fs.on=false;\n    if(x.kd==='cb'||x.kd==='sl'){X.sl.on=true;X.sl.u=x.u;X.sl.v=x.v;X.sl.fs.on=x.fs>0;if(x.fs>0)X.sl.fs.v=x.fs;}\n    if(x.kd==='cb'){X.tp.on=true;X.tp.u=x.tu;X.tp.v=x.tv;}\n    if(x.kd==='tp'){X.tp.on=true;X.tp.u=x.u;X.tp.v=x.v;}\n  }else epApply(x);\n}\n// лёгкая проверка «помогает ли стоп» для таблицы лучших ТС\n// «надёжно»: торговля со стопом (по умолчанию 28% от цены входа или тот, что выставлен в панели выходов) — плюс на обеих половинах, при проскальзывании +3¢, при соседних стопах; стоп срабатывает не слишком часто\nfunction relCheck(g){\n  if(g.rl&&g.rl.slip===SLIP&&g.rl.au===SLIPAUTO+'|'+SLIPD&&g.rl.st===S.stake&&g.rl.pct===((X.sl.on&&X.sl.u==='pct')?X.sl.v:28))return g.rl;\n  const st=S.stake,P=optPrep(g.rows),pct=(X.sl.on&&X.sl.u==='pct')?X.sl.v:28;\n  const rl={ok:false,n:P.n,why:'',slip:SLIP,au:SLIPAUTO+'|'+SLIPD,st:st,pct:pct};\n  if(P.n<150||P.n<g.n*0.6){rl.why=P.n<150?'меньше 150 сделок с путём цены':'мало данных о пути цены';g.rl=rl;return rl;}\n  const sv=SLIP,sd=SLIPD,run=(v,sl,d)=>{SLIP=sl;SLIPD=d;try{return optStop(P,'pct',v,st);}finally{SLIP=sv;SLIPD=sd;}};\n  const a=run(pct,sv,sd),b=run(pct,sv+0.03,sd+2),n1=run(pct*0.8,sv,sd),n2=run(pct*1.2,sv,sd);\n  rl.a=a.tot*st;rl.b=b.tot*st;rl.rate=a.hits/P.n;\n  const bad=[];\n  if(!(a.tot>0&&a.h1>0&&a.h2>0))bad.push('нет плюса на обеих половинах');\n  if(!(b.tot>0))bad.push('минус при проскальзывании +3¢');\n  if(!(n1.tot>0&&n2.tot>0))bad.push('минус при соседних стопах');\n  if(rl.rate>0.45)bad.push('стоп срабатывает слишком часто');\n  rl.ok=bad.length===0;rl.why=bad.join(', ');\n  g.rl=rl;return rl;\n}\nfunction stopCheck(g){\n  if(g.so)return g.so;\n  const st=S.stake,P=optPrep(g.rows);\n  const so={ok:false,n:P.n,why:''};\n  if(P.n<20||P.n<g.n*0.6){so.why='мало данных о пути цены';g.so=so;return so;}\n  let best=null;\n  for(const q of optGrid('sl',st,true)){const r=optStop(P,q.u,q.v,st);if(!best||r.tot>best.tot)best=r;}\n  const d=best.tot-P.tot,d1=best.h1-P.h1,d2=best.h2-P.h2;\n  so.best=best;so.gain=d*st;so.g1=d1*st;so.g2=d2*st;so.hold=P.tot*st;so.withStop=best.tot*st;\n  so.ok=d>0&&d1>0&&d2>0&&d>=0.01*P.n&&best.hits>=5;\n  if(!so.ok)so.why='стоп не помогает на обеих половинах';\n  g.so=so;return so;\n}\n// ---------- график: как идёт цена токена после входа (усреднённый) ----------\nfunction pctl(a,p){if(!a.length)return null;const s=a.slice().sort((x,y)=>x-y);return s[Math.min(s.length-1,Math.floor(p*s.length))];}\nfunction pathChart(rs){\n  const base=EXOFF?rs:selRowsPlain();rs=base;\n  const cols=OFF.map(o=>({o:o,ci:CI['d'+o]})).filter(c=>c.ci!==undefined);\n  const W=[],L=[];\n  cols.forEach(c=>{const w=[],l=[];for(const r of rs){const v=r[c.ci];if(isNul(v))continue;(r[C.won]?w:l).push(v);}W.push(w);L.push(l);});\n  const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;\n  let fw=0,nw=0,fl=0,nl=0,pxs=0,mfs=0,mas=0,nm=0;\n  for(const r of rs){if(r[C.won]){fw+=1-r[CI.px];nw++;}else{fl+=-r[CI.px];nl++;}pxs+=r[CI.px];if(!isNul(r[CI.mfe])){mfs+=r[CI.mfe];mas+=r[CI.mae];nm++;}}\n  const apx=rs.length?pxs/rs.length:0.5;\n  const pts=(arr,fin,nfin)=>{const o=arr.map(a=>a.length>=3?{m:avg(a),lo:pctl(a,.25),hi:pctl(a,.75),n:a.length}:null);o.push(nfin>=3?{m:fin/nfin,lo:null,hi:null,n:nfin}:null);return o;};\n  const PW=pts(W,fw,nw),PL=pts(L,fl,nl);\n  const vals=[];PW.concat(PL).forEach(p=>{if(p){vals.push(p.m);if(p.lo!==null){vals.push(p.lo,p.hi);}}});\n  if(!vals.length)return '';\n  const extra=[];if(X.tp.on&&exOn())extra.push(['тейк',xDist(X.tp.u,X.tp.v,apx,S.stake),'var(--w)']);if(X.sl.on&&exOn())extra.push(['стоп',-xDist(X.sl.u,X.sl.v,apx,S.stake),'var(--l)']);\n  extra.forEach(e=>vals.push(e[1]));\n  let mn=Math.min(...vals,0),mx=Math.max(...vals,0);const pad=(mx-mn)*0.06||0.01;mn-=pad;mx+=pad;\n  const w=1000,h=380,pl=56,pr=18,pt=16,pb=40,n=PW.length;\n  const X_=i=>pl+(w-pl-pr)*i/(n-1),Y=v=>pt+(h-pt-pb)*(1-(v-mn)/(mx-mn));\n  let s='<svg viewBox=\"0 0 '+w+' '+h+'\" width=\"100%\" class=\"pch\">';\n  for(let g=0;g<=5;g++){const v=mn+(mx-mn)*g/5,y=Y(v);s+='<line x1=\"'+pl+'\" x2=\"'+(w-pr)+'\" y1=\"'+y+'\" y2=\"'+y+'\" stroke=\"var(--line)\"/><text x=\"'+(pl-6)+'\" y=\"'+(y+4)+'\" text-anchor=\"end\">'+(v>=0?'+':'−')+Math.abs(v*100).toFixed(0)+'¢</text>';}\n  s+='<line x1=\"'+pl+'\" x2=\"'+(w-pr)+'\" y1=\"'+Y(0)+'\" y2=\"'+Y(0)+'\" stroke=\"var(--mut)\" stroke-dasharray=\"5 4\"/><text x=\"'+(w-pr)+'\" y=\"'+(Y(0)-5)+'\" text-anchor=\"end\">цена входа</text>';\n  extra.forEach(e=>{s+='<line x1=\"'+pl+'\" x2=\"'+(w-pr)+'\" y1=\"'+Y(e[1])+'\" y2=\"'+Y(e[1])+'\" stroke=\"'+e[2]+'\" stroke-dasharray=\"2 4\" opacity=\".8\"/><text x=\"'+(pl+4)+'\" y=\"'+(Y(e[1])-4)+'\" style=\"fill:'+e[2]+'\">'+e[0]+' (≈ '+(e[1]>=0?'+':'−')+Math.abs(e[1]*100).toFixed(0)+'¢ при средней цене входа)</text>';});\n  cols.forEach((c,i)=>{s+='<text x=\"'+X_(i)+'\" y=\"'+(h-18)+'\" text-anchor=\"middle\">'+c.o+'с</text>';});\n  s+='<text x=\"'+X_(n-1)+'\" y=\"'+(h-18)+'\" text-anchor=\"middle\">итог</text><text x=\"'+((pl+w-pr)/2)+'\" y=\"'+(h-2)+'\" text-anchor=\"middle\">секунд после входа</text>';\n  const band=(P,color)=>{const up=[],dn=[];P.forEach((p,i)=>{if(p&&p.lo!==null){up.push(X_(i).toFixed(1)+' '+Y(p.hi).toFixed(1));dn.unshift(X_(i).toFixed(1)+' '+Y(p.lo).toFixed(1));}});return up.length>1?'<path d=\"M'+up.join('L')+'L'+dn.join('L')+'Z\" fill=\"'+color+'\" opacity=\".13\"/>':'';};\n  const line=(P,color)=>{let d='',pen=false,dots='';P.forEach((p,i)=>{if(!p){pen=false;return;}d+=(pen?'L':'M')+X_(i).toFixed(1)+' '+Y(p.m).toFixed(1)+' ';pen=true;dots+='<circle cx=\"'+X_(i)+'\" cy=\"'+Y(p.m)+'\" r=\"4\" fill=\"'+color+'\"><title>'+(i<cols.length?cols[i].o+'с':'итог')+': в среднем '+(p.m>=0?'+':'−')+Math.abs(p.m*100).toFixed(1)+'¢ ('+p.n+' сделок)'+(p.lo!==null?'; у половины сделок от '+(p.lo*100).toFixed(0)+'¢ до '+(p.hi*100).toFixed(0)+'¢':'')+'</title></circle>';});return '<path d=\"'+d+'\" fill=\"none\" stroke=\"'+color+'\" stroke-width=\"2.5\"/>'+dots;};\n  s+=band(PL,'var(--l)')+band(PW,'var(--w)')+line(PL,'var(--l)')+line(PW,'var(--w)')+'</svg>';\n  const fn=v=>(v>=0?'+':'−')+Math.abs(v*100).toFixed(0)+'¢';\n  return '<h3>Как идёт цена токена после входа</h3><div class=\"small mut\" style=\"margin-bottom:4px\"><span style=\"color:var(--w)\">●</span> победы ('+nw+') &nbsp; <span style=\"color:var(--l)\">●</span> проигрыши ('+nl+') — линия это средний bid минус цена входа, полоса — где лежит середина сделок (25–75%). Наведи на точку — подробности.'\n   +(nm?' В среднем за сделку лучший bid был <b class=\"pos\">'+fn(mfs/nm)+'</b>, худший <b class=\"neg\">'+fn(mas/nm)+'</b>.':'')+'</div>'+s;\n}\n// ---------- окно одной сделки ----------\nconst pkey=r=>r[C.mk]+'.'+r[C.side]+'.'+r[C.ts]+(r[XK+5]||'');\nfunction tradeSvg(r){\n  const px=r[CI.px],sec=r[CI.sec],won=r[C.won];\n  const origWon=(r[XK+1]!==undefined&&r[XK+1]!==null)?r[XK+1]:won;\n  const dense=denseOf(r);\n  const T=isNul(sec)?300:Math.max(30,sec);\n  let pts=[];const marks=[];\n  if(dense){dense.forEach((b,i)=>{if(b!==null&&b>=0)pts.push([i*2,b/100]);});}\n  else{\n    pts.push([0,px]);\n    OFF.forEach(o=>{const v=r[CI['d'+o]];if(!isNul(v)&&o<=T)pts.push([o,px+v]);});\n    if(!isNul(r[CI.end10])&&T>20)pts.push([T-10,px+r[CI.end10]]);\n    UPL.forEach(L=>{const t=r[CI['tp'+L]];if(!isNul(t)){pts.push([t,px+L/100]);marks.push([t,px+L/100,'bid впервые ≥ вход+'+L+'¢','w']);}});\n    DNL.forEach(L=>{const t=r[CI['dn'+L]];if(!isNul(t)){pts.push([t,px-L/100]);marks.push([t,px-L/100,'bid впервые ≤ вход−'+L+'¢','l']);}});\n    if(!isNul(r[CI.tmae])&&!isNul(r[CI.mae])){pts.push([r[CI.tmae],px+r[CI.mae]]);marks.push([r[CI.tmae],px+r[CI.mae],'худшая точка '+(r[CI.mae]*100).toFixed(0)+'¢','l']);}\n    pts.sort((a,b)=>a[0]-b[0]);\n  }\n  pts=pts.filter(p=>p[0]<=T+1);\n  const fin=origWon?1:0;\n  const lastT=pts.length?pts[pts.length-1][0]:0;\n  pts.push([Math.max(T,lastT+1),fin]);\n  const lv=[];\n  if(!isNul(r[CI.mfe]))lv.push([px+r[CI.mfe],'лучший bid','var(--w)']);\n  if(!isNul(r[CI.mae]))lv.push([px+r[CI.mae],'худший bid','var(--l)']);\n  const ex=exOn()&&!(S.sel&&S.sel.flip);\n  if(ex){\n    const st=S.stake;\n    if(X.tp.on)lv.push([Math.min(0.995,px+xDist(X.tp.u,X.tp.v,px,st)),'тейк','var(--good)']);\n    if(X.sl.on)lv.push([Math.max(0.01,px-xDist(X.sl.u,X.sl.v,px,st)),'стоп','var(--bad)']);\n    if(X.add.on)X.add.steps.forEach((a,i)=>{const g=a.m==='p'?a.v/100:px+a.v/100;lv.push([g,'добор '+(i+1)+' ($'+a.usd+')','var(--acc)']);});\n  }\n  const ys=pts.map(p=>p[1]).concat(lv.map(l=>l[0]),[px]);\n  let mn=Math.max(0,Math.min(...ys)-0.03),mx=Math.min(1.02,Math.max(...ys)+0.03);if(mx-mn<0.1){mx=mn+0.1;}\n  const w=1000,h=420,pl=58,pr=24,pt=20,pb=44;\n  const Xs=t=>pl+(w-pl-pr)*t/Math.max(T,lastT+1),Y=v=>pt+(h-pt-pb)*(1-(v-mn)/(mx-mn));\n  let s='<svg viewBox=\"0 0 '+w+' '+h+'\" width=\"100%\" class=\"pch\">';\n  for(let g=0;g<=5;g++){const v=mn+(mx-mn)*g/5,y=Y(v);s+='<line x1=\"'+pl+'\" x2=\"'+(w-pr)+'\" y1=\"'+y+'\" y2=\"'+y+'\" stroke=\"var(--line)\"/><text x=\"'+(pl-6)+'\" y=\"'+(y+4)+'\" text-anchor=\"end\">'+v.toFixed(2)+'</text>';}\n  const tk=Math.max(10,Math.round(T/8/10)*10);\n  for(let t=0;t<=T;t+=tk){s+='<line x1=\"'+Xs(t)+'\" x2=\"'+Xs(t)+'\" y1=\"'+pt+'\" y2=\"'+(h-pb)+'\" stroke=\"var(--line)\" opacity=\".5\"/><text x=\"'+Xs(t)+'\" y=\"'+(h-24)+'\" text-anchor=\"middle\">'+t+'с</text>';}\n  s+='<text x=\"'+((pl+w-pr)/2)+'\" y=\"'+(h-6)+'\" text-anchor=\"middle\">секунд после входа (закрытие рынка справа)</text>';\n  s+='<rect x=\"'+pl+'\" y=\"'+Y(px)+'\" width=\"'+(w-pl-pr)+'\" height=\"'+Math.max(0,(h-pb)-Y(px))+'\" fill=\"var(--bad)\" opacity=\".05\"/><rect x=\"'+pl+'\" y=\"'+pt+'\" width=\"'+(w-pl-pr)+'\" height=\"'+Math.max(0,Y(px)-pt)+'\" fill=\"var(--good)\" opacity=\".05\"/>';\n  s+='<line x1=\"'+pl+'\" x2=\"'+(w-pr)+'\" y1=\"'+Y(px)+'\" y2=\"'+Y(px)+'\" stroke=\"var(--fg)\" stroke-dasharray=\"6 4\"/><text x=\"'+(w-pr)+'\" y=\"'+(Y(px)-5)+'\" text-anchor=\"end\" style=\"fill:var(--fg)\">вход '+px.toFixed(2)+'</text>';\n  lv.forEach((l,i)=>{s+='<line x1=\"'+pl+'\" x2=\"'+(w-pr)+'\" y1=\"'+Y(l[0])+'\" y2=\"'+Y(l[0])+'\" stroke=\"'+l[2]+'\" stroke-dasharray=\"2 4\" opacity=\".85\"/><text x=\"'+(pl+4+(i%3)*150)+'\" y=\"'+(Y(l[0])-4)+'\" style=\"fill:'+l[2]+'\">'+l[1]+' '+l[0].toFixed(2)+'</text>';});\n  let d='';pts.forEach((p,i)=>{d+=(i?'L':'M')+Xs(p[0]).toFixed(1)+' '+Y(p[1]).toFixed(1)+' ';});\n  s+='<path d=\"'+d+'\" fill=\"none\" stroke=\"var(--acc)\" stroke-width=\"2.5\" stroke-linejoin=\"round\"/>';\n  if(!dense)pts.slice(0,-1).forEach(p=>{s+='<circle cx=\"'+Xs(p[0])+'\" cy=\"'+Y(p[1])+'\" r=\"3.5\" fill=\"var(--acc)\"><title>'+Math.round(p[0])+'с: bid '+p[1].toFixed(3)+'</title></circle>';});\n  marks.forEach(m=>{s+='<circle cx=\"'+Xs(m[0])+'\" cy=\"'+Y(m[1])+'\" r=\"5\" fill=\"'+(m[3]==='w'?'var(--good)':'var(--bad)')+'\" stroke=\"var(--card)\" stroke-width=\"1.5\"><title>'+m[2]+' — '+Math.round(m[0])+'с</title></circle>';});\n  s+='<circle cx=\"'+Xs(Math.max(T,lastT+1))+'\" cy=\"'+Y(fin)+'\" r=\"6\" fill=\"'+(origWon?'var(--good)':'var(--bad)')+'\"/><text x=\"'+(Xs(Math.max(T,lastT+1))-8)+'\" y=\"'+(Y(fin)+(fin?16:-10))+'\" text-anchor=\"end\" style=\"fill:'+(origWon?'var(--good)':'var(--bad)')+'\">итог рынка: '+(origWon?'победа (1.00)':'проигрыш (0.00)')+'</text>';\n  let note='';\n  if(ex&&r[XK]){\n    const tt=r[XK]==='cr'?'обвал':(r[XK]==='sl'?'стоп':(r[XK]==='tp'?'тейк':(r[XK]==='ld'?'лесенка':(r[XK]==='gr'?'сетка':(r[XK]==='tt'?'выход у верха':'добор')))));\n    note='<div class=\"note small\" style=\"margin:0 0 8px\"><b>С твоими настройками:</b> '+tt+' → <b class=\"'+(r[XI]>=0?'pos':'neg')+'\">'+(r[XI]>=0?'+':'−')+'$'+Math.abs(r[XI]*S.stake).toFixed(2)+'</b> (без них: '+(origWon?'победа':'проигрыш')+')</div>';\n  }\n  return note+s+'</svg>'+(dense?'':'<div class=\"small mut\">Для этой сделки сохранены ключевые точки пути цены (не каждая секунда). Полный путь по секундам записывается для стратегий, которые торгует бот.</div>');\n}\nfunction openTrade(r){\n  closeTrade();\n  const px=r[CI.px],won=(r[XK+1]!==undefined&&r[XK+1]!==null)?r[XK+1]:r[C.won];\n  const f=(k,d)=>isNul(r[CI[k]])?'—':r[CI[k]].toFixed(d);\n  const kv=(a,b)=>'<div class=\"kv\"><span>'+a+'</span><b>'+b+'</b></div>';\n  let info=kv('Время',tz(r[C.ts]))+kv('Ячейка',esc(D.combos[r[C.combo]]))+kv('Монета / сторона',esc(COIN_SHORT[D.coins[r[C.coin]]]||D.coins[r[C.coin]])+' · '+(r[C.side]?'Down':'Up'))\n   +kv('Цена входа (ask)',px.toFixed(3))+kv('До закрытия на входе',f('sec',0)+' с')+kv('Итог рынка',won?'<span class=\"pos\">победа</span>':'<span class=\"neg\">проигрыш</span>')\n   +kv('Лучший bid после входа',isNul(r[CI.mfe])?'—':'+'+(r[CI.mfe]*100).toFixed(0)+'¢')+kv('Худший bid после входа',isNul(r[CI.mae])?'—':(r[CI.mae]*100).toFixed(0)+'¢ (через '+f('tmae',0)+' с)')\n   +kv('Монета на входе',f('pm',1)+' bps')+kv('z',f('z',2));\n  if(r[XK+4]&&typeof r[XK+4][2]==='string')info=kv(r[XK+4][2]||'Особый вход','сигнал был на '+r[XK+4][0].toFixed(2)+', вход по '+px.toFixed(2)+' через '+r[XK+4][1]+' с')+info;\n  const el=document.createElement('div');el.id='tmodal';el.className='tm';\n  el.innerHTML='<div class=\"tmc\"><div class=\"tmh\"><b>Сделка: как двигалась цена после входа</b><button class=\"x\" data-act=\"tclose\">✕</button></div>'+tradeSvg(r)+'<div class=\"kvs\">'+info+'</div></div>';\n  el.addEventListener('click',e=>{if(e.target===el)closeTrade();});\n  document.body.appendChild(el);\n}\nfunction closeTrade(){const e=document.getElementById('tmodal');if(e)e.remove();}\n// ---------- РАЗБОР ОДНОГО ДНЯ (всплывающее окно по клику на день в таблице «По дням») ----------\nlet DAYMODE='trade';\nconst DWD=['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'];\nfunction dayCalc(reg){\n  const stake=S.stake,d0=Date.parse(reg.d+'T00:00:00Z')/1000;\n  const a=reg.rows.map(r=>{const o=r[C.ts],sc=r[CI.sec],tx=r[XK+5];const cl=(tx!==null&&tx!==undefined)?o+tx+5:o+(isNul(sc)?150:sc)+RES_LAG;return{r:r,o:o,cl:cl,pn:roiOf(r)*stake,w:roiOf(r)>0};});\n  a.sort((x,y)=>x.cl-y.cl||x.o-y.o);\n  let cum=0,pk=0,pki=-1,dd=0,ddA=-1,ddB=-1,lo=0,loI=-1,hi=0,hiI=-1,ws=0,wsm=0,ls=0,lsm=0,lsE=-1,win=0,los=0,w=0,pxs=0,best=null,worst=null;\n  const ys=[];\n  a.forEach((x,i)=>{\n    cum+=x.pn;ys.push(cum);x.cum=cum;\n    if(cum>pk){pk=cum;pki=i;}\n    if(pk-cum>dd){dd=pk-cum;ddA=pki;ddB=i;}\n    if(cum>hi){hi=cum;hiI=i;}if(cum<lo){lo=cum;loI=i;}\n    if(x.pn>0){win+=x.pn;w++;ws++;if(ws>wsm)wsm=ws;ls=0;}else{los+=x.pn;ls++;ws=0;if(ls>lsm){lsm=ls;lsE=i;}}\n    pxs+=pxe(x.r);\n    if(!best||x.pn>best.pn)best=x;if(!worst||x.pn<worst.pn)worst=x;\n  });\n  const n=a.length;\n  return{a:a,ys:ys,n:n,w:w,l:n-w,win:win,los:los,net:cum,pk:pk,dd:dd,ddA:ddA,ddB:ddB,hi:hi,hiI:hiI,lo:lo,loI:loI,wsm:wsm,lsm:lsm,lsE:lsE,apx:n?pxs/n:0,best:best,worst:worst,d0:d0,stake:stake};\n}\nfunction dayGroups(a,keyf,order){\n  const m=new Map();a.forEach(x=>{const k=keyf(x);let g=m.get(k);if(!g){g={n:0,w:0,pn:0};m.set(k,g);}g.n++;if(x.w)g.w++;g.pn+=x.pn;});\n  const ks=order?order.filter(k=>m.has(k)):[...m.keys()];\n  if(!ks.length)return '<div class=\"mut small\">нет данных</div>';\n  let h='<div class=\"tw\"><table><thead><tr><th class=\"l ns\"></th><th class=\"ns\">сделок</th><th class=\"ns\">побед</th><th class=\"ns\">итог</th></tr></thead><tbody>';\n  ks.forEach(k=>{const g=m.get(k);h+='<tr><td class=\"l\">'+esc(String(k))+'</td><td>'+g.n+'</td><td>'+pct(g.w/g.n)+'</td><td class=\"'+cls(g.pn)+'\">'+money(g.pn)+'</td></tr>';});\n  return h+'</tbody></table></div>';\n}\nfunction dayChart(c,mode){\n  const a=c.a,n=a.length;\n  if(n<1)return '<div class=\"note\">В этот день сделок нет.</div>';\n  const W=980,H=310,pl=58,pr=18,pt=18,pb=34,d0=c.d0,d1=d0+86400;\n  const xv=i=>mode==='time'?Math.min(d1,Math.max(d0,a[i].cl)):i+1;\n  const xa=mode==='time'?d0:0,xb=mode==='time'?d1:n;\n  let mn=0,mx=0;c.ys.forEach(y=>{if(y<mn)mn=y;if(y>mx)mx=y;});\n  if(mx-mn<0.6){mx+=0.3;mn-=0.3;}\n  const padY=(mx-mn)*0.08;mx+=padY;if(mn<0)mn-=padY;\n  const X=v=>pl+(W-pl-pr)*((v-xa)/((xb-xa)||1)),Y=v=>pt+(H-pt-pb)*(1-(v-mn)/(mx-mn));\n  const pts=[[xa,0]];for(let i=0;i<n;i++)pts.push([xv(i),c.ys[i]]);\n  let d='';pts.forEach((p,i)=>{d+=(i?'L':'M')+X(p[0]).toFixed(1)+' '+Y(p[1]).toFixed(1);});\n  const y0=Y(0),area=d+' L'+X(pts[pts.length-1][0]).toFixed(1)+' '+y0.toFixed(1)+' L'+X(xa).toFixed(1)+' '+y0.toFixed(1)+' Z';\n  let s='<svg class=\"cumsvg dsvg\" viewBox=\"0 0 '+W+' '+H+'\" width=\"100%\" style=\"max-width:'+W+'px;background:transparent;border:0\" role=\"img\">';\n  s+='<defs><clipPath id=\"dcA\"><rect x=\"0\" y=\"0\" width=\"'+W+'\" height=\"'+y0.toFixed(1)+'\"/></clipPath><clipPath id=\"dcB\"><rect x=\"0\" y=\"'+y0.toFixed(1)+'\" width=\"'+W+'\" height=\"'+H+'\"/></clipPath>'\n    +'<linearGradient id=\"dgA\" x1=\"0\" y1=\"0\" x2=\"0\" y2=\"1\"><stop offset=\"0\" stop-color=\"var(--good)\" stop-opacity=\".38\"/><stop offset=\"1\" stop-color=\"var(--good)\" stop-opacity=\".02\"/></linearGradient>'\n    +'<linearGradient id=\"dgB\" x1=\"0\" y1=\"1\" x2=\"0\" y2=\"0\"><stop offset=\"0\" stop-color=\"var(--bad)\" stop-opacity=\".38\"/><stop offset=\"1\" stop-color=\"var(--bad)\" stop-opacity=\".02\"/></linearGradient></defs>';\n  for(let g=0;g<=4;g++){const v=mn+(mx-mn)*g/4,y=Y(v);s+='<line x1=\"'+pl+'\" x2=\"'+(W-pr)+'\" y1=\"'+y.toFixed(1)+'\" y2=\"'+y.toFixed(1)+'\" stroke=\"var(--line)\"/><text x=\"'+(pl-6)+'\" y=\"'+(y+4).toFixed(1)+'\" text-anchor=\"end\">'+(v>=0?'+':'−')+'$'+Math.abs(v).toFixed(Math.abs(v)>=100?0:1)+'</text>';}\n  if(mode==='time'){for(let h=0;h<=24;h+=3){const x=X(d0+h*3600).toFixed(1);s+='<line x1=\"'+x+'\" x2=\"'+x+'\" y1=\"'+pt+'\" y2=\"'+(H-pb)+'\" stroke=\"var(--line)\" stroke-dasharray=\"2 4\"/><text x=\"'+x+'\" y=\"'+(H-12)+'\" text-anchor=\"middle\">'+(h<10?'0':'')+(h%24)+':00</text>';}}\n  else{const st=Math.max(1,Math.ceil(n/8));for(let i=0;i<=n;i+=st){const x=X(i).toFixed(1);s+='<text x=\"'+x+'\" y=\"'+(H-12)+'\" text-anchor=\"middle\">'+i+'</text>';}s+='<text x=\"'+(W-pr)+'\" y=\"'+(H-1)+'\" text-anchor=\"end\" style=\"fill:var(--mut)\">номер сделки (по порядку закрытия)</text>';}\n  if(c.dd>0.004&&c.ddB>=0&&c.ddB>c.ddA){const xA=X(c.ddA<0?xa:xv(c.ddA)),xB=X(xv(c.ddB));s+='<rect x=\"'+xA.toFixed(1)+'\" y=\"'+pt+'\" width=\"'+Math.max(2,xB-xA).toFixed(1)+'\" height=\"'+(H-pt-pb)+'\" fill=\"var(--bad)\" opacity=\".08\"/><text x=\"'+((xA+xB)/2).toFixed(1)+'\" y=\"'+(pt+11)+'\" text-anchor=\"middle\" style=\"fill:var(--bad)\">просадка −$'+c.dd.toFixed(2)+'</text>';}\n  s+='<line x1=\"'+pl+'\" x2=\"'+(W-pr)+'\" y1=\"'+y0.toFixed(1)+'\" y2=\"'+y0.toFixed(1)+'\" stroke=\"var(--mut)\" stroke-dasharray=\"4 3\"/>';\n  s+='<path d=\"'+area+'\" fill=\"url(#dgA)\" clip-path=\"url(#dcA)\"/><path d=\"'+area+'\" fill=\"url(#dgB)\" clip-path=\"url(#dcB)\"/>';\n  s+='<path d=\"'+d+'\" fill=\"none\" stroke=\"var(--good)\" stroke-width=\"2.2\" stroke-linejoin=\"round\" clip-path=\"url(#dcA)\"/><path d=\"'+d+'\" fill=\"none\" stroke=\"var(--bad)\" stroke-width=\"2.2\" stroke-linejoin=\"round\" clip-path=\"url(#dcB)\"/>';\n  if(n<=220)a.forEach((x,i)=>{s+='<circle cx=\"'+X(xv(i)).toFixed(1)+'\" cy=\"'+Y(c.ys[i]).toFixed(1)+'\" r=\"'+(n>120?2.2:3.2)+'\" fill=\"'+(x.pn>0?'var(--good)':'var(--bad)')+'\" stroke=\"var(--card)\" stroke-width=\"1\"/>';});\n  if(c.hiI>=0&&c.hiI<n-1&&c.hi>0.004)s+='<text x=\"'+X(xv(c.hiI)).toFixed(1)+'\" y=\"'+(Y(c.hi)-8).toFixed(1)+'\" text-anchor=\"middle\" style=\"fill:var(--good)\">▲ пик '+money(c.hi)+'</text>';\n  if(c.loI>=0&&c.loI<n-1&&c.lo<-0.004)s+='<text x=\"'+X(xv(c.loI)).toFixed(1)+'\" y=\"'+(Y(c.lo)+16).toFixed(1)+'\" text-anchor=\"middle\" style=\"fill:var(--bad)\">▼ дно '+money(c.lo)+'</text>';\n  const ex=X(xv(n-1)),ey=Y(c.net),col=c.net>=0?'var(--good)':'var(--bad)';\n  s+='<circle cx=\"'+ex.toFixed(1)+'\" cy=\"'+ey.toFixed(1)+'\" r=\"5\" fill=\"'+col+'\" stroke=\"var(--card)\" stroke-width=\"2\"/><text x=\"'+Math.min(W-pr,ex).toFixed(1)+'\" y=\"'+(ey+(c.net>=0&&!(c.hiI>=0&&c.hiI<n-1&&c.hi-c.net<(mx-mn)*0.14)?-12:20)).toFixed(1)+'\" text-anchor=\"end\" style=\"fill:'+col+';font-weight:700\">итог '+money(c.net)+'</text>';\n  s+='<line class=\"dl\" x1=\"0\" x2=\"0\" y1=\"'+pt+'\" y2=\"'+(H-pb)+'\" stroke=\"var(--fg)\" stroke-width=\"1\" opacity=\".45\" style=\"display:none\"/><circle class=\"dp\" r=\"5.5\" fill=\"var(--acc)\" stroke=\"var(--card)\" stroke-width=\"2\" style=\"display:none\"/></svg>';\n  return s;\n}\nfunction dayHours(c){\n  const a=c.a;if(!a.length)return '';\n  const h=new Array(24).fill(0),hn=new Array(24).fill(0);\n  a.forEach(x=>{const k=new Date(x.o*1000).getUTCHours();h[k]+=x.pn;hn[k]++;});\n  let mx=0;h.forEach(v=>{if(Math.abs(v)>mx)mx=Math.abs(v);});if(mx<1e-9)mx=1;\n  const W=980,H=120,pl=8,pr=8,bw=(W-pl-pr)/24,zero=48;\n  let s='<svg viewBox=\"0 0 '+W+' '+H+'\" width=\"100%\" style=\"max-width:'+W+'px\" role=\"img\"><line x1=\"'+pl+'\" x2=\"'+(W-pr)+'\" y1=\"'+zero+'\" y2=\"'+zero+'\" stroke=\"var(--line)\"/>';\n  for(let k=0;k<24;k++){\n    const x=pl+k*bw+2,ww=bw-4;\n    if(!hn[k]){s+='<rect x=\"'+x.toFixed(1)+'\" y=\"'+(zero-1)+'\" width=\"'+ww.toFixed(1)+'\" height=\"2\" fill=\"var(--mut)\" opacity=\".4\"><title>'+k+':00 UTC — сделок не было</title></rect>';}\n    else{const bh=Math.max(3,Math.abs(h[k])/mx*44);s+='<rect x=\"'+x.toFixed(1)+'\" y=\"'+(h[k]>=0?zero-bh:zero).toFixed(1)+'\" width=\"'+ww.toFixed(1)+'\" height=\"'+bh.toFixed(1)+'\" rx=\"3\" fill=\"'+(h[k]>=0?'var(--good)':'var(--bad)')+'\"><title>'+k+':00–'+(k+1)+':00 UTC · сделок '+hn[k]+' · '+money(h[k])+'</title></rect>';}\n    s+='<text x=\"'+(x+ww/2).toFixed(1)+'\" y=\"'+(zero+(h[k]<0?0:0)+62).toFixed(1)+'\" text-anchor=\"middle\" style=\"fill:var(--mut)\">'+(k%3===0?(k<10?'0':'')+k:'')+'</text>';\n    if(hn[k])s+='<text x=\"'+(x+ww/2).toFixed(1)+'\" y=\"'+(h[k]>=0?zero+14:zero-8)+'\" text-anchor=\"middle\" style=\"fill:var(--mut);font-size:10px\">'+hn[k]+'</text>';\n  }\n  return s+'</svg>';\n}\nfunction dayBody(reg){\n  const c=dayCalc(reg),n=c.n,stake=c.stake,di=reg.di||{dd:0,maxN:0,pk:0};\n  const idx=DAYORD.indexOf(reg.d),all=DAYORD.map(k=>DAYREG[k].pnl),avg=all.reduce((p,v)=>p+v,0)/(all.length||1);\n  const rank=all.slice().sort((x,y)=>y-x).indexOf(reg.pnl)+1;\n  const wd=DWD[new Date(c.d0*1000).getUTCDay()],off=-new Date().getTimezoneOffset()/60;\n  const prev=DAYORD[idx-1],next=DAYORD[idx+1];\n  let h='<div class=\"dmh\"><span class=\"dt\">📅 '+reg.d+'</span><span class=\"dsub\">'+wd+' · сутки по UTC (у тебя '+(off>=0?'+':'')+off+' ч)</span><span class=\"dnav\"><button data-act=\"dnav\" data-d=\"'+(prev||'')+'\"'+(prev?'':' disabled')+'>← '+(prev?prev.slice(5):'')+'</button><button data-act=\"dnav\" data-d=\"'+(next||'')+'\"'+(next?'':' disabled')+'>'+(next?next.slice(5):'')+' →</button><button class=\"x\" data-act=\"dclose\" title=\"закрыть (Esc)\">✕</button></span></div>';\n  const hero='<div class=\"dhero\"><div><div class=\"big '+cls(c.net)+'\">'+money(c.net)+'</div><div class=\"small mut\">итог дня на ставку $'+stake+'</div></div>'\n    +'<div><b>'+n+'</b><div class=\"small mut\">сделок</div></div><div><b>'+pct(n?c.w/n:0)+'</b><div class=\"small mut\">побед ('+c.w+' из '+n+')</div></div>'\n    +'<div><b class=\"'+cls(c.net)+'\">'+sgn(n?c.net/(n*stake)*100:0,1)+'%</b><div class=\"small mut\">ROI дня</div></div>'\n    +'<div><b>'+(rank?('№'+rank+' из '+DAYORD.length):'—')+'</b><div class=\"small mut\">место среди дней по прибыли</div></div>'\n    +'<div><b class=\"'+cls(c.net-avg)+'\">'+money(c.net-avg)+'</b><div class=\"small mut\">против среднего дня ('+money(avg)+')</div></div></div>';\n  h+=hero;\n  const chip=(v,l,k)=>'<div class=\"dc\"><b class=\"'+(k||'')+'\">'+v+'</b><span>'+l+'</span></div>';\n  h+='<div class=\"dgrid\">'\n    +chip(money(c.win),'профит (сумма побед)','pos')+chip(c.los<0?'−$'+Math.abs(c.los).toFixed(2):'$0','убыток (сумма проигрышей)','neg')\n    +chip(c.dd>0.004?'−$'+c.dd.toFixed(2):'нет','макс. просадка внутри дня',c.dd>0.004?'neg':'')+chip(money(c.hi),'высшая точка дня','pos')+chip(money(c.lo),'низшая точка дня',c.lo<0?'neg':'')\n    +chip(c.wsm,'побед подряд (макс.)')+chip(c.lsm,'проигрышей подряд (макс.)',c.lsm>=3?'neg':'')\n    +chip(c.best?money(c.best.pn):'—','лучшая сделка','pos')+chip(c.worst?money(c.worst.pn):'—','худшая сделка',c.worst&&c.worst.pn<0?'neg':'')\n    +chip(fmt(c.apx,3),'средняя цена входа')+chip(sgn((n?c.w/n-c.apx:0)*100,1)+' п.п.','edge дня (побед − цена)',cls(n?c.w/n-c.apx:0))\n    +chip(di.maxN||0,'макс. сделок одновременно')+chip('$'+((di.maxN||0)*stake).toFixed(0),'занято денег в пик')+'</div>';\n  h+='<div class=\"dnote small mut\">'+ddText(di.pk||0,di.dd||0)+(c.lsm>=2&&c.lsE>=0?' · самая длинная серия проигрышей ('+c.lsm+') закончилась в '+tz(c.a[c.lsE].cl).slice(6,11):'')+'</div>';\n  h+='<div class=\"bar\" style=\"margin:12px 0 4px\"><b>Накопленная прибыль дня</b><span class=\"mut small\">ось X:</span><button class=\"tg'+(DAYMODE==='trade'?' on':'')+'\" data-act=\"dmode\" data-m=\"trade\">по сделкам</button><button class=\"tg'+(DAYMODE==='time'?' on':'')+'\" data-act=\"dmode\" data-m=\"time\">по времени</button></div>';\n  h+='<div class=\"dchart\">'+dayChart(c,DAYMODE)+'<div class=\"dtip\"></div></div>';\n  h+='<div class=\"small mut\" style=\"margin:2px 0 10px\">Сделки идут в порядке закрытия (когда стал известен результат) — так же считается «просадка внутри дня» в таблице. Наведи на график — увидишь сделку, нажми — откроется график цены этой сделки.</div>';\n  if(n){\n    h+='<h3 style=\"margin:10px 0 4px\">Когда зарабатывали (часы UTC, цифра — число входов)</h3>'+dayHours(c);\n    const PXO=['≤ 0.80','0.81–0.85','0.86–0.89','≥ 0.90'];\n    const pxk=x=>{const p=pxe(x.r);return p<=0.805?PXO[0]:p<=0.855?PXO[1]:p<=0.895?PXO[2]:PXO[3];};\n    const SO=['до 60','60–120','120–180','180–240','240+'];\n    const sk=x=>{const s=x.r[CI.sec];if(isNul(s))return '—';return s<60?SO[0]:s<120?SO[1]:s<180?SO[2]:s<240?SO[3]:SO[4];};\n    h+='<div class=\"d2\" style=\"margin-top:8px\"><div><h3 style=\"margin:4px 0\">По монетам</h3>'+dayGroups(c.a,x=>COIN_SHORT[D.coins[x.r[C.coin]]]||D.coins[x.r[C.coin]])+'</div>'\n      +'<div><h3 style=\"margin:4px 0\">По стороне</h3>'+dayGroups(c.a,x=>x.r[C.side]?'Down':'Up')+'</div>'\n      +'<div><h3 style=\"margin:4px 0\">По цене входа</h3>'+dayGroups(c.a,pxk,PXO)+'</div>'\n      +'<div><h3 style=\"margin:4px 0\">Секунд до конца на входе</h3>'+dayGroups(c.a,sk,SO.concat(['—']))+'</div></div>';\n    h+='<h3 style=\"margin:12px 0 4px\">Все сделки дня <span class=\"mut small\" style=\"font-weight:400\">— нажми на строку, чтобы увидеть график цены</span></h3><div class=\"dscroll\"><table><thead><tr><th class=\"ns\">#</th><th class=\"l ns\">Вход</th><th class=\"l ns\">Монета</th><th class=\"ns\">Цена</th><th class=\"ns\">До конца, с</th><th class=\"l ns\">Итог</th><th class=\"ns\">Сделка</th><th class=\"ns\">Накоплено</th></tr></thead><tbody>';\n    c.a.forEach((x,i)=>{const r=x.r;h+='<tr class=\"click\" data-act=\"dtrade\" data-i=\"'+i+'\"><td>'+(i+1)+'</td><td class=\"l\">'+tz(r[C.ts]).slice(6)+'</td><td class=\"l\">'+esc(rowName(r))+'</td><td>'+fmt(r[CI.px],3)+'</td><td>'+fmt(r[CI.sec],0)+'</td><td class=\"l '+(x.pn>0?'pos':'neg')+'\">'+(x.pn>0?'победа':'проигрыш')+'</td><td class=\"'+cls(x.pn)+'\">'+money(x.pn)+'</td><td class=\"'+cls(x.cum)+'\">'+money(x.cum)+'</td></tr>';});\n    h+='</tbody></table></div>';\n  }\n  return {html:h,c:c};\n}\n// ---------- АНАЛИЗ ДНЕЙ: поиск закономерностей (как начинается день, что бывает дальше, часы, правила остановки) ----------\nfunction erfF(x){const s=x<0?-1:1;x=Math.abs(x);const t=1/(1+0.3275911*x);return s*(1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-0.284496736)*t+0.254829592)*t*Math.exp(-x*x));}\nfunction pProp(a1,n1,a2,n2){if(n1<2||n2<2)return 1;const p=(a1+a2)/(n1+n2),se=Math.sqrt(p*(1-p)*(1/n1+1/n2));if(se<1e-9)return 1;const z=(a1/n1-a2/n2)/se;return 2*(1-0.5*(1+erfF(Math.abs(z)/Math.SQRT2)));}\nfunction dayAnPrep(){\n  return DAYORD.map(k=>{const c=dayCalc(DAYREG[k]);return{d:k,c:c,a:c.a,d0:c.d0,net:c.net,n:c.n};}).filter(x=>x.n>0);\n}\nconst dEps=0.004;\nfunction dayAnalysis(){\n  const days=dayAnPrep(),ND=days.length,stake=S.stake;\n  if(ND<4)return '<div class=\"card\" id=\"dayan\"><h3>🔎 Закономерности по дням</h3><div class=\"note\">Мало дней ('+ND+'): нужно хотя бы 4 дня со сделками, лучше 15+.</div></div>';\n  const avgNet=days.reduce((a,x)=>a+x.net,0)/ND,plusN=days.filter(x=>x.net>dEps).length;\n  const money2=money,tzUtc=-new Date().getTimezoneOffset()/60;\n  const concl=[];\n  let h='<div class=\"card\" id=\"dayan\"><div class=\"bar\" style=\"margin:0\"><b style=\"font-size:16px\">🔎 Закономерности по дням</b><span class=\"mut small\">дней со сделками: '+ND+' · в плюсе '+plusN+' ('+Math.round(plusN/ND*100)+'%) · средний день '+money2(avgNet)+' · ставка $'+stake+'</span><button data-act=\"dayan\" style=\"margin-left:auto\">✕ скрыть</button></div>';\n  h+='<div class=\"note small\">Ищем правила вида «если день начался так, то закончится так». Дней мало, поэтому это <b>подсказки, а не доказательства</b>: чем меньше дней в группе, тем больше результат похож на случайность. Если связи нет, так и пишем.</div>';\n  // ---- 1. как начался день и что было дальше ----\n  const cps=[];\n  [[3,'первые 3 сделки'],[5,'первые 5 сделок'],[10,'первые 10 сделок']].forEach(p=>cps.push({lab:p[1],f:x=>{if(x.n<p[0]+2)return null;return{cum:x.c.ys[p[0]-1],k:p[0]};}}));\n  [[2,'первые 2 часа'],[4,'первые 4 часа'],[6,'первые 6 часов'],[12,'первые 12 часов']].forEach(p=>cps.push({lab:p[1],f:x=>{const lim=x.d0+p[0]*3600;let cum=0,k=0;for(let i=0;i<x.a.length;i++){if(x.a[i].cl<=lim){cum=x.c.ys[i];k=i+1;}else break;}if(k<1||k>=x.n)return null;return{cum:cum,k:k};}}));\n  const cpRows=[];\n  cps.forEach(cp=>{\n    const g={plus:[],minus:[]};\n    days.forEach(x=>{const r=cp.f(x);if(!r)return;if(r.cum>dEps)g.plus.push({x:x,r:r});else if(r.cum<-dEps)g.minus.push({x:x,r:r});});\n    cpRows.push({lab:cp.lab,g:g});\n  });\n  const st=a=>{const n=a.length;if(!n)return null;const endP=a.filter(o=>o.x.net>dEps).length,restP=a.filter(o=>o.x.net-o.r.cum>dEps).length;\n    return{n:n,endP:endP,restP:restP,fin:a.reduce((s,o)=>s+o.x.net,0)/n,rest:a.reduce((s,o)=>s+(o.x.net-o.r.cum),0)/n,cum:a.reduce((s,o)=>s+o.r.cum,0)/n};};\n  h+='<h3>1. Как начался день и что было дальше</h3><div class=\"small mut\" style=\"margin-bottom:6px\">Смотрим состояние дня в какой-то момент (в плюсе или в минусе) и что происходило <b>после</b> этого момента. «Дальше» = итог дня минус то, что было в тот момент.</div>';\n  h+='<div class=\"tw\"><table><thead><tr><th class=\"l ns\">К моменту</th><th class=\"l ns\">День был</th><th class=\"ns\">дней</th><th class=\"ns\">в среднем на тот момент</th><th class=\"ns\">закончили в плюсе</th><th class=\"ns\">итог дня в среднем</th><th class=\"ns\">что было дальше в среднем</th><th class=\"ns\">дальше в плюс</th></tr></thead><tbody>';\n  let best=null;\n  cpRows.forEach(r=>{\n    const sp=st(r.g.plus),sm=st(r.g.minus);\n    [['в плюсе',sp,'pos'],['в минусе',sm,'neg']].forEach(q=>{const s=q[1];h+='<tr><td class=\"l\">'+(q[0]==='в плюсе'?r.lab:'')+'</td><td class=\"l '+q[2]+'\">'+q[0]+'</td>'+(s?'<td>'+s.n+'</td><td class=\"'+cls(s.cum)+'\">'+money2(s.cum)+'</td><td>'+pct(s.endP/s.n)+' <span class=\"mut small\">('+s.endP+' из '+s.n+')</span></td><td class=\"'+cls(s.fin)+'\">'+money2(s.fin)+'</td><td class=\"'+cls(s.rest)+'\"><b>'+money2(s.rest)+'</b></td><td>'+pct(s.restP/s.n)+'</td>':'<td colspan=\"6\" class=\"mut\">нет дней</td>')+'</tr>';});\n    if(sp&&sm&&sp.n>=5&&sm.n>=5){const p=pProp(sp.endP,sp.n,sm.endP,sm.n);if(!best||p<best.p)best={lab:r.lab,p:p,sp:sp,sm:sm};}\n  });\n  h+='</tbody></table></div>';\n  if(best){\n    const d=(best.sp.endP/best.sp.n-best.sm.endP/best.sm.n)*100;\n    if(best.p<0.01)concl.push('<b>Начало дня похоже на предсказание конца.</b> После «'+best.lab+'» день в плюсе заканчивается в плюсе в '+Math.round(best.sp.endP/best.sp.n*100)+'% случаев, а день в минусе — в '+Math.round(best.sm.endP/best.sm.n*100)+'%. (по '+best.sp.n+' и '+best.sm.n+' дням, вероятность случайности ≈'+(best.p*100).toFixed(1)+'%)');\n    else if(best.p<0.1)concl.push('<b>Возможна связь, но слабая:</b> после «'+best.lab+'» разница между плюсовым и минусовым началом '+(d>=0?'+':'')+Math.round(d)+' п.п. по шансу закончить день в плюсе. Для вывода данных мало (вероятность случайности ≈'+(best.p*100).toFixed(0)+'%).');\n    else concl.push('<b>Начало дня почти ничего не говорит о конце.</b> Сильной разницы между днём, который начался в плюсе, и днём, который начался в минусе, нет (лучший из проверенных моментов: «'+best.lab+'», разница '+(d>=0?'+':'')+Math.round(d)+' п.п., вероятность случайности ≈'+(best.p*100).toFixed(0)+'%). Если день ушёл в минус, это не значит, что до конца дня плюса не будет.');\n  }\n  // ---- 2. провалы и возвращение ----\n  h+='<h3>2. Если день ушёл в минус на X — вернулся ли он</h3><div class=\"small mut\" style=\"margin-bottom:6px\">Берём момент, когда накопленная прибыль дня впервые упала до −X, и смотрим, что было дальше.</div>';\n  h+='<div class=\"tw\"><table><thead><tr><th class=\"l ns\">Провал до</th><th class=\"ns\">дней</th><th class=\"ns\">вернулись в плюс (итог дня &gt; 0)</th><th class=\"ns\">дошли хотя бы до нуля</th><th class=\"ns\">дальше в среднем</th><th class=\"ns\">итог дня в среднем</th></tr></thead><tbody>';\n  [1,2,4,8].forEach(m=>{\n    const L=-m*stake,a=[];\n    days.forEach(x=>{const i=x.c.ys.findIndex(y=>y<=L+1e-9);if(i<0)return;let rec=false;for(let j=i+1;j<x.n;j++)if(x.c.ys[j]>=-dEps){rec=true;break;}a.push({x:x,at:x.c.ys[i],rec:rec});});\n    if(!a.length){h+='<tr><td class=\"l\">−$'+(m*stake).toFixed(m*stake%1?2:0)+'</td><td colspan=\"5\" class=\"mut\">такого не было</td></tr>';return;}\n    const n=a.length,endP=a.filter(o=>o.x.net>dEps).length,rec=a.filter(o=>o.rec).length,rest=a.reduce((s,o)=>s+(o.x.net-o.at),0)/n,fin=a.reduce((s,o)=>s+o.x.net,0)/n;\n    h+='<tr><td class=\"l\">−$'+(m*stake).toFixed(m*stake%1?2:0)+'</td><td>'+n+'</td><td>'+pct(endP/n)+' <span class=\"mut small\">('+endP+')</span></td><td>'+pct(rec/n)+' <span class=\"mut small\">('+rec+')</span></td><td class=\"'+cls(rest)+'\"><b>'+money2(rest)+'</b></td><td class=\"'+cls(fin)+'\">'+money2(fin)+'</td></tr>';\n  });\n  h+='</tbody></table></div>';\n  // ---- 3. правила остановки на день ----\n  h+='<h3>3. Что если бы мы останавливались на день</h3><div class=\"small mut\" style=\"margin-bottom:6px\">Проверка на истории: если бы после достижения порога торговля на этот день прекращалась. «Разница» — сколько мы бы выиграли (+) или потеряли (−) по сравнению с торговлей до конца дня. Все дни считаются с начала до конца суток по UTC.</div>';\n  h+='<div class=\"tw\"><table><thead><tr><th class=\"l ns\">Правило</th><th class=\"ns\">дней сработало</th><th class=\"ns\">итог всех дней с правилом</th><th class=\"ns\">итог без правила</th><th class=\"ns\">разница</th></tr></thead><tbody>';\n  const base=days.reduce((s,x)=>s+x.net,0);let bestRule=null;\n  const rules=[];[1,2,4,8].forEach(m=>rules.push({lab:'стоп: день дошёл до −$'+(m*stake).toFixed(m*stake%1?2:0),thr:-m*stake,up:false}));[2,4,8,16].forEach(m=>rules.push({lab:'тейк: день дошёл до +$'+(m*stake).toFixed(m*stake%1?2:0),thr:m*stake,up:true}));\n  rules.forEach(R=>{\n    let tot=0,hit=0;\n    days.forEach(x=>{const i=x.c.ys.findIndex(y=>R.up?y>=R.thr-1e-9:y<=R.thr+1e-9);if(i<0||i>=x.n-1)tot+=x.net;else{tot+=x.c.ys[i];hit++;}});\n    const df=tot-base;R.df=df;R.hit=hit;\n    h+='<tr><td class=\"l\">'+R.lab+'</td><td>'+hit+'</td><td class=\"'+cls(tot)+'\">'+money2(tot)+'</td><td class=\"'+cls(base)+'\">'+money2(base)+'</td><td class=\"'+cls(df)+'\"><b>'+money2(df)+'</b></td></tr>';\n    if(hit>=3&&(!bestRule||df>bestRule.df))bestRule=R;\n  });\n  h+='</tbody></table></div>';\n  if(bestRule&&bestRule.df>Math.abs(base)*0.03&&bestRule.df>stake)concl.push('<b>Правило остановки могло бы помочь:</b> «'+bestRule.lab+'» дало бы '+money2(bestRule.df)+' к итогу (сработало в '+bestRule.hit+' днях). Но это подгонка под прошлые дни, перед включением проверь на других периодах.');\n  else concl.push(bestRule&&bestRule.df>0?'<b>Правила остановки почти ничего не дают:</b> лучшее («'+bestRule.lab+'») меняет итог всего на '+money2(bestRule.df)+', а это в пределах случайности.':'<b>Останавливаться на день не выгодно:</b> '+(bestRule?'даже лучшее из проверенных правил («'+bestRule.lab+'») ухудшает итог на '+money2(Math.abs(bestRule.df)).replace('+','')+'.':'ни одно из правил не сработало достаточно часто.')+' Сделки после просадки и после хорошего начала в сумме приносят прибыль, поэтому их отрезать невыгодно.');\n  // ---- 4. серии проигрышей ----\n  let nAfter=[0,0,0,0,0],wAfter=[0,0,0,0,0],tW=0,tN=0;\n  days.forEach(x=>{let ls=0;for(let i=0;i<x.n;i++){const w=x.a[i].w;tN++;if(w)tW++;if(i>0){const k=Math.min(4,ls);if(ls>=0){nAfter[k]++;if(w)wAfter[k]++;}}if(w)ls=0;else ls++;}});\n  h+='<h3>4. После проигрышей: проигрыши приходят пачками?</h3><div class=\"small mut\" style=\"margin-bottom:6px\">Если после 1-2-3 проигрышей подряд следующая сделка выигрывает реже, чем обычно, значит, проигрыши идут сериями.</div>';\n  h+='<div class=\"tw\"><table><thead><tr><th class=\"l ns\">Перед сделкой было</th><th class=\"ns\">сделок</th><th class=\"ns\">побед</th><th class=\"ns\">против среднего ('+pct(tW/(tN||1))+')</th></tr></thead><tbody>';\n  const labs=['победа (проигрышей подряд 0)','1 проигрыш подряд','2 проигрыша подряд','3 проигрыша подряд','4 и больше подряд'];\n  let worstK=-1,worstD=0;\n  for(let k=0;k<5;k++){if(!nAfter[k])continue;const wr=wAfter[k]/nAfter[k],d=(wr-tW/tN)*100;h+='<tr><td class=\"l\">'+labs[k]+'</td><td>'+nAfter[k]+'</td><td>'+pct(wr)+'</td><td class=\"'+cls(d)+'\">'+(d>=0?'+':'')+d.toFixed(1)+' п.п.</td></tr>';if(k>=1&&nAfter[k]>=20&&d<worstD){worstD=d;worstK=k;}}\n  h+='</tbody></table></div>';\n  if(worstK>=0&&worstD<-6)concl.push('<b>Проигрыши похожи на серии:</b> после '+worstK+(worstK>=4?'+':'')+' проигрышей подряд победа случается на '+Math.abs(worstD).toFixed(0)+' п.п. реже обычного ('+nAfter[worstK]+' сделок).');\n  else concl.push('<b>Серий проигрышей сверх обычного нет:</b> после проигрыша следующая сделка выигрывает примерно так же часто, как и всегда. Серии из нескольких минусов — это просто случайность.');\n  // ---- 5. часы ----\n  const hr=Array.from({length:24},()=>({n:0,w:0,pn:0,dp:0,dm:0}));\n  days.forEach(x=>{const per=new Array(24).fill(0),cn=new Array(24).fill(0);x.a.forEach(t=>{const k=new Date(t.o*1000).getUTCHours();hr[k].n++;if(t.w)hr[k].w++;hr[k].pn+=t.pn;per[k]+=t.pn;cn[k]++;});for(let k=0;k<24;k++)if(cn[k]){if(per[k]>dEps)hr[k].dp++;else if(per[k]<-dEps)hr[k].dm++;}});\n  h+='<h3>5. Часы суток (UTC, у тебя '+(tzUtc>=0?'+':'')+tzUtc+' ч)</h3><div class=\"small mut\" style=\"margin-bottom:6px\">«Дней в плюс / в минус» — сколько дней этот час закончился с прибылью или убытком. Закономерность — когда час стабильно в одну сторону, а не просто один большой день.</div>';\n  h+='<div class=\"tw\"><table><thead><tr><th class=\"l ns\">Час UTC</th><th class=\"ns\">у тебя</th><th class=\"ns\">сделок</th><th class=\"ns\">побед</th><th class=\"ns\">итог</th><th class=\"ns\">дней в плюс / в минус</th></tr></thead><tbody>';\n  let hw=null,hb=null;\n  for(let k=0;k<24;k++){const o=hr[k];if(!o.n)continue;const lc=((k+tzUtc)%24+24)%24;h+='<tr><td class=\"l\">'+(k<10?'0':'')+k+':00</td><td>'+(lc<10?'0':'')+lc+':00</td><td>'+o.n+'</td><td>'+pct(o.w/o.n)+'</td><td class=\"'+cls(o.pn)+'\">'+money2(o.pn)+'</td><td><span class=\"pos\">'+o.dp+'</span> / <span class=\"neg\">'+o.dm+'</span></td></tr>';if(o.n>=ND*1.5){if(!hw||o.pn<hw.pn)hw={k:k,o:o,pn:o.pn};if(!hb||o.pn>hb.pn)hb={k:k,o:o,pn:o.pn};}}\n  h+='</tbody></table></div>';\n  if(hw&&hw.pn<0&&hw.o.dm>=hw.o.dp*1.5&&hw.o.dm>=Math.ceil(ND*0.4))concl.push('<b>Слабый час: '+(hw.k<10?'0':'')+hw.k+':00 UTC</b> ('+hw.o.n+' сделок, '+money2(hw.pn)+'): минус в '+hw.o.dm+' днях, плюс в '+hw.o.dp+'. Это можно проверить фильтром по времени.');\n  else if(hw)concl.push('<b>Явно плохих часов нет.</b> Самый слабый '+(hw.k<10?'0':'')+hw.k+':00 UTC ('+money2(hw.pn)+') не стабилен: плюс в '+hw.o.dp+' днях, минус в '+hw.o.dm+'. Фильтровать часы пока рано.');\n  // ---- 6. дни недели и загруженность ----\n  const WD=['воскресенье','понедельник','вторник','среда','четверг','пятница','суббота'],wd=WD.map(()=>({n:0,net:0,p:0,w:0,t:0}));\n  days.forEach(x=>{const k=new Date(x.d0*1000).getUTCDay();wd[k].n++;wd[k].net+=x.net;if(x.net>dEps)wd[k].p++;wd[k].t+=x.n;wd[k].w+=x.c.w;});\n  h+='<h3>6. Дни недели</h3><div class=\"tw\"><table><thead><tr><th class=\"l ns\">День</th><th class=\"ns\">дней</th><th class=\"ns\">в среднем за день</th><th class=\"ns\">дней в плюс</th><th class=\"ns\">побед</th></tr></thead><tbody>';\n  [1,2,3,4,5,6,0].forEach(k=>{const o=wd[k];if(!o.n)return;h+='<tr><td class=\"l\">'+WD[k]+'</td><td>'+o.n+'</td><td class=\"'+cls(o.net/o.n)+'\">'+money2(o.net/o.n)+'</td><td>'+o.p+' из '+o.n+'</td><td>'+pct(o.w/o.t)+'</td></tr>';});\n  h+='</tbody></table></div>';\n  const srt=days.slice().sort((a,b)=>a.n-b.n),t3=Math.floor(ND/3);\n  if(t3>=3){\n    const gs=[['мало сделок',srt.slice(0,t3)],['средне',srt.slice(t3,ND-t3)],['много сделок',srt.slice(ND-t3)]];\n    h+='<h3>7. Тихие и загруженные дни</h3><div class=\"small mut\" style=\"margin-bottom:6px\">Делим дни на три группы по числу сделок. Если в «много сделок» результат хуже, значит, в активные дни (резкий рынок) стратегия работает плохо.</div>';\n    h+='<div class=\"tw\"><table><thead><tr><th class=\"l ns\">Группа</th><th class=\"ns\">сделок в день</th><th class=\"ns\">дней</th><th class=\"ns\">итог дня в среднем</th><th class=\"ns\">дней в плюс</th><th class=\"ns\">побед</th></tr></thead><tbody>';\n    gs.forEach(g=>{const a=g[1],n=a.length,tn=a.reduce((s,x)=>s+x.n,0),tw=a.reduce((s,x)=>s+x.c.w,0);h+='<tr><td class=\"l\">'+g[0]+'</td><td>'+a[0].n+'–'+a[n-1].n+'</td><td>'+n+'</td><td class=\"'+cls(a.reduce((s,x)=>s+x.net,0)/n)+'\">'+money2(a.reduce((s,x)=>s+x.net,0)/n)+'</td><td>'+a.filter(x=>x.net>dEps).length+' из '+n+'</td><td>'+pct(tw/(tn||1))+'</td></tr>';});\n    h+='</tbody></table></div>';\n    const lo=gs[0][1].reduce((s,x)=>s+x.net,0)/gs[0][1].length,hi=gs[2][1].reduce((s,x)=>s+x.net,0)/gs[2][1].length;\n    if(Math.abs(hi-lo)>stake*2)concl.push('<b>Загруженность дня влияет:</b> в дни с большим числом сделок в среднем '+money2(hi)+', в тихие '+money2(lo)+'.');\n  }\n  // ---- вывод ----\n  let top='<div class=\"dcon\"><b>Главное:</b><ul>'+concl.map(c=>'<li>'+c+'</li>').join('')+'</ul></div>';\n  h=h.replace(/<div class=\"note small\">Ищем[^]*?<\\/div>/,m=>m+top);\n  return h+'</div>';\n}\nlet DAYCUR=null;\nfunction openDay(k){\n  const reg=DAYREG[k];if(!reg)return;\n  let el=document.getElementById('dmodal');\n  if(!el){\n    el=document.createElement('div');el.id='dmodal';el.className='tm dm';\n    el.addEventListener('click',e=>{\n      if(e.target===el){closeDay();return;}\n      const t=e.target.closest?e.target.closest('[data-act]'):null;if(!t||t.disabled)return;\n      const a=t.getAttribute('data-act');\n      if(a==='dclose')closeDay();\n      else if(a==='dnav'){const d=t.getAttribute('data-d');if(d)openDay(d);}\n      else if(a==='dmode'){DAYMODE=t.getAttribute('data-m');if(DAYCUR)openDay(DAYCUR.reg.d);}\n      else if(a==='dtrade'&&DAYCUR){const x=DAYCUR.c.a[+t.getAttribute('data-i')];if(x)openTrade(x.r);}\n    });\n    el.addEventListener('mousemove',e=>{\n      const svg=e.target.closest?e.target.closest('svg.dsvg'):null;if(!svg||!DAYCUR)return;\n      const c=DAYCUR.c,n=c.n;if(!n)return;\n      const rc=svg.getBoundingClientRect();if(!rc.width)return;\n      const W=980,pl=58,pr=18,x=(e.clientX-rc.left)/rc.width*W,f=Math.min(1,Math.max(0,(x-pl)/(W-pl-pr)));\n      const time=DAYMODE==='time';\n      let i;\n      if(time){const tx=c.d0+f*86400;let lo=0,hi=n-1;while(lo<hi){const m=(lo+hi)>>1;if(Math.min(c.d0+86400,c.a[m].cl)<tx)lo=m+1;else hi=m;}i=lo;if(i>0&&Math.abs(c.a[i-1].cl-tx)<Math.abs(c.a[i].cl-tx))i--;}\n      else i=Math.min(n-1,Math.max(0,Math.round(f*n)-1));\n      const xv=time?Math.min(c.d0+86400,Math.max(c.d0,c.a[i].cl)):i+1,xa=time?c.d0:0,xb=time?c.d0+86400:n;\n      const px=pl+(W-pl-pr)*((xv-xa)/((xb-xa)||1));\n      let mn=0,mx=0;c.ys.forEach(y=>{if(y<mn)mn=y;if(y>mx)mx=y;});if(mx-mn<0.6){mx+=0.3;mn-=0.3;}const pY=(mx-mn)*0.08;mx+=pY;if(mn<0)mn-=pY;\n      const py=18+(310-18-34)*(1-(c.ys[i]-mn)/(mx-mn));\n      const ln=svg.querySelector('.dl'),dp=svg.querySelector('.dp'),tip=svg.parentNode.querySelector('.dtip');\n      if(ln){ln.setAttribute('x1',px);ln.setAttribute('x2',px);ln.style.display='';}\n      if(dp){dp.setAttribute('cx',px);dp.setAttribute('cy',py);dp.style.display='';}\n      const r=c.a[i].r,pn=c.a[i].pn;\n      if(tip){tip.style.display='block';tip.innerHTML='<b>#'+(i+1)+'</b> · '+tz(r[C.ts]).slice(6)+' · '+esc(rowName(r))+' по '+fmt(r[CI.px],3)+'<br><span class=\"'+(pn>0?'pos':'neg')+'\">'+(pn>0?'победа ':'проигрыш ')+money(pn)+'</span> · накоплено <b class=\"'+cls(c.ys[i])+'\">'+money(c.ys[i])+'</b>';\n        const w=rc.width,lx=px/W*w;tip.style.left=Math.max(4,Math.min(w-tip.offsetWidth-4,lx+12))+'px';tip.style.top='4px';}\n    });\n    el.addEventListener('mouseleave',()=>{const t=el.querySelector('.dtip');if(t)t.style.display='none';});\n    el.addEventListener('click',e=>{ // клик по графику — график цены этой сделки\n      const svg=e.target.closest?e.target.closest('svg.dsvg'):null;if(!svg||!DAYCUR)return;\n      const tip=svg.parentNode.querySelector('.dtip');const m=tip&&tip.textContent.match(/^#(\\d+)/);\n      if(m){const x=DAYCUR.c.a[+m[1]-1];if(x)openTrade(x.r);}\n    });\n    document.body.appendChild(el);\n  }\n  const sc=el.scrollTop;\n  const b=dayBody(reg);DAYCUR={reg:reg,c:b.c};\n  el.innerHTML='<div class=\"tmc\">'+b.html+'</div>';\n  el.scrollTop=(DAYCUR&&el.dataset.k===k)?sc:0;el.dataset.k=k;\n}\nfunction closeDay(){const e=document.getElementById('dmodal');if(e)e.remove();DAYCUR=null;}\ndocument.addEventListener('keydown',e=>{\n  if(e.key==='Escape'){if(document.getElementById('tmodal'))closeTrade();else closeDay();}\n  else if((e.key==='ArrowLeft'||e.key==='ArrowRight')&&DAYCUR&&!document.getElementById('tmodal')){const i=DAYORD.indexOf(DAYCUR.reg.d),d=DAYORD[i+(e.key==='ArrowRight'?1:-1)];if(d)openDay(d);}\n});\n\n// ---------- ОСОБЫЕ УСЛОВИЯ ВХОДА: сигнал по условиям ТС, а покупка — только когда цена дойдёт до заданной ----------\nconst EN={on:false,p:89,rl:false,slip:1};\nlet ENOFF=false;\nfunction entryOn(){return !ENOFF&&EN.on&&EN.p>=2&&EN.p<=98&&exHave();}\nconst enKey=()=>EN.on?(EN.p+'|'+(EN.rl?1:0)+'|'+EN.slip):'';\n// Решение по одной сделке. null — нет данных о пути цены; {no:'never'|'price'} — вход не состоялся; иначе {ta,np,why}\n//  rl=false — как раньше (вход ровно по P, когда bid дошёл до P − спред);\n//  rl=true  — как бот: bid смотрим по замерам ленты (шаг 2 с), покупаем по живому ask, если он не выше P + потолок; ask выше потолка — не покупаем и ждём следующего замера\nfunction enDecide(r,P,rl,slip){\n  const px0=r[CI.px],mf=r[CI.mfe],ma=r[CI.mae];\n  if(isNul(mf)||isNul(ma))return null;\n  const sp=r[CI.spr],spr=isNul(sp)?0.01:Math.max(0,sp);\n  const rise=P>px0+0.0049,fall=P<px0-0.0049;\n  if(!rise&&!fall)return{ta:0,np:px0,why:'now'};\n  let pg=null;\n  if(rise){const g=P-spr-px0;if(g<=0)pg={ta:0};else if(!(mf<g-1e-9))pg={ta:tLevel(r,'tp',UPL,g*100)};}\n  else{const q=px0-P+spr;if(!(ma>-q+1e-9))pg={ta:tLevel(r,'dn',DNL,q*100)};}\n  if(!rl)return pg?{ta:pg.ta,np:P,why:'page'}:{no:'never'};\n  if(rise&&P-spr-px0<=0)return{ta:0,np:px0,why:'now'};\n  const dn=denseOf(r),ak=askOf(r);\n  if(!dn||!ak)return pg?{ta:pg.ta,np:P,why:'est'}:{no:'never'};\n  const lvl=Math.round((P-spr)*1000)/1000,cap=Math.min(0.99,Math.round((P+slip/100)*100)/100);\n  let seen=false;\n  for(let i=1;i<dn.length;i++){\n    const b=dn[i];if(b===null||b<0)continue;\n    const bv=b/100;\n    if(rise?(bv<lvl-1e-9):(bv>lvl+1e-9))continue;\n    seen=true;\n    const a=ak[i];if(a===null||a===undefined||a<0)continue;\n    const av=a/100;\n    if(av<=cap+1e-9)return{ta:i*2,np:av,why:'real'};\n  }\n  return{no:seen?'price':'never'};\n}\nfunction applyEntry(rs){\n  if(!entryOn()||(S.sel&&S.sel.flip))return rs;\n  const P=EN.p/100,out=[];\n  for(const r of rs){\n    if(r[XK+5]===1){out.push(r);continue;} // уже обработана (особый вход применён ко всем ТС сверху)\n    const d=enDecide(r,P,!!EN.rl,EN.slip);\n    if(!d||d.no)continue;\n    const px0=r[CI.px],mf=r[CI.mfe],np=d.np,ta=d.ta,rise=P>px0+0.0049;\n    const c=r.slice();while(c.length<XK+6)c.push(null);\n    c[CI.px]=np;c[C.ts]=r[C.ts]+Math.round(ta);\n    if(!isNul(r[CI.sec]))c[CI.sec]=Math.max(0,r[CI.sec]-ta);\n    c[CI.mfe]=rise?(px0+mf-np):null;c[CI.mae]=null;\n    for(const k of Object.keys(CI)){if(/^(d\\d+|tp\\d+|dn\\d+|tmae|end10)$/.test(k))c[CI[k]]=null;}\n    c[XK+4]=(EN.rl&&d.why==='real')?[px0,Math.round(ta),'Особый вход (реально, купили по ask '+np.toFixed(2)+')']:[px0,Math.round(ta)];\n    c[XK+5]=1;\n    out.push(c);\n  }\n  return out;\n}\nfunction selRowsNoEntry(){const o=ENOFF;ENOFF=true;try{return selRows();}finally{ENOFF=o;}}\n// сырые строки выбранной ТС (до особого входа) — чтобы показать, сколько входов по правилу страницы и сколько реально\nfunction enRawRows(){\n  const o=ENOFF;ENOFF=true;\n  try{\n    if(!S.sel||S.sel.pf)return[];\n    if(S.sel.favId){const f=FAVS.find(x=>x.id===S.sel.favId);return f?favRowsNC(f):[];}\n    if(S.sel.rows){const gp=globalPred();return gp?S.sel.rows.filter(gp):S.sel.rows;}\n    const f=BY[S.sel.by].key,k=String(S.sel.key);\n    return rowsF0.filter(r=>String(f(r))===k);\n  }finally{ENOFF=o;}\n}\nfunction enWith(rl,raw){const o=EN.rl;EN.rl=rl;try{const x=applyEntry(raw);return S.one?dedupe(x):x;}finally{EN.rl=o;}}\nfunction entryPanel(rs){\n  let h='<div class=\"card xp\"><div class=\"xr'+(EN.on?' on':'')+'\" style=\"border:0;padding:0\">'+sw('x_en_on',EN.on)+'<span class=\"xt\" style=\"min-width:0\">Особые новые условия</span>';\n  if(!exHave())return h+'<span class=\"mut small\">нужны данные о пути цены (LAB v4.4+)</span></div></div>';\n  if(!EN.on)return h+'<span class=\"mut small\">входить не сразу по сигналу, а когда цена дойдёт до нужной</span></div></div>';\n  h+='<span class=\"small\">сигнал по условиям ТС, а покупать, только когда цена токена дойдёт до</span><input type=\"number\" id=\"x_en_p\" min=\"2\" max=\"98\" step=\"1\" value=\"'+EN.p+'\" style=\"width:78px\"><span class=\"small\">¢ (покупка по '+(EN.p/100).toFixed(2)+')</span>';\n  h+=' <label class=\"small\" title=\"Как торгует бот: цена проверяется по замерам ленты, покупка по живому ask. Если ask выше потолка — сделки нет.\"><input type=\"checkbox\" id=\"x_en_rl\"'+(EN.rl?' checked':'')+'> реально (как бот)</label>';\n  if(EN.rl)h+=' <span class=\"small\">потолок: цена входа +</span><input type=\"number\" id=\"x_en_slip\" min=\"0\" max=\"10\" step=\"1\" value=\"'+EN.slip+'\" style=\"width:56px\"><span class=\"small\">¢ (как LAB_EN_SLIP у бота)</span>';\n  h+='</div>';\n  const sig=selRowsNoEntry(),b=stats(sig),n=stats(rs);\n  const sb=b.roi*b.n*S.stake,sn=n.roi*n.n*S.stake;\n  h+='<div class=\"xres\"><div><span class=\"mut small\">сигналов было (по условиям ТС)</span><b>'+b.n+'</b></div><div><span class=\"mut small\">цена дошла, вход состоялся</span><b>'+n.n+' <span class=\"small mut\">('+(b.n?Math.round(n.n/b.n*100):0)+'%)</span></b></div>'\n   +'<div><span class=\"mut small\">итог обычным входом</span><b class=\"'+cls(sb)+'\">'+money(sb)+'</b></div><div class=\"xar\">→</div><div><span class=\"mut small\">итог с особым входом</span><b class=\"'+cls(sn)+'\">'+money(sn)+'</b></div></div>';\n  if(!(S.sel&&S.sel.pf)){\n    const raw=enRawRows(),pg=enWith(false,raw),rl=enWith(true,raw);\n    const sp=stats(pg),sr=stats(rl);\n    const usp=sp.roi*sp.n*S.stake,usr=sr.roi*sr.n*S.stake;\n    let est=0,missPx=0,never=0;\n    raw.forEach(r=>{const d=enDecide(r,EN.p/100,true,EN.slip);if(d&&d.why==='est')est++;else if(d&&d.no==='price')missPx++;else if(d&&d.no==='never')never++;});\n    const ap=rl.length?rl.reduce((a,r)=>a+r[CI.px],0)/rl.length:null;\n    h+='<div class=\"xres\" style=\"margin-top:6px\"><div><span class=\"mut small\">по правилу страницы (вход ровно по '+(EN.p/100).toFixed(2)+')</span><b>'+sp.n+' сделок · <span class=\"'+cls(usp)+'\">'+money(usp)+'</span></b></div>'\n     +'<div class=\"xar\">→</div><div><span class=\"mut small\">реально (ask ≤ '+(Math.min(99,EN.p+EN.slip)/100).toFixed(2)+', вход по живой цене)</span><b>'+sr.n+' сделок · <span class=\"'+cls(usr)+'\">'+money(usr)+'</span>'+(ap!==null?' <span class=\"small mut\">средняя цена '+ap.toFixed(3)+'</span>':'')+'</b></div>'\n     +'<div><span class=\"mut small\">не купили бы: цена убежала выше потолка</span><b>'+missPx+'</b></div></div>';\n    if(est>0)h+='<div class=\"small mut\" style=\"margin-top:4px\">У '+est+' сигналов на странице нет записи цены ask — они в «реально» посчитаны как на странице.</div>';\n  }\n  h+='<div class=\"small mut\" style=\"margin-top:6px\">Если цена за оставшееся время так и не дошла до '+EN.p+'¢, сделки нет (в кумулятив не попадает). Без галочки «реально»: вход считается по цене '+(EN.p/100).toFixed(2)+', время входа сдвигается на момент, когда цена до неё дошла. С галочкой: как торгует бот — цена смотрится по замерам ленты, покупка по живому ask; если ask выше потолка, ждём следующего замера. Если сигнал пришёл по цене выше заданной, ждём отката вниз. Пока включён особый вход, тейк/стоп/добор отключены (путь цены после нового входа неизвестен). Win-rate, Edge и ROI ниже уже пересчитаны на новую цену входа.</div>';\n  return h+'</div>';\n}\n// общая панель «особая цена покупки» для списков ТС (применяется ко всем сделкам: таблицы, топ, цепочки)\nfunction entryBar(){\n  if(!exHave())return'';\n  let h='<div class=\"bar\" style=\"margin:8px 0 4px\">'+sw('x_en_on',EN.on)+'<b>Особая цена покупки — для всех ТС сразу</b>';\n  if(!EN.on)return h+' <span class=\"mut small\">выкл: каждая сделка считается по цене сигнала. Включи, чтобы сравнить все ТС, как будто покупаем только когда цена дойдёт до нужной.</span></div>';\n  h+=' <span class=\"small\">сигнал по ТС, покупка когда цена дойдёт до</span><input type=\"number\" id=\"x_en_p\" min=\"2\" max=\"98\" step=\"1\" value=\"'+EN.p+'\" style=\"width:78px\"><span class=\"small\">¢</span>';\n  h+=' <label class=\"small\" title=\"Как торгует бот: цена проверяется по замерам ленты, покупка по живому ask. Если ask выше потолка — сделки нет.\"><input type=\"checkbox\" id=\"x_en_rl\"'+(EN.rl?' checked':'')+'> реально (как бот)</label>';\n  if(EN.rl)h+=' <span class=\"small\">потолок +</span><input type=\"number\" id=\"x_en_slip\" min=\"0\" max=\"10\" step=\"1\" value=\"'+EN.slip+'\" style=\"width:56px\"><span class=\"small\">¢</span>';\n  h+=' <span class=\"mut small\">вошло '+rowsF.length+' из '+rowsF0.length+' сигналов'+(EN.rl?' (реальный режим считает точно только там, где записан путь цены ask; у остальных — как на странице)':'')+'</span></div>';\n  return h;\n}\n// ---------- Проигрышные сделки: как высоко поднимался bid ----------\nlet LOSSTOP=[];\nfunction lossBlock(){\n  const base=selRowsPlain();\n  if(!exHave())return'';\n  const L=[],Wn=[];\n  for(const r of base){const m=r[CI.mfe];if(isNul(m))continue;(r[C.won]?Wn:L).push(r);}\n  let h='<div class=\"card\"><h3 style=\"margin-top:0\">📉 Проигрышные сделки: как высоко поднимался bid после входа</h3>';\n  if(L.length<3)return h+'<div class=\"small mut\">Проигрышей с данными о пути цены меньше трёх — анализировать нечего.</div></div>';\n  const mv=L.map(r=>r[CI.mfe]),ab=L.map(r=>r[CI.px]+r[CI.mfe]);\n  const srt=mv.slice().sort((a,b)=>a-b),med=srt[srt.length>>1],avg=mv.reduce((a,b)=>a+b,0)/mv.length;\n  let top=L.slice().sort((a,b)=>b[CI.mfe]-a[CI.mfe]);LOSSTOP=top.slice(0,8);\n  const never=mv.filter(v=>v<=0.005).length;\n  const BINS=[[-1,0.005,'не поднимался выше входа'],[0.005,0.03,'до +3¢'],[0.03,0.05,'+3…+5¢'],[0.05,0.1,'+5…+10¢'],[0.1,0.15,'+10…+15¢'],[0.15,0.2,'+15…+20¢'],[0.2,0.3,'+20…+30¢'],[0.3,2,'выше +30¢']];\n  const cnt=BINS.map(b=>mv.filter(v=>v>b[0]&&v<=b[1]).length);\n  const mode=cnt.indexOf(Math.max(...cnt)),mx=Math.max(...cnt,1);\n  const f=v=>(v>=0?'+':'−')+Math.abs(v*100).toFixed(0)+'¢';\n  h+='<div class=\"kpis\">'\n   +'<div class=\"kpi\"><b>'+L.length+'</b><span>проигрышных сделок</span></div>'\n   +'<div class=\"kpi\"><b class=\"neg\">'+Math.max(...ab).toFixed(2)+'</b><span>самый высокий bid среди проигрышей ('+f(top[0][CI.mfe])+' от входа) — до него доходили <b>'+ab.filter(v=>Math.round(v*100)>=Math.round(Math.max(...ab)*100)).length+'</b> раз</span></div>'\n   +'<div class=\"kpi\"><b>'+f(med)+'</b><span>медиана: типичный максимум bid у проигрыша</span></div>'\n   +'<div class=\"kpi\"><b>'+f(avg)+'</b><span>среднее</span></div>'\n   +'<div class=\"kpi\"><b>'+BINS[mode][2]+'</b><span>самая частая высота ('+cnt[mode]+' из '+L.length+')</span></div>'\n   +'<div class=\"kpi\"><b>'+Math.round(never/L.length*100)+'%</b><span>проигрышей сразу пошли вниз и не поднимались выше входа</span></div></div>';\n  h+='<h3>Как высоко доходил bid</h3><div class=\"tw\"><table><thead><tr><th class=\"l ns\">Высота максимума bid от цены входа</th><th class=\"ns\">проигрышей</th><th class=\"ns\">доля</th><th class=\"l ns\" style=\"width:40%\"></th></tr></thead><tbody>';\n  BINS.forEach((b,i)=>{h+='<tr><td class=\"l'+(i===mode?' pos':'')+'\"><b>'+b[2]+'</b></td><td>'+cnt[i]+'</td><td>'+Math.round(cnt[i]/L.length*100)+'%</td><td class=\"l\"><div style=\"height:10px;border-radius:5px;background:'+(i===mode?'var(--acc)':'var(--l)')+';width:'+Math.round(cnt[i]/mx*100)+'%;opacity:.8\"></div></td></tr>';});\n  h+='</tbody></table></div>';\n  const cp=new Map();ab.forEach(v=>{const k=Math.round(v*100);cp.set(k,(cp.get(k)||0)+1);});\n  const keys=[...cp.keys()].sort((a,b)=>b-a);let cum=0;\n  h+='<h3>До какой цены токена доходил bid (по точной цене)</h3><div class=\"small mut\" style=\"margin:0 0 4px\">Максимальная цена, до которой дошёл bid после входа, у каждой проигрышной сделки. «Дошли не ниже» — сколько проигрышей достигали этой цены или выше.</div><div class=\"tw\"><table><thead><tr><th class=\"l ns\">Макс. цена bid</th><th class=\"ns\">проигрышей (ровно)</th><th class=\"ns\">дошли не ниже</th><th class=\"ns\">доля от всех проигрышей</th></tr></thead><tbody>';\n  keys.slice(0,25).forEach(k=>{cum+=cp.get(k);h+='<tr><td class=\"l\"><b>'+(k/100).toFixed(2)+'</b></td><td>'+cp.get(k)+'</td><td>'+cum+'</td><td>'+Math.round(cum/L.length*100)+'%</td></tr>';});\n  h+='</tbody></table></div>'+(keys.length>25?'<div class=\"small mut\">показаны 25 самых высоких цен из '+keys.length+'</div>':'');\n  h+='<h3>Если бы продавали на этом уровне</h3><div class=\"tw\"><table><thead><tr><th class=\"l ns\">Уровень (bid ≥ вход +)</th><th class=\"ns\">проигрышей дошли</th><th class=\"ns\">% проигрышей</th><th class=\"ns\">побед дошли, %</th><th class=\"l ns\">что это значит</th></tr></thead><tbody>';\n  [3,5,10,15,20,30,40].forEach(lv=>{\n    const a=L.filter(r=>r[CI.mfe]>=lv/100-1e-9).length,w=Wn.filter(r=>r[CI.mfe]>=lv/100-1e-9).length;\n    const pl=a/L.length,pw=Wn.length?w/Wn.length:0;\n    h+='<tr><td class=\"l\">+'+lv+'¢</td><td>'+a+'</td><td class=\"neg\">'+Math.round(pl*100)+'%</td><td class=\"pos\">'+Math.round(pw*100)+'%</td><td class=\"l small mut\">тейк на +'+lv+'¢ сработал бы у '+Math.round(pl*100)+'% проигрышей (спас бы) и у '+Math.round(pw*100)+'% побед</td></tr>';\n  });\n  h+='</tbody></table></div>';\n  h+='<h3>8 проигрышей с самым высоким bid <span class=\"mut small\" style=\"font-weight:400\">— нажми, чтобы увидеть график</span></h3><div class=\"tw\"><table><thead><tr><th class=\"l ns\">Время</th><th class=\"l ns\">Ячейка</th><th class=\"l ns\">Монета</th><th class=\"ns\">Вход</th><th class=\"ns\">Макс. bid</th><th class=\"ns\">от входа</th></tr></thead><tbody>';\n  LOSSTOP.forEach((r,i)=>{h+='<tr class=\"click\" data-act=\"ltrade\" data-k=\"'+i+'\"><td class=\"l\">'+tz(r[C.ts])+'</td><td class=\"l\">'+esc(D.combos[r[C.combo]])+'</td><td class=\"l\">'+esc(COIN_SHORT[D.coins[r[C.coin]]]||D.coins[r[C.coin]])+'</td><td>'+r[CI.px].toFixed(2)+'</td><td>'+(r[CI.px]+r[CI.mfe]).toFixed(2)+'</td><td class=\"pos\">'+f(r[CI.mfe])+'</td></tr>';});\n  h+='</tbody></table></div><div class=\"small mut\" style=\"margin-top:6px\">Максимум bid — это лучшая цена, по которой после входа можно было продать токен. Это знание задним числом: для анализа, не для входа.</div></div>';\n  return h;\n}\n\n// ---------- Выигранные сделки: до какой минимальной цены падал bid, но сделка всё равно выиграна ----------\nlet WINLOW=[];\nfunction winBlock(){\n  const base=selRowsPlain();\n  if(!exHave())return'';\n  const W=[];\n  for(const r of base){if(r[C.won]&&!isNul(r[CI.mae]))W.push(r);}\n  let h='<div class=\"card\"><h3 style=\"margin-top:0\">📈 Выигранные сделки: насколько глубоко падал bid, но сделка всё равно выиграна</h3>';\n  if(W.length<3)return h+'<div class=\"small mut\">Выигрышей с данными о пути цены меньше трёх.</div></div>';\n  const dv=W.map(r=>-r[CI.mae]),ab=W.map(r=>r[CI.px]+r[CI.mae]);\n  const srt=dv.slice().sort((a,b)=>a-b),med=srt[srt.length>>1],avg=dv.reduce((a,b)=>a+b,0)/dv.length;\n  WINLOW=W.slice().sort((a,b)=>a[CI.mae]-b[CI.mae]).slice(0,8);\n  const minAb=Math.min(...ab),minK=Math.round(minAb*100);\n  const never=dv.filter(v=>v<=0.005).length;\n  const BINS=[[-1,0.005,'не падал ниже входа'],[0.005,0.03,'до −3¢'],[0.03,0.05,'−3…−5¢'],[0.05,0.1,'−5…−10¢'],[0.1,0.15,'−10…−15¢'],[0.15,0.2,'−15…−20¢'],[0.2,0.3,'−20…−30¢'],[0.3,0.4,'−30…−40¢'],[0.4,2,'глубже −40¢']];\n  const cnt=BINS.map(b=>dv.filter(v=>v>b[0]&&v<=b[1]).length);\n  const mode=cnt.indexOf(Math.max(...cnt)),mx=Math.max(...cnt,1);\n  const f=v=>'−'+Math.abs(v*100).toFixed(0)+'¢';\n  h+='<div class=\"kpis\">'\n   +'<div class=\"kpi\"><b>'+W.length+'</b><span>выигранных сделок</span></div>'\n   +'<div class=\"kpi\"><b class=\"pos\">'+minAb.toFixed(2)+'</b><span>самая низкая цена bid среди выигрышей ('+f(Math.max(...dv))+' от входа) — до неё падали <b>'+ab.filter(v=>Math.round(v*100)<=minK).length+'</b> раз</span></div>'\n   +'<div class=\"kpi\"><b>'+f(med)+'</b><span>медиана: типичная глубина просадки у победы</span></div>'\n   +'<div class=\"kpi\"><b>'+f(avg)+'</b><span>среднее</span></div>'\n   +'<div class=\"kpi\"><b>'+BINS[mode][2]+'</b><span>самая частая глубина ('+cnt[mode]+' из '+W.length+')</span></div>'\n   +'<div class=\"kpi\"><b>'+Math.round(never/W.length*100)+'%</b><span>побед ни разу не опускались ниже входа</span></div></div>';\n  h+='<h3>Как глубоко падал bid</h3><div class=\"tw\"><table><thead><tr><th class=\"l ns\">Глубина просадки от цены входа</th><th class=\"ns\">побед</th><th class=\"ns\">доля</th><th class=\"l ns\" style=\"width:40%\"></th></tr></thead><tbody>';\n  BINS.forEach((b,i)=>{h+='<tr><td class=\"l'+(i===mode?' pos':'')+'\"><b>'+b[2]+'</b></td><td>'+cnt[i]+'</td><td>'+Math.round(cnt[i]/W.length*100)+'%</td><td class=\"l\"><div style=\"height:10px;border-radius:5px;background:'+(i===mode?'var(--acc)':'var(--w)')+';width:'+Math.round(cnt[i]/mx*100)+'%;opacity:.8\"></div></td></tr>';});\n  h+='</tbody></table></div>';\n  const cp=new Map();ab.forEach(v=>{const k=Math.round(v*100);cp.set(k,(cp.get(k)||0)+1);});\n  const keys=[...cp.keys()].sort((a,b)=>a-b);let cum=0;\n  h+='<h3>До какой минимальной цены падал bid (по точной цене)</h3><div class=\"small mut\" style=\"margin:0 0 4px\">Самая низкая цена bid после входа у каждой выигранной сделки. «Падали не выше» — сколько побед опускались до этой цены <b>или ниже</b> и всё равно выиграли.</div><div class=\"tw\"><table><thead><tr><th class=\"l ns\">Мин. цена bid</th><th class=\"ns\">побед (ровно)</th><th class=\"ns\">падали не выше</th><th class=\"ns\">доля от всех побед</th></tr></thead><tbody>';\n  keys.slice(0,25).forEach(k=>{cum+=cp.get(k);h+='<tr><td class=\"l\"><b>'+(k/100).toFixed(2)+'</b></td><td>'+cp.get(k)+'</td><td>'+cum+'</td><td>'+Math.round(cum/W.length*100)+'%</td></tr>';});\n  h+='</tbody></table></div>'+(keys.length>25?'<div class=\"small mut\">показаны 25 самых низких цен из '+keys.length+'</div>':'');\n  h+='<h3>8 побед с самой глубокой просадкой <span class=\"mut small\" style=\"font-weight:400\">— нажми, чтобы увидеть график</span></h3><div class=\"tw\"><table><thead><tr><th class=\"l ns\">Время</th><th class=\"l ns\">Ячейка</th><th class=\"l ns\">Монета</th><th class=\"ns\">Вход</th><th class=\"ns\">Мин. bid</th><th class=\"ns\">от входа</th></tr></thead><tbody>';\n  WINLOW.forEach((r,i)=>{h+='<tr class=\"click\" data-act=\"wtrade\" data-k=\"'+i+'\"><td class=\"l\">'+tz(r[C.ts])+'</td><td class=\"l\">'+esc(D.combos[r[C.combo]])+'</td><td class=\"l\">'+esc(COIN_SHORT[D.coins[r[C.coin]]]||D.coins[r[C.coin]])+'</td><td>'+r[CI.px].toFixed(2)+'</td><td>'+(r[CI.px]+r[CI.mae]).toFixed(2)+'</td><td class=\"neg\">'+f(-r[CI.mae])+'</td></tr>';});\n  h+='</tbody></table></div><div class=\"small mut\" style=\"margin-top:6px\">Это показывает, какой стоп выбил бы эти победы: стоп ближе к входу, чем «мин. цена», срезал бы такие сделки. Знание задним числом — для анализа.</div></div>';\n  return h;\n}\nfunction candleBlock(){\n  const base=selRowsPlain();\n  const FE=[['crg','Размах монеты до входа, bps','entry'],['cbd','Тело ÷ размах до входа (0 = доджи)','entry'],['chi','Макс. в нашу сторону до входа, bps','entry'],['clo','Макс. против нас до входа, bps','entry'],['wrg','Размах всей свечи, bps','post'],['wbd','Тело ÷ размах всей свечи','post'],['wup','Тень в нашу сторону (задним числом), bps','post'],['wdn','Тень против нас (задним числом), bps','post']].filter(f=>CI[f[0]]!==undefined);\n  let h='<div class=\"card\"><h3 style=\"margin-top:0\">🕯 Свеча рынка: чем победы отличаются от проигрышей</h3>';\n  if(!FE.length)return h+'<div class=\"small mut\">В этом файле нет данных о свече монеты — они появятся в новых данных после обновления бота.</div></div>';\n  const Wn=base.filter(r=>r[C.won]),Ls=base.filter(r=>!r[C.won]);\n  if(Wn.length<5||Ls.length<3)return h+'<div class=\"small mut\">Мало сделок для сравнения (нужно хотя бы 5 побед и 3 проигрыша).</div></div>';\n  const med=a=>{if(!a.length)return null;const q=a.slice().sort((x,y)=>x-y);return q[q.length>>1];};\n  const auc=(w,l)=>{ // доля пар, где у победы значение больше\n    if(!w.length||!l.length)return null;const all=[];w.forEach(v=>all.push([v,1]));l.forEach(v=>all.push([v,0]));all.sort((a,b)=>a[0]-b[0]);\n    let rk=0,sw=0,i=0;while(i<all.length){let j=i;while(j<all.length&&all[j][0]===all[i][0])j++;const avg=(i+j+1)/2;for(let k=i;k<j;k++)if(all[k][1])sw+=avg;i=j;}\n    return (sw-w.length*(w.length+1)/2)/(w.length*l.length);};\n  const f1=v=>v===null?'—':(Math.abs(v)>=10?v.toFixed(0):v.toFixed(2));\n  h+='<div class=\"small mut\" style=\"margin:0 0 6px\">Монета считается в нашу сторону (если играем Up — рост это «+»). Свеча — от открытия окна. «Сила различия» — 50% значит признак ничего не отличает, 70%+ / 30%− уже что-то значит. <b>Признаки со словом «задним числом» знать при входе нельзя</b> — они только объясняют, что произошло.</div>';\n  h+='<div class=\"tw\"><table><thead><tr><th class=\"l ns\">Признак</th><th class=\"ns\">победы (медиана)</th><th class=\"ns\">проигрыши (медиана)</th><th class=\"ns\">сила различия</th><th class=\"ns\">знать при входе</th></tr></thead><tbody>';\n  FE.forEach(f=>{const k=CI[f[0]];const w=Wn.map(r=>r[k]).filter(v=>!isNul(v)),l=Ls.map(r=>r[k]).filter(v=>!isNul(v));const a=auc(w,l);\n    const st=a===null?'':Math.round(a*100)+'%';const strong=a!==null&&Math.abs(a-.5)>=.2;\n    h+='<tr><td class=\"l\">'+esc(f[1])+'</td><td>'+f1(med(w))+' <span class=\"mut small\">('+w.length+')</span></td><td>'+f1(med(l))+' <span class=\"mut small\">('+l.length+')</span></td><td class=\"'+(strong?'pos':'')+'\"><b>'+st+'</b></td><td>'+(f[2]==='entry'?'да':'нет')+'</td></tr>';});\n  h+='</tbody></table></div>';\n  const kb=CI.cbd;\n  if(kb!==undefined){\n    const B=[[-9,-0.1,'идёт против нас'],[-0.1,0.2,'доджи (тело < 20% размаха)'],[0.2,0.5,'тело 20–50%'],[0.5,0.8,'тело 50–80%'],[0.8,99,'тело 80%+ (шла одним движением)']];\n    h+='<h3>Доджи или нет — как торговалось</h3><div class=\"small mut\" style=\"margin:0 0 4px\">Берём «тело ÷ размах» монеты на момент входа: чем меньше — тем больше монета топталась у открытия.</div><div class=\"tw\"><table><thead><tr><th class=\"l ns\">Свеча к моменту входа</th><th class=\"ns\">сделок</th><th class=\"ns\">% побед</th><th class=\"ns\">ROI</th></tr></thead><tbody>';\n    B.forEach(b=>{const rr=base.filter(r=>!isNul(r[kb])&&r[kb]>b[0]&&r[kb]<=b[1]);if(!rr.length)return;const wn=rr.filter(r=>r[C.won]).length;const s=stats(rr);\n      h+='<tr><td class=\"l\">'+b[2]+'</td><td>'+rr.length+'</td><td>'+Math.round(wn/rr.length*100)+'%</td><td class=\"'+(s.roi>=0?'pos':'neg')+'\">'+(s.roi*100).toFixed(1)+'%</td></tr>';});\n    h+='</tbody></table></div>';\n  }\n  h+='<div class=\"small mut\" style=\"margin-top:6px\">Осторожно: если сделок в строке мало (десятки), красивая разница может быть случайной. Сначала смотри, что вывод держится на разных днях и ТС, потом верь.</div></div>';\n  return h;\n}\n// ---------- события ----------\nconst app=document.getElementById('app');\nfunction fltIdx(el){const r=el.closest('.fl');return r?+r.getAttribute('data-i'):-1;}\napp.addEventListener('click',e=>{\n  const t=e.target.closest('[data-act]');if(!t)return;\n  const a=t.getAttribute('data-act');\n  if(t.tagName==='A')e.preventDefault();\n  if(a==='fdel'){S.flt.splice(fltIdx(t),1);render();}\n  else if(a==='fclear'){S.sqm='';S.rg=[];S.goalP=0;S.goalL=0;S.goalN=0;S.goalK=0;S.goalZ=0;S.goalW=0;S.flt=[];S.dFrom='';S.dTo='';S.q='';render();}\n  else if(a==='preset'){presetClick(PRESET_GROUPS[+t.getAttribute('data-g')].p[+t.getAttribute('data-i')]);render();}\n  else if(a==='tab'){S.tab=t.getAttribute('data-t');S.sel=null;S.back=null;render();}\n  else if(a==='opentop'){S.sel={by:t.getAttribute('data-by'),key:t.getAttribute('data-k')};S.back='top';S.tradeN=100;render();window.scrollTo(0,0);}\n  else if(a==='topmore'){const id=t.getAttribute('data-id');S.top.show[id]=(S.top.show[id]||8)+10;render();}\n  else if(a==='topcsv'){downloadTopCsv();}\n  else if(a==='cummode'){S.cumMode=t.getAttribute('data-m');render();}\n  else if(a==='favadd'){const f=favFromKey(t.getAttribute('data-by'),t.getAttribute('data-k'));if(!f)window.alert('Эту строку нельзя сохранить в избранное.');else{if(EN.on&&!f.ex){const sn=exSnap();if(sn&&sn.en)f.ex={en:sn.en};}if(addFav(f))render();}}\n  else if(a==='favsave'){let f=null;if(S.sel.chain){f={id:newFavId(),type:'chain',name:S.sel.title||'Цепочка',steps:JSON.parse(JSON.stringify(S.sel.chain.steps)),gap:S.sel.chain.gap};}else f=favFromKey(S.sel.by,S.sel.key);if(!f)window.alert('Эту выборку нельзя сохранить в избранное.');else{const sn=exSnap();if(sn)f.ex=sn;if(addFav(f))render();}}\n  else if(a==='opttab'){OPT.tab=t.getAttribute('data-t');render();}\n  else if(a==='fit'){t.textContent='Считаю…';setTimeout(()=>{const r=autoFit(selRows());r.selKey=fitSelKey();S.fit=r;render();},30);}\n  else if(a==='fitclear'){S.fit=null;render();}\n  else if(a==='fittab'){if(S.fit)S.fit.tab=t.getAttribute('data-t');render();}\n  else if(a==='fitsel'){if(S.fit)fitApplyConds(S.fit.steps.filter((x,i)=>S.fit.pick[i]));}\n  else if(a==='fitstep'){if(S.fit){const x=S.fit.steps[+t.getAttribute('data-i')];if(x)fitApplyConds([x]);}}\n  else if(a==='fitone'){if(S.fit){const x=S.fit.singles[+t.getAttribute('data-i')];if(x)fitApplyConds([x]);}}\n  else if(a==='applyfit'){const o=S.fit&&S.fit.out?S.fit.out[+t.getAttribute('data-i')]:null;if(o){o.conds.forEach(c=>{S.flt=S.flt.filter(x=>!(x.t==='num'&&x.col===c.col));S.flt.push({t:'num',col:c.col,lo:c.lo,hi:c.hi});});S.fit=null;applyFilters();render();}}\n  else if(a==='optsort'){OPT.sort=t.getAttribute('data-s');render();}\n  else if(a==='optfs'){OPT.fsf=t.getAttribute('data-f');render();}\n  else if(a==='optrob'){OPT.rob=!OPT.rob;render();}\n  else if(a==='optdiv'){OPT.div=!OPT.div;render();}\n  else if(a==='epdiv'){EOPT.div=!EOPT.div;render();}\n  else if(a==='optfam'){OPT.fam=t.getAttribute('data-f');render();}\n  else if(a==='limreset'){LIM.wr=LIM.dd=LIM.mn=LIM.lm=LIM.sm=0;LIM.half=false;render();}\n  else if(a==='epsort'){EOPT.sort=t.getAttribute('data-s');render();}\n  else if(a==='eprob'){EOPT.rob=!EOPT.rob;render();}\n  else if(a==='epapply'){const x=EOPT.list[+t.getAttribute('data-i')];if(x){epApply(x);render();}}\n  else if(a==='sckind'){SC.kind=t.getAttribute('data-v');SC.res=null;SC.key='';SC.show=8;render();}\n  else if(a==='scsort'){SC.sort=t.getAttribute('data-s');render();}\n  else if(a==='scrob'){SC.rob=!SC.rob;render();}\n  else if(a==='scmore'){SC.show+=8;render();}\n  else if(a==='fssort'){FS.sort=t.getAttribute('data-s');render();}\n  else if(a==='fsonly'){FS.only=!FS.only;render();}\n  else if(a==='fsmore'){FS.show+=10;render();}\n  else if(a==='lsf'){const k=t.getAttribute('data-key');LS.open=LS.open===k?null:k;LS.chart=-1;render();}\n  else if(a==='lsch'){const i=+t.getAttribute('data-i');LS.chart=LS.chart===i?-1:i;render();}\n  else if(a==='lscsv'){lsCsv();}\n  else if(a==='lsm'){LS.mode=t.getAttribute('data-v');LS.sort='L';render();}\n  else if(a==='lse'){LS.e=+t.getAttribute('data-v');render();}\n  else if(a==='lsu'){LS.u=+t.getAttribute('data-v');render();}\n  else if(a==='lsb'){LS.b=+t.getAttribute('data-v');render();}\n  else if(a==='lswd'){LS.wd=+t.getAttribute('data-v');render();}\n  else if(a==='lscs'){LS.cs=+t.getAttribute('data-v');render();}\n  else if(a==='lsw'){LS.w=+t.getAttribute('data-v');render();}\n  else if(a==='lsx'){LS.x=+t.getAttribute('data-v');render();}\n  else if(a==='lssort'){LS.sort=t.getAttribute('data-v');render();}\n  else if(a==='gssort'){GS.sort=t.getAttribute('data-s');render();}\n  else if(a==='gsonly'){GS.only=!GS.only;render();}\n  else if(a==='gsmore'){GS.show+=10;render();}\n  else if(a==='plopen'){const id=t.getAttribute('data-id');PL.open=PL.open===id?null:id;PL.n=60;render();}\n  else if(a==='plmore'){PL.n+=100;render();}\n  else if(a==='cbmode'){CB.mode=t.getAttribute('data-v');CB.show=5;render();}\n  else if(a==='cbmore'){CB.show+=5;render();}\n  else if(a==='automore'){CB.auto.show+=5;render();}\n  else if(a==='autouse'){autoUse(+t.getAttribute('data-i'));}\n  else if(a==='cbuse'){cbUse(+t.getAttribute('data-i'));}\n  else if(a==='bbmore'){BB.show+=10;render();}\n  else if(a==='bball'){BB.all=!BB.all;render();}\n  else if(a==='bbopen'){const r=BB.rows[+t.getAttribute('data-i')];if(r){const v=r.v;S.rg=v.rg.slice();S.sqm=v.sq;S.sqn=v.sn;S.sqc=0;S.goalP=v.P;S.goalL=v.L;S.goalN=v.N;S.goalK=0;S.goalZ=0;S.goalW=0;S.sel={by:r.by,key:r.key};S.back='top';S.fit=null;S.tradeN=100;render();window.scrollTo(0,0);}}\n  else if(a==='gsopen'){const r=GS.rows[+t.getAttribute('data-i')];if(r){S.goalP=r.rule.P;S.goalL=r.rule.L;S.goalN=r.rule.N;S.goalK=r.rule.K;S.goalZ=0;S.goalW=0;S.sel={by:r.x.by,key:r.x.key};S.back='top';S.fit=null;S.tradeN=100;render();window.scrollTo(0,0);}}\n  else if(a==='fsopen'){const r=FS.rows[+t.getAttribute('data-i')];if(r){r.conds.forEach(c=>{S.flt=S.flt.filter(x=>!(x.t==='num'&&x.col===c.col));S.flt.push({t:'num',col:c.col,lo:c.lo,hi:c.hi});});S.sel={by:r.x.by,key:r.x.key};S.back='top';S.fit=null;S.tradeN=100;render();window.scrollTo(0,0);}}\n  else if(a==='scopen'){const r=SC.rows[+t.getAttribute('data-i')];if(r){scApplyTo(r.b.v);S.sel={by:r.o.x.by,key:r.o.x.key};S.back='top';S.tradeN=100;render();window.scrollTo(0,0);}}\n  else if(a==='optapply'){const x=OPT.list[+t.getAttribute('data-i')];if(x){\n    if(OPT.tab==='cb'){X.sl.on=true;X.sl.u=x.u;X.sl.v=x.v;X.sl.fs.on=x.fs>0;if(x.fs>0)X.sl.fs.v=x.fs;X.tp.on=true;X.tp.u=x.tu;X.tp.v=x.tv;}\n    else if(OPT.tab==='sl'){X.sl.on=true;X.sl.u=x.u;X.sl.v=x.v;X.sl.fs.on=x.fs>0;if(x.fs>0)X.sl.fs.v=x.fs;}\n    else{X.tp.on=true;X.tp.u=x.u;X.tp.v=x.v;}\n    render();}}\n  else if(a==='favex'){const f=FAVS.find(x=>x.id===S.sel.favId);if(f){const sn=exSnap();if(sn)f.ex=sn;else delete f.ex;saveFavs();render();}}\n  else if(a==='favdel'){const id=t.getAttribute('data-id');const f=FAVS.find(x=>x.id===id);if(f&&window.confirm('Убрать из избранного: '+f.name+'?')){delFav(id);if(S.sel&&S.sel.favId===id){S.sel=null;S.back=null;}render();}}\n  else if(a==='pftog'){const id=t.getAttribute('data-id'),i=PF.ids.indexOf(id);if(i>=0)PF.ids.splice(i,1);else PF.ids.push(id);savePf();render();}\n  else if(a==='pfcopy'){\n    const mem=pfMembers();\n    let tx='КОЛЛЕКТИВ ('+mem.length+' ТС), ставка в расчёте $'+S.stake+', одна сделка на рынок и сторону: '+(PF.one?'да':'нет')+'\\nПериод: '+(D&&D.meta?D.meta.periodLabel:'')+'\\n\\n';\n    mem.forEach((f,i)=>{tx+=(i+1)+'. '+f.name+'\\n   '+favSub(f).replace(/<[^>]+>/g,'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>')+'\\n';});\n    tx+='\\nJSON:\\n'+JSON.stringify(mem.map(f=>{const c=Object.assign({},f);delete c.id;return c;}));\n    PF.txt=tx;try{navigator.clipboard&&navigator.clipboard.writeText(tx);}catch(e){}\n    render();\n  }\n  else if(a==='pfsave'){const mem=pfMembers();if(!mem.length)return;const nm=window.prompt('Название коллектива (например «ТС 1»):',pfsNextName());if(nm&&nm.trim()){const name=nm.trim();const snap={id:'',name:name,one:!!PF.one,mo:!!PF.mo,mon:PF.mon,goal:goalSnap(),ids:PF.ids.slice(),favs:mem.map(f=>JSON.parse(JSON.stringify(f))),created:Date.now()};const ex=PFS.find(x=>x.name===name);if(ex&&ex.created&&JSON.stringify(ex.ids.slice().sort())===JSON.stringify(snap.ids.slice().sort()))snap.created=ex.created;if(ex){snap.id=ex.id;if(ex.folder)snap.folder=ex.folder;PFS[PFS.indexOf(ex)]=snap;}else{snap.id='pfs'+Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36);PFS.push(snap);}savePfs();render();}}\n  else if(a==='pfsload'){const id=t.getAttribute('data-id');const p=PFS.find(x=>x.id===id);if(p){(p.favs||[]).forEach(f=>{if(!FAVS.some(z=>z.id===f.id)){const ri=FAV_REMOVED.indexOf(f.id);if(ri>=0)FAV_REMOVED.splice(ri,1);FAVS.push(JSON.parse(JSON.stringify(f)));}});saveFavs();PF.ids=p.ids.slice();PF.one=!!p.one;PF.mo=!!p.mo;PF.mon=p.mon>0?p.mon:3;if(p.goal!==undefined){const g=p.goal||{};S.goalP=g.P||0;S.goalL=g.L||0;S.goalN=g.N||0;S.goalK=g.K||0;S.goalZ=g.Z||0;S.goalW=g.W||0;}PF.txt='';savePf();render();window.scrollTo(0,0);}}\n  else if(a==='pfsren'){const id=t.getAttribute('data-id');const p=PFS.find(x=>x.id===id);if(p){const nm=window.prompt('Новое название:',p.name);if(nm&&nm.trim()){p.name=nm.trim();savePfs();render();}}}\n  else if(a==='pfsdel'){const id=t.getAttribute('data-id');const p=PFS.find(x=>x.id===id);if(p&&window.confirm('Удалить сохранённый коллектив «'+p.name+'»? Сами ТС в избранном останутся.')){PFS.splice(PFS.indexOf(p),1);savePfs();render();}}\n  else if(a==='pfbot'){BOT_KOL_IDS.forEach(id=>{const d=FAV_DEFAULT.find(x=>x.id===id);if(!d)return;const ri=FAV_REMOVED.indexOf(id);if(ri>=0)FAV_REMOVED.splice(ri,1);const k=FAVS.findIndex(f=>f.id===id);if(k>=0)FAVS[k]=JSON.parse(JSON.stringify(d));else FAVS.push(JSON.parse(JSON.stringify(d)));});saveFavs();PF.ids=BOT_KOL_IDS.slice();PF.one=false;PF.txt='';savePf();render();}\n  else if(a==='pfclear'){PF.txt='';PF.ids=[];savePf();render();}\n  else if(a==='pfopen'){exApply(null);S.sel={by:'pf',key:'pf',title:'🤝 Коллективная работа ('+pfMembers().length+' ТС)',pf:true};S.back='fav';S.tradeN=100;render();window.scrollTo(0,0);}\n  else if(a==='favren'){const id=t.getAttribute('data-id');const f=FAVS.find(x=>x.id===id);if(f){const nm=window.prompt('Новое название:',f.name);if(nm&&nm.trim()){f.name=nm.trim();saveFavs();render();}}}\n  else if(a==='openfav'){const f=FAVS.find(x=>x.id===t.getAttribute('data-id'));if(f){exApply(f.ex||null);S.sel={by:'fav',key:f.id,title:f.name,favId:f.id,rows:favRows(f)};S.back='fav';S.tradeN=100;render();window.scrollTo(0,0);}}\n  else if(a==='foldnew'){const nm=window.prompt('Название папки:','');if(nm&&nm.trim()){const t=nm.trim();if(!FOLDERS.some(x=>x.name===t)){FOLDERS.push({id:newFoldId(),name:t,open:true});saveFolders();}render();}}\n  else if(a==='foldtog'){const fd=FOLDERS.find(x=>x.id===t.getAttribute('data-id'));if(fd){fd.open=fd.open===false;saveFolders();render();}}\n  else if(a==='foldren'){const fd=FOLDERS.find(x=>x.id===t.getAttribute('data-id'));if(fd){const nm=window.prompt('Новое название папки:',fd.name);if(nm&&nm.trim()){fd.name=nm.trim();saveFolders();render();}}}\n  else if(a==='folddel'){const fd=FOLDERS.find(x=>x.id===t.getAttribute('data-id'));if(fd&&window.confirm('Удалить папку «'+fd.name+'»? Коллективы и ТС внутри не удаляются — они вернутся в общие списки.')){FAVS.forEach(f=>{if(f.folder===fd.id)delete f.folder;});PFS.forEach(q=>{if(q.folder===fd.id)delete q.folder;});FOLDERS.splice(FOLDERS.indexOf(fd),1);saveFavs();savePfs();saveFolders();render();}}\n  else if(a==='favgoal'){const f=FAVS.find(x=>x.id===t.getAttribute('data-id'));if(f){const g=goalSnap();\n    if(g){f.goal=g;saveFavs();render();}\n    else if(favGoalOf(f)){if(window.confirm('Убрать сохранённую цель ('+goalText(f.goal)+') у «'+f.name+'»?')){delete f.goal;saveFavs();render();}}\n    else window.alert('Сначала включи цель наверху (в $, в сделках и т.д.), потом нажми 🎯 — она сохранится в этой ТС и будет работать всегда.');}}\n  else if(a==='foldgoal'){const fd=FOLDERS.find(x=>x.id===t.getAttribute('data-id'));if(fd){const g=goalSnap();\n    if(g){fd.goal=g;saveFolders();render();}\n    else if(fd.goal){if(window.confirm('Убрать цель папки «'+fd.name+'» ('+goalText(fd.goal)+')?')){delete fd.goal;saveFolders();render();}}\n    else window.alert('Сначала включи цель наверху (в $, в сделках и т.д.), потом нажми кнопку — цель запишется в папку.');}}\n  else if(a==='foldapply'){const fd=FOLDERS.find(x=>x.id===t.getAttribute('data-id'));if(fd){\n    const np=PFS.filter(q=>q.folder===fd.id).length,nf=FAVS.filter(f=>f.folder===fd.id).length;\n    if(!np&&!nf){window.alert('В папке пока пусто.');}\n    else if(window.confirm('Записать настройки папки «'+fd.name+'» (одна сделка на рынок: '+(fd.one?'да':'нет')+'; лимит открытых: '+(fd.mo?fd.mon||3:'нет')+'; цель: '+(fd.goal?goalText(fd.goal):'нет')+') в '+np+' коллектив. и '+nf+' ТС внутри? Одна сделка и лимит заменятся; цели остаются как были, если у папки своей цели нет. Потом можно отменить кнопкой «↩️».')){\n      // запомнить, что было, чтобы можно было отменить\n      fd.undo=PFS.filter(q=>q.folder===fd.id).map(q=>({k:'p',id:q.id,one:q.one,mo:q.mo,mon:q.mon,goal:q.goal===undefined?undefined:JSON.parse(JSON.stringify(q.goal))})).concat(FAVS.filter(f=>f.folder===fd.id).map(f=>({k:'f',id:f.id,goal:f.goal?JSON.parse(JSON.stringify(f.goal)):undefined})));\n      // цель стирать нельзя: если у папки своей цели нет, цели коллективов и ТС остаются как были\n      PFS.forEach(q=>{if(q.folder===fd.id){q.one=!!fd.one;q.mo=!!fd.mo;q.mon=fd.mon>0?fd.mon:3;if(fd.goal)q.goal=JSON.parse(JSON.stringify(fd.goal));}});\n      FAVS.forEach(f=>{if(f.folder===fd.id&&fd.goal)f.goal=JSON.parse(JSON.stringify(fd.goal));});\n      saveFolders();savePfs();saveFavs();render();}}}\n  else if(a==='foldexp'){const fd=FOLDERS.find(x=>x.id===t.getAttribute('data-id'));if(fd){\n    if(!PFS.some(q=>q.folder===fd.id)&&!FAVS.some(f=>f.folder===fd.id)){window.alert('В папке пока пусто.');}\n    else{let tx;try{tx=folderExport(fd);}catch(err){window.alert('Не получилось собрать экспорт: '+err.message);tx=null;}\n      if(tx){FOLDTXT={id:fd.id,txt:tx};const nm='lab-papka-'+fd.name.replace(/[^\\wа-яА-Я-]+/g,'_')+'-'+new Date().toISOString().slice(0,10)+'.txt';downloadText(nm,tx);try{navigator.clipboard&&navigator.clipboard.writeText(tx).catch(function(){});}catch(e){}render();}}}}\n  else if(a==='foldtake'){const fd=FOLDERS.find(x=>x.id===t.getAttribute('data-id'));if(fd){fd.one=!!PF.one;fd.mo=!!PF.mo;fd.mon=PF.mon>0?PF.mon:3;fd.eachCap=true;const g=goalSnap();if(g)fd.goal=g;else delete fd.goal;saveFolders();render();}}\n  else if(a==='foldundo'){const fd=FOLDERS.find(x=>x.id===t.getAttribute('data-id'));if(fd&&fd.undo&&window.confirm('Вернуть настройки коллективов и ТС в папке «'+fd.name+'» как было до последнего «применить ко всем внутри»?')){\n    fd.undo.forEach(u=>{if(u.k==='p'){const q=PFS.find(x=>x.id===u.id);if(q){q.one=u.one;q.mo=u.mo;q.mon=u.mon;if(u.goal===undefined)delete q.goal;else q.goal=u.goal;}}else{const f=FAVS.find(x=>x.id===u.id);if(f){if(u.goal)f.goal=u.goal;else delete f.goal;}}});\n    delete fd.undo;saveFolders();savePfs();saveFavs();render();}}\n  else if(a==='foldnamegoal'){const fd=FOLDERS.find(x=>x.id===t.getAttribute('data-id'));if(fd){\n    const pr=n=>{const m=String(n).match(/\\((\\d+(?:[.,]\\d+)?)\\s*[XxХх]\\)/);return m?parseFloat(m[1].replace(',','.')):0;};\n    const ps=PFS.filter(q=>q.folder===fd.id&&!(q.goal&&q.goal.P>0)&&pr(q.name)>0),fs=FAVS.filter(f=>f.folder===fd.id&&!favGoalOf(f)&&pr(f.name)>0);\n    if(!ps.length&&!fs.length)window.alert('Нечего возвращать: у всех коллективов в папке уже есть цель или в названии нет вида «(0.5X)».');\n    else if(window.confirm('У '+ps.length+' коллектив. и '+fs.length+' ТС в этой папке нет цели, а в названии есть число вида «(0.5X)». Поставить им дневную цель из названия ($ в день = число перед X)?\\n\\nНапример «ТС 1 (0.5X)» → цель $0.5/день. Остальные настройки не меняются.')){\n      ps.forEach(q=>{q.goal={P:pr(q.name),L:0,N:0,K:0,W:0};});fs.forEach(f=>{f.goal={P:pr(f.name),L:0,N:0,K:0,W:0};});\n      savePfs();saveFavs();render();}}}\n  else if(a==='favfold'){const f=FAVS.find(x=>x.id===t.getAttribute('data-id'));if(f&&moveToFolder(f,saveFavs))render();}\n  else if(a==='pfsrel'){const id=t.getAttribute('data-id');if(RELOPEN.has(id))RELOPEN.delete(id);else RELOPEN.add(id);render();}\n  else if(a==='findtog'){FIND.open=!FIND.open;render();}\n  else if(a==='findrun'){FIND.pool=(document.getElementById('fd_pool')||{}).value||'all';FIND.K=+(document.getElementById('fd_K')||{}).value||7;FIND.minN=+(document.getElementById('fd_minN')||{}).value||60;FIND.max=+(document.getElementById('fd_max')||{}).value||10;FIND.slip=+(document.getElementById('fd_slip')||{}).value||0;FIND.floor=!!(document.getElementById('fd_floor')||{}).checked;const lr=dayRange();runFind(lr[0],lr[1],lr[1]-lr[0]+1,S.stake);render();}\n  else if(a==='findsave'){const R=FIND.res;if(R&&R.info.length){const nm=window.prompt('Название коллектива:','Авто '+new Date().toLocaleDateString('ru-RU')+' (отбор по '+(R.ev.nTr?'старым дням':'')+')');if(nm&&nm.trim()){const ids=[];R.info.forEach(x=>{let f=x.f;if(f._cell){const ex=FAVS.find(z=>z.type==='cell'&&z.idea===f.idea&&z.combo===f.combo&&!(z.flt&&z.flt.length)&&!z.ex);if(ex)f=ex;else{f={id:newFavId(),type:'cell',name:f.name,idea:f.idea,combo:f.combo,flt:[],cats:{},created:Date.now()};FAVS.push(f);}}ids.push(f.id);});saveFavs();const g0=goalSnap();const mem=ids.map(id=>FAVS.find(z=>z.id===id)).filter(Boolean);const snap={id:'pfs'+Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36),name:nm.trim(),one:false,mo:false,mon:3,goal:g0,ids:ids,favs:mem.map(z=>JSON.parse(JSON.stringify(z))),created:Date.now()};PFS.push(snap);savePfs();render();}}}\n  else if(a==='cstog'){CS.open=!CS.open;render();}\n  else if(a==='csview'){CS.vs=t.getAttribute('data-v');render();}\n  else if(a==='cssize'){CS.vz=+t.getAttribute('data-z');render();}\n  else if(a==='csrun'){if(CS.busy)return;const g=id=>document.getElementById(id);CS.pmin=Math.max(60,Math.min(97,+g('cs_pmin').value||80));CS.pmax=Math.max(CS.pmin,Math.min(97,+g('cs_pmax').value||90));CS.noEn=!!g('cs_noen').checked;CS.diff=+g('cs_diff').value||0;CS.K=Math.max(0,+g('cs_K').value||0);CS.minN=Math.max(10,+g('cs_minN').value||40);CS.slip=+g('cs_slip').value||0;CS.pool=Math.max(10,Math.min(120,+g('cs_pool').value||50));CS.minRoi=Math.max(0,+g('cs_minRoi').value||0);const lr=dayRange();render();runCS(lr[0],lr[1],lr[1]-lr[0]+1,S.stake).then(()=>render(),e=>{CS.busy=false;window.alert('Ошибка перебора: '+e.message);render();});}\n  else if(a==='cssave'){const R=CS.res;const it=R&&R.out[CS.vz][CS.vs][+t.getAttribute('data-i')];if(!it)return;const nm=window.prompt('Название коллектива:','Перебор '+new Date().toLocaleDateString('ru-RU')+' · '+it.mem.length+' ТС');if(!nm||!nm.trim())return;const mem=[];it.mem.forEach(m=>{const f={id:newFavId(),type:'cell',name:csMemTxt(m),idea:m.idea,combo:m.combo,flt:[],cats:{},created:Date.now()};if(m.coins)f.cats.coin=m.coins.map(c=>D.coins[c]);if(m.P!==null)f.ex={en:{p:Math.round(m.P*100),rl:0,slip:1}};FAVS.push(f);mem.push(f);});saveFavs();const snap={id:'pfs'+Date.now().toString(36)+Math.floor(Math.random()*1e4).toString(36),name:nm.trim(),one:false,mo:false,mon:3,goal:goalSnap(),ids:mem.map(f=>f.id),favs:mem.map(z=>JSON.parse(JSON.stringify(z))),created:Date.now()};PFS.push(snap);savePfs();render();}\n  else if(a==='pxfloor'){\n    const v0=window.prompt('Нижняя граница цены входа (ask), в центах:','86');const c=Math.round(+String(v0||'').replace(',','.'));\n    if(!(c>=1&&c<=98))return;const fl=c/100;\n    const noPx=f=>{if(f.type==='chain')return false;if(f.combo&&String(f.combo).split(' / ').some(x=>RE_PR.test(x)))return false;return !(f.flt||[]).some(x=>x.col==='px'&&(x.lo!==null&&x.lo!==undefined||x.hi!==null&&x.hi!==undefined));};\n    const ids=new Set(FAVS.filter(noPx).map(f=>f.id));\n    (PFS||[]).forEach(p=>(p.favs||[]).forEach(f=>{if(noPx(f))ids.add(f.id);}));\n    if(!ids.size){window.alert('Нет ТС без границ цены — менять нечего.');return;}\n    if(!window.confirm('Поставить «цена входа не ниже '+fl.toFixed(2)+'» у '+ids.size+' ТС (в избранном и в сохранённых коллективах)? Их результаты пересчитаются.'))return;\n    const ap=f=>{if(!ids.has(f.id))return;f.flt=(f.flt||[]).filter(x=>x.col!=='px');f.flt.push({col:'px',lo:fl,hi:null});if(f.name.indexOf('ask ≥')<0)f.name=f.name+' · ask ≥'+fl.toFixed(2);};\n    FAVS.forEach(ap);(PFS||[]).forEach(p=>(p.favs||[]).forEach(ap));\n    saveFavs();savePfs();render();}\n  else if(a==='bkexp'){try{const ls={};for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.indexOf('lab-')===0&&k!=='lab-bk-last')ls[k]=localStorage.getItem(k);}\n    const blob=new Blob([JSON.stringify({kind:'lab-backup',ver:1,at:Date.now(),ls:ls},null,1)],{type:'application/json'});const u=URL.createObjectURL(blob),an=document.createElement('a');an.href=u;an.download='lab-favorites-'+new Date().toISOString().slice(0,10)+'.json';document.body.appendChild(an);an.click();setTimeout(()=>{URL.revokeObjectURL(u);an.remove();},1000);\n    localStorage.setItem('lab-bk-last',String(Date.now()));render();}catch(e){window.alert('Не получилось сделать копию: '+e.message);}}\n  else if(a==='bkimp'){const fi=document.getElementById('bkfile');if(fi)fi.click();}\n  else if(a==='pfstog'){const id=t.getAttribute('data-id');if(PFSOPEN.has(id))PFSOPEN.delete(id);else PFSOPEN.add(id);render();}\n  else if(a==='pfsrmts'){const p=PFS.find(x=>x.id===t.getAttribute('data-id')),fid=t.getAttribute('data-fid');if(p){if(p.ids.length<=1){window.alert('Это последняя ТС коллектива — убрать нельзя (удали сам коллектив кнопкой 🗑).');}else{const f=pfsMembers(p).find(z=>z.id===fid);if(window.confirm('Убрать «'+(f?f.name:fid)+'» из коллектива «'+p.name+'»? Потом можно вернуть кнопкой «↩».')){p.undo={ids:p.ids.slice(),favs:JSON.parse(JSON.stringify(p.favs||[]))};p.ids=p.ids.filter(x=>x!==fid);p.favs=(p.favs||[]).filter(x=>x.id!==fid);savePfs();render();}}}}\n  else if(a==='pfsaddts'){const id=t.getAttribute('data-id'),p=PFS.find(x=>x.id===id),sel=document.querySelector('select[data-addts=\"'+id.replace(/\"/g,'')+'\"]'),fid=sel?sel.value:'';const f=FAVS.find(z=>z.id===fid);if(p&&f&&p.ids.indexOf(fid)<0){p.undo={ids:p.ids.slice(),favs:JSON.parse(JSON.stringify(p.favs||[]))};p.ids.push(fid);if(!p.favs)p.favs=[];p.favs.push(JSON.parse(JSON.stringify(f)));savePfs();render();}else if(!fid){window.alert('Сначала выбери ТС в списке.');}}\n  else if(a==='pfsundo'){const p=PFS.find(x=>x.id===t.getAttribute('data-id'));if(p&&p.undo){const u=p.undo;p.ids=u.ids;p.favs=u.favs;delete p.undo;savePfs();render();}}\n  else if(a==='pfstest'){const id=t.getAttribute('data-id');if(PFSTEST.has(id))PFSTEST.delete(id);else PFSTEST.add(id);render();}\n  else if(a==='foldtest'){const id=t.getAttribute('data-id');if(FOLDTEST.has(id))FOLDTEST.delete(id);else FOLDTEST.add(id);render();}\n  else if(a==='pfsapplystop'){const p=PFS.find(x=>x.id===t.getAttribute('data-id'));if(p){setStopOnGoal(p,+t.getAttribute('data-z')||0,+t.getAttribute('data-k')||0,goalSnap());savePfs();render();}}\n  else if(a==='foldapplystop'){const fd=FOLDERS.find(x=>x.id===t.getAttribute('data-id'));if(fd){const z=+t.getAttribute('data-z')||0,k=+t.getAttribute('data-k')||0,qs=PFS.filter(q=>q.folder===fd.id);if(qs.length&&window.confirm('Записать стоп ('+(z>0?'после '+z+' лоссов за день':k>0?k+' проигрыша подряд':'без стопов')+') в '+qs.length+' коллектив(ов) папки «'+fd.name+'»? Цели дня и остальное не меняются. Потом можно отменить кнопкой «↩».')){fd.stopUndo=qs.map(q=>({id:q.id,goal:q.goal===undefined?'__u':JSON.parse(JSON.stringify(q.goal))}));const fb=fd.goal!==undefined?fd.goal:goalSnap();qs.forEach(q=>setStopOnGoal(q,z,k,fb));savePfs();saveFolders();render();}}}\n  else if(a==='foldstopundo'){const fd=FOLDERS.find(x=>x.id===t.getAttribute('data-id'));if(fd&&fd.stopUndo){fd.stopUndo.forEach(u=>{const q=PFS.find(x=>x.id===u.id);if(q){if(u.goal==='__u')delete q.goal;else q.goal=u.goal;}});delete fd.stopUndo;savePfs();saveFolders();render();}}\n  else if(a==='pfsfold'){const q=PFS.find(x=>x.id===t.getAttribute('data-id'));if(q&&moveToFolder(q,savePfs))render();}\n  else if(a==='favexp'){document.getElementById('favio').value=JSON.stringify({favs:FAVS,removed:FAV_REMOVED,folders:FOLDERS});}\n  else if(a==='favimp'){try{const o=JSON.parse(document.getElementById('favio').value);const arr=Array.isArray(o)?o:(o.favs||[]);arr.forEach(f=>{if(!f.id)f.id=newFavId();const k=FAVS.findIndex(x=>x.id===f.id);if(k>=0)FAVS[k]=f;else FAVS.push(f);});if(!Array.isArray(o)&&Array.isArray(o.folders)){o.folders.forEach(fd=>{if(fd&&fd.id&&fd.name&&!FOLDERS.some(x=>x.id===fd.id))FOLDERS.push(Object.assign({},fd,{open:fd.open!==false}));});saveFolders();}saveFavs();render();}catch(err){window.alert('Не удалось прочитать текст: '+err.message);}}\n  else if(a==='favreset'){if(window.confirm('Вернуть стандартные избранные? Свои останутся, удалённые стандартные вернутся.')){FAV_REMOVED=[];saveFavs();loadFavs();saveFavs();render();}}\n  else if(a==='chadd'){S.ch.steps.push({kind:'band',lo:0.9,hi:0.99,fam:''});render();}\n  else if(a==='chdel'){const i=+t.closest('.fl').getAttribute('data-st');S.ch.steps.splice(i,1);render();}\n  else if(a==='chpreset'){const P=[[[0.6,0.7],[0.8,0.9]],[[0.6,0.7],[0.8,0.9],[0.93,0.98]],[[0.7,0.8],[0.9,0.95]]][+t.getAttribute('data-i')];S.ch.steps=P.map(b=>({kind:'band',lo:b[0],hi:b[1],fam:''}));render();}\n  else if(a==='chopen'){const res=chainCompute(S.ch.steps,S.ch.gap,rowsF);S.sel={by:'chain',key:'chain',title:'Цепочка: '+chainLabel(S.ch.steps),rows:res.chain,chain:{steps:JSON.parse(JSON.stringify(S.ch.steps)),gap:S.ch.gap}};S.back='chain';S.tradeN=100;render();window.scrollTo(0,0);}\n  else if(a==='chfav'){const f={id:newFavId(),type:'chain',name:'Цепочка: '+chainLabel(S.ch.steps),steps:JSON.parse(JSON.stringify(S.ch.steps)),gap:S.ch.gap};if(addFav(f))render();}\n  else if(a==='fval'){const f=S.flt[fltIdx(t)];let v=t.getAttribute('data-v');const num=CATF[f.f].vals.some(x=>typeof x[0]==='number');if(num)v=+v;const k=f.vals.indexOf(v);if(k>=0)f.vals.splice(k,1);else f.vals.push(v);render();}\n  else if(a==='sort'){const k=t.getAttribute('data-k');if(S.sort===k)S.dir=-S.dir;else{S.sort=k;S.dir=(k==='name'||k==='ddm')?1:-1;}render();}\n  else if(a==='open'){S.back=null;S.sel={by:S.by,key:t.getAttribute('data-k')};S.tradeN=100;render();window.scrollTo(0,0);}\n  else if(a==='back'){if(S.back)S.tab=S.back;S.back=null;S.sel=null;render();window.scrollTo(0,0);}\n  else if(a==='more'){S.show+=200;render();}\n  else if(a==='razfav'){const nmEl=document.getElementById('razname');razAddFav(nmEl?nmEl.value.trim():'');render();}\n  else if(a==='razclear'){RAZ.pick={};render();}\n  else if(a==='moreT'){S.tradeN+=200;render();}\n  else if(a==='help'){helpOpen=true;render();window.scrollTo(0,0);}\n  else if(a==='helpclose'){helpOpen=false;render();}\n  else if(a==='flip'){S.sel.flip=!S.sel.flip;render();window.scrollTo(0,0);}\n  else if(a==='jump'){const el=document.getElementById(t.getAttribute('data-id'));if(el)el.scrollIntoView({behavior:'smooth',block:'start'});}\n  else if(a==='csv'){downloadCsv(selRows());}\n  else if(a==='ldadd'){const L2=X.ld.parts,last=L2[L2.length-1];L2.push({f:25,v:last?Math.round(last.v*1.5):15});render();}\n  else if(a==='lddel'){X.ld.parts.splice(+t.getAttribute('data-i'),1);if(!X.ld.parts.length)X.ld.on=false;render();}\n  else if(a==='xadd'){const L2=X.add.steps,last=L2[L2.length-1];X.add.steps.push({m:'c',v:last?Math.min(90,last.v+10):10,usd:last?last.usd:S.stake});render();}\n  else if(a==='xdel'){X.add.steps.splice(+t.getAttribute('data-i'),1);if(!X.add.steps.length)X.add.on=false;render();}\n  else if(a==='trade'){const r=TRLIST[+t.getAttribute('data-k')];if(r)openTrade(r);}\n  else if(a==='day'){openDay(t.getAttribute('data-d'));}\n  else if(a==='dayan'){S.dayAn=!S.dayAn;render();if(S.dayAn){const e=document.getElementById('dayan');if(e)e.scrollIntoView({block:'start'});}}\n  else if(a==='tclose'){closeTrade();}\n  else if(a==='wtrade'){const r=WINLOW[+t.getAttribute('data-k')];if(r)openTrade(r);}\n  else if(a==='ltrade'){const r=LOSSTOP[+t.getAttribute('data-k')];if(r)openTrade(r);}\n});\napp.addEventListener('change',e=>{\n  const t=e.target;\n  if(t.id==='bkfile'){const f=t.files&&t.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const o=JSON.parse(String(rd.result));if(!o||o.kind!=='lab-backup'||!o.ls)throw new Error('это не файл резервной копии лаб-страницы');const keys=Object.keys(o.ls);\n      if(!window.confirm('Заменить текущие избранные, коллективы и папки данными из файла (ключей: '+keys.length+', копия от '+new Date(o.at||0).toLocaleString('ru-RU')+')?'))return;\n      keys.forEach(k=>{if(k.indexOf('lab-')===0&&typeof o.ls[k]==='string')localStorage.setItem(k,o.ls[k]);});window.alert('Готово, страница перезагрузится.');location.reload();}catch(e2){window.alert('Не получилось: '+e2.message);}};rd.readAsText(f);t.value='';return;}\n  if(t.getAttribute&&t.getAttribute('data-act')==='razpick'){const k=t.getAttribute('data-k');if(t.checked)RAZ.pick[k]=1;else delete RAZ.pick[k];const nmEl=document.getElementById('razname');if(nmEl)RAZ.name=nmEl.value;render();return;}\n  if(t.id==='razname'){RAZ.name=t.value;return;}\n  if(t.getAttribute&&t.getAttribute('data-act')==='fitpick'){if(S.fit)S.fit.pick[+t.getAttribute('data-i')]=t.checked;render();return;}const a=t.getAttribute('data-act');\n  if(t.id==='addnum'&&t.value){S.flt.push({t:'num',col:t.value,lo:null,hi:null});render();return;}\n  if(t.id==='addcat'&&t.value){S.flt=S.flt.filter(x=>!(x.t==='cat'&&x.f===t.value));S.flt.push({t:'cat',f:t.value,vals:[]});render();return;}\n  if(t.id==='by'){S.by=t.value;S.sel=null;render();return;}\n  if(t.id==='pf_one'){PF.one=t.checked;savePf();render();return;}\n  if(t.getAttribute&&t.getAttribute('data-fset')){const fd=FOLDERS.find(x=>x.id===t.getAttribute('data-id'));if(fd){const k=t.getAttribute('data-fset');if(k==='one')fd.one=t.checked;else if(k==='mo')fd.mo=t.checked;else if(k==='mon')fd.mon=Math.max(1,Math.floor(+t.value||1));else if(k==='each')fd.eachCap=t.checked;saveFolders();render();}return;}\n  if(t.id==='pf_mo'){PF.mo=t.checked;savePf();render();return;}\n  if(t.id==='pf_mon'){PF.mon=Math.max(1,Math.floor(+t.value||1));savePf();render();return;}\n  if(t.id==='fav_sort'){S.favSort=t.value;render();return;}\n  if(t.id==='ch_gap'){S.ch.gap=t.value;render();return;}\n  const dc=t.getAttribute('data-ch');\n  if(dc){const i=+t.closest('.fl').getAttribute('data-st');const st=S.ch.steps[i];if(st){if(dc==='kind'){st.kind=t.value;if(t.value==='fav'&&!st.favId){const f=FAVS.find(x=>x.type!=='chain');st.favId=f?f.id:null;}}else if(dc==='fav')st.favId=t.value;else if(dc==='fam')st.fam=t.value;else if(dc==='lo')st.lo=t.value===''?null:+t.value;else if(dc==='hi')st.hi=t.value===''?null:+t.value;}render();return;}\n  if(t.id&&t.id.indexOf('x_')===0){xChange(t);return;}\n  if(t.id==='dFrom'){S.dFrom=t.value;render();return;}\n  if(t.id==='dTo'){S.dTo=t.value;render();return;}\n  if(t.id==='q'){S.q=t.value;render();return;}\n  if(t.id==='tp_by'){S.top.by=t.value;S.top.show={};render();return;}\n  if(t.id==='tp_goal'){S.top.goal=Math.max(0,+t.value||0);render();return;}\n  if(t.id==='tp_sm'){S.top.minSm=Math.max(0,Math.min(100,+t.value||0));render();return;}\n  if(t.id==='minSm'){S.minSm=Math.max(0,Math.min(100,+t.value||0));render();return;}\n  if(t.id==='tp_loss'){S.top.maxLoss=Math.max(0,Math.floor(+t.value||0));render();return;}\n  if(t.id==='tp_cover'){S.top.cover=Math.min(100,Math.max(0,+t.value||0));render();return;}\n  if(t.id==='tp_minn'){S.top.minN=Math.max(1,Math.floor(+t.value||1));render();return;}\n  if(t.id==='tp_sort'){S.top.sort=t.value;render();return;}\n  if(t.id==='tp_team'){S.top.team=+t.value;render();return;}\n  if(t.id==='tp_trim'){S.top.trim=t.checked;render();return;}\n  if(t.id==='tp_rel'){S.top.reliable=t.checked;render();return;}\n  if(t.id==='tp_scan'){S.top.scan=t.checked;render();return;}\n  if(t.id==='tp_fs'){S.top.fscan=t.checked;render();return;}\n  if(t.id==='tp_gs'){S.top.gscan=t.checked;render();return;}\n  if(t.id==='tp_pl'){S.top.plim=t.checked;render();return;}\n  if(t.id==='cb_s_sm'){CB.strict.sm=Math.max(0,Math.min(100,+t.value||0));render();return;}\n  if(t.id==='cb_s_dd'){CB.strict.dd=Math.max(0,+t.value||0);render();return;}\n  if(t.id==='cb_s_half'){CB.strict.half=Math.max(0,+t.value||0);render();return;}\n  if(t.id==='cb_s_cv'){CB.strict.cv=Math.max(0,+t.value||0);render();return;}\n  if(t.id==='cb_acell'){CB.auto.cells=+t.value||60;render();return;}\n  if(t.id==='cb_fav'){CB.useFav=t.checked;render();return;}\n  if(t.id==='cb_pool'){CB.pool=+t.value||40;render();return;}\n  if(t.id==='cb_maxk'){CB.maxK=+t.value||10;render();return;}\n  if(t.id==='cb_minn'){CB.minN=Math.max(20,+t.value||60);render();return;}\n  if(t.id==='tp_best'){S.top.best=t.checked;render();return;}\n  if(t.id==='bb_minn'){BB.minN=Math.max(20,+t.value||60);render();return;}\n  if(t.id==='bb_cap'){BB.cap=+t.value||40;render();return;}\n  if(t.id==='tp_ls'){S.top.lscan=t.checked;render();return;}\n  if(t.id==='ls_minf'){LS.minF=Math.max(1,Math.floor(+t.value||20));render();return;}\n  if(t.id==='gs_minn'){GS.minN=Math.max(30,+t.value||100);render();return;}\n  if(t.id==='fs_minn'){FS.minN=Math.max(30,+t.value||100);render();return;}\n  if(/^fs_(mp|mt|wr|dd|mk)$/.test(t.id)){FS[t.id.slice(3)]=Math.max(0,+t.value||0);render();return;}\n  if(t.id==='fs_goal'){FS.goal=t.checked;render();return;}\n  if(t.id==='ep_mt'){EOPT.mt=Math.max(1,Math.floor(+t.value||30));render();return;}\n  if(t.id==='ep_pm'){EOPT.pm=Math.max(1,Math.min(98,Math.floor(+t.value||1)));render();return;}\n  if(t.id==='ep_xs'){REXS=Math.max(0,Math.min(20,Math.floor(+t.value||0)));render();return;}\n  if(t.id==='ep_gap'){REGAP=Math.max(0,Math.min(99,Math.floor(+t.value||0)));render();return;}\n  if(/^lim_(wr|dd|mn|lm|sm)$/.test(t.id)){LIM[t.id.slice(4)]=Math.max(0,+t.value||0);render();return;}\n  if(t.id==='lim_half'){LIM.half=t.checked;render();return;}\n  if(t.id==='ep_ml'){EOPT.ml=Math.max(0,Math.floor(+t.value||0));render();return;}\n  if(t.id==='tp_stopok'){S.top.stopOk=t.checked;render();return;}\n  if(t.id==='tp_oos'){S.top.needOos=t.checked;render();return;}\n  if(t.id==='minN'){S.minN=Math.max(1,+t.value||1);render();return;}\n  if(t.id==='one'){S.one=t.checked;render();return;}\n  if(t.id==='eslip'){ESLIP=+t.value||0;try{localStorage.setItem('lab-eslip',String(ESLIP));}catch(e){}render();return;}\n  if(t.id==='stake'){S.stake=Math.max(1,+t.value||5);render();return;}\n  if(t.id==='goalP'){S.goalP=Math.max(0,+t.value||0);render();return;}\n  if(t.id==='goalL'){S.goalL=Math.max(0,+t.value||0);render();return;}\n  if(t.getAttribute&&t.getAttribute('data-rg')){const v=+t.getAttribute('data-rg'),i=S.rg.indexOf(v);if(t.checked&&i<0)S.rg.push(v);else if(!t.checked&&i>=0)S.rg.splice(i,1);render();return;}\n  if(/^sq[mnc]d?$/.test(t.id)){if(t.id[2]==='m')S.sqm=t.value;else if(t.id[2]==='n')S.sqn=Math.max(1,Math.min(10,Math.floor(+t.value||1)));else S.sqc=+t.value?1:0;render();return;}\n  if(t.id==='goalN'){S.goalN=Math.max(0,Math.floor(+t.value||0));render();return;}\n  if(t.id==='goalK'){S.goalK=Math.max(0,Math.floor(+t.value||0));render();return;}\n  if(t.id==='goalZ'){S.goalZ=Math.max(0,Math.floor(+t.value||0));render();return;}\n  if(t.id==='goalW'){S.goalW=Math.max(0,Math.floor(+t.value||0));render();return;}\n  if(t.id==='bcol'){S.bucket=t.value;render();return;}\n  if(a==='fneg'){S.flt[fltIdx(t)].neg=t.checked;render();}\n  else if(a==='fnul'){S.flt[fltIdx(t)].nul=t.checked;render();}\n  else if(a==='fcol'){S.flt[fltIdx(t)].col=t.value;render();}\n  else if(a==='flo'||a==='fhi'){const f=S.flt[fltIdx(t)];const v=t.value===''?null:+t.value;if(a==='flo')f.lo=v;else f.hi=v;render();}\n});\n\napp.addEventListener('mousemove',e=>{\n  const svg=e.target.closest?e.target.closest('svg[data-cum]'):null;if(!svg)return;\n  const R=CUMREG[svg.getAttribute('data-cum')];if(!R)return;\n  const rc=svg.getBoundingClientRect();if(!rc.width)return;\n  const x=(e.clientX-rc.left)/rc.width*R.W;\n  const f=Math.min(1,Math.max(0,(x-R.pl)/(R.W-R.pl-R.pr)));\n  const tx=R.x0+f*(R.x1-R.x0);\n  let lo=0,hi=R.xs.length-1;\n  while(lo<hi){const m=(lo+hi)>>1;if(R.xs[m]<tx)lo=m+1;else hi=m;}\n  let i=lo;if(i>0&&Math.abs(R.xs[i-1]-tx)<Math.abs(R.xs[i]-tx))i--;\n  const r=R.s[i],ln=svg.querySelector('.cl'),tip=svg.parentNode.querySelector('.cumtip');\n  const px=R.pl+(R.W-R.pl-R.pr)*((R.xs[i]-R.x0)/((R.x1-R.x0)||1));\n  if(ln){ln.setAttribute('x1',px);ln.setAttribute('x2',px);ln.style.display='';}\n  const v=roiOf(r)*S.stake;\n  if(tip)tip.innerHTML='сделка <b>#'+(i+1)+'</b> · '+tz(r[C.ts])+' · '+esc(rowName(r))+' по '+fmt(r[CI.px],3)+' · <span class=\"'+(r[C.won]?'pos':'neg')+'\">'+(r[C.won]?'победа ':'проигрыш ')+money(v)+'</span> · накоплено <b class=\"'+cls(R.ys[i])+'\">'+money(R.ys[i])+'</b>';\n});\n(function(){\n  try{const th=localStorage.getItem('lab-theme');if(th)document.documentElement.setAttribute('data-theme',th);}catch(e){}\n  const tb=document.getElementById('themebtn');\n  if(tb)tb.addEventListener('click',function(){const cur=document.documentElement.getAttribute('data-theme');const dark=cur?cur==='dark':window.matchMedia('(prefers-color-scheme:dark)').matches;const nx=dark?'light':'dark';document.documentElement.setAttribute('data-theme',nx);try{localStorage.setItem('lab-theme',nx);}catch(e){}});\n  render();\n})();\n}).catch(function(e){var v=document.getElementById('app');if(v)v.innerHTML='<div class=\"note warn\">Ошибка загрузки данных: '+(e&&e.message?e.message:e)+'</div>';console.error(e);});\n</script>\n</body>\n</html>\n";
+/**
+ * LAB v3.9 — исследовательский парсер идей. По умолчанию НЕ торгует; с LAB_TRADE=on реально покупает стратегии из TRADE_CFGS (bot7b0, fair2, fair85, model93) через clob.ts, каждая независимо от остальных. Ставки: «лаб объем».
+ * Работает отдельным процессом, свой файл состояния (research-lab-state.json),
+ * свои команды в Telegram (все начинаются со слова "лаб").
+ *
+ * ГЛАВНОЕ В v3.0: СТАТИСТИКА СЧИТАЕТСЯ ТАК, ЧТОБЫ ЕЁ МОЖНО БЫЛО ПЕРЕНОСИТЬ В БОТА.
+ *  Каждая комбинация/профиль записывает КАЖДЫЙ сигнал (без искусственных ограничений на число позиций), потому что
+ *  лимиты бота (позиций в окне, открытых всего) — это управление риском, а не часть стратегии, и они искажают винрейт.
+ *  Лимиты можно включить обратно константами MAX_PER_WINDOW / MAX_OPEN_TOTAL / ONE_PER_MARKET ниже.
+ *   1) Binance-фильтр работает как в боте: это УСЛОВИЕ входа с ожиданием, а не метка;
+ *   2) перед записью входа — живой стакан: ask не выше потолка коридора, живой bid не ниже низа коридора;
+ *   3) цена входа = живой ask, итог только по официальному резолву.
+ *
+ * НОВОЕ В v3.2 (дополнение): темка работает и на 15-минутках (только она; остальные идеи по-прежнему считаются только по 5-минуткам) и
+ *  получила режимы «контртренд» (покупка дешёвой стороны после рывка монеты против неё). Команды: «лаб темка» (5м) и «лаб темка 15» (15м).
+ *
+ * НОВОЕ В v3.2: «лаб темка» — скальпинг от начала пятиминутки. В начале окна «покупаем» Up и Down (по рынку по ask и лимиткой
+ *  на уровнях 0.50 / 0.48 / 0.45 / 0.40 / 0.35 с ожиданием 60с и 180с) и «продаём» лимиткой на +2/+3/+4/+5/+7/+10 центов от входа.
+ *  Не достигли цели до закрытия — держим до резолва. Общая статистика, по сторонам (Up/Down) и по каждой монете.
+ *
+ * НОВОЕ В v3.1 (файл состояния остаётся совместимым: старая статистика НЕ сбрасывается, новые идеи копятся с нуля):
+ *  A) «лаб модель бинанс» — Binance-против на ВСЕЙ сетке модели (+ «доза-эффект»: чуть против / сильно против);
+ *  B) Coinbase как второй источник цены (опрос REST раз в секунду): корзины Coinbase и «две биржи сразу»
+ *     (для модели и для всех профилей бота) — «лаб биржи»;
+ *  C) «лаб режим» — режим волатильности (σ за 2 мин / σ за 5 мин против обычной), часы суток, кластеры
+ *     одновременных проигрышей в одном окне (признак для лосей);
+ *  D) «лаб справедливая» — p = Φ(d / (σ·√t)), edge = p − ask, корзины edge, калибровка и проверка «растёт ли винрейт»;
+ *  E) «лаб зараза» — у скольких соседних монет токен нашей стороны уже сыпется;
+ *  F) «лаб траектория» — токен пришёл в коридор сверху (падал) или снизу (рос): ask сейчас − ask 15с назад.
+ *  Все новые признаки пишутся к каждому базовому входу профилей бота и видны в «лаб лоси».
+ *
+ * Идеи и команды те же: запас, дешево, паника, импульс, арб, монеты, профили, модель, пила, пара, бинанс, лоси,
+ * согласие, стоп, «лаб бот» + новые команды (см. «лаб помощь»).
+ *
+ * ВАЖНО: если меняешь настройки профилей/лимитов в боте — поменяй их и здесь (BOT_PROFILES, MAX_PER_WINDOW,
+ * MAX_OPEN_TOTAL, LIVE_VARIANTS).
+ *
+ * Переменные окружения: LAB_TELEGRAM_BOT_TOKEN и LAB_TELEGRAM_CHAT_ID
+ * (если не заданы — берутся TELEGRAM_BOT_TOKEN и TELEGRAM_CHAT_ID).
+ */
+
+import "dotenv/config";
+import * as fs from "fs";
+import * as path from "path";
+import * as http from "http";
+import * as os from "os";
+import { spawn } from "child_process";
+import { discoverCryptoUpDownMarkets, CryptoUpDownMarket } from "./cryptoMarketDiscovery.js";
+import { PriceWatcher, PriceUpdate } from "./priceWatcher.js";
+import { btcPriceFeed } from "./btcPriceFeed.js";
+import { ethPriceFeed } from "./ethPriceFeed.js";
+import { solPriceFeed } from "./solPriceFeed.js";
+import { xrpPriceFeed } from "./xrpPriceFeed.js";
+import { dogePriceFeed } from "./dogePriceFeed.js";
+import { VolatilityTracker } from "./volatilityTracker.js";
+import { createTelegramNotifier } from "./telegram.js";
+import { createLogger } from "./logger.js";
+import { Side } from "@polymarket/clob-client-v2";
+import { ClobService } from "./clob.js";
+import { setPolyboltCreds } from "./polyboltFeed.js";
+import { LabTest } from "./labTest.js";
+import { PostWatcher } from "./labPost.js";
+import { LabLim } from "./labLim.js";
+import { appendMarketRecord, compressOldDays, buildPage, shrinkPage, buildExchangeSummary, setPathCells, MarketRec, RawTrade, TapeRow } from "./labAnalytics.js";
+
+// ─────────────────────────── Общие настройки ───────────────────────────
+
+// Где хранить файлы: постоянный диск Railway (RAILWAY_VOLUME_MOUNT_PATH) или папка из LAB_DATA_PATH, иначе рабочая папка.
+const STORAGE_DIR = process.env.LAB_DATA_PATH || process.env.RAILWAY_VOLUME_MOUNT_PATH || process.cwd();
+const STATE_FILE = path.resolve(STORAGE_DIR, "research-lab-state.json");
+const LAB_TAPE_DIR = path.resolve(STORAGE_DIR, "lab-tape"); // v6: ленты рынков БЕЗ сделок (для поиска лимиток на прострелы); рядом с lab-data
+const LAB_DATA_DIR = path.resolve(STORAGE_DIR, "lab-data"); // v3.3: карточки рынков (лента цен + все сделки), без лимита по времени
+const TAPE_MS = 5 * 1000; // лента цен: раз в 5с
+const STATE_VERSION = 4; // v3.1 совместима с v3.0: новые поля читаются с запасными значениями
+const AUTOSAVE_INTERVAL_MS = 60 * 1000;
+
+const TARGET_WINDOW_MINUTES = 5;
+// 15-минутные рынки наблюдаются ТОЛЬКО для «Темки» (остальные идеи подобраны под 5 минут и 15-минутки не видят).
+// Если в логе [refresh] 15м рынков 0 — суффикс ниже не подошёл вашему cryptoMarketDiscovery.ts, поправьте его.
+const TEMKA_EXTRA_WINDOWS = [15];
+const TIMEFRAMES_TO_DISCOVER = [
+  { suffixes: ["up-or-down-5m"], minutes: TARGET_WINDOW_MINUTES },
+  { suffixes: ["up-or-down-15m"], minutes: 15 },
+];
+
+const MARKET_REFRESH_MS = 30 * 1000;
+const RESOLVE_CHECK_DELAY_SEC = 180;
+const RESOLVE_GIVE_UP_MS = 60 * 60 * 1000;
+const GAMMA_HOST = "https://gamma-api.polymarket.com";
+const CLOB_HOST = process.env.CLOB_HOST ?? "https://clob.polymarket.com";
+
+const VERIFY_COOLDOWN_MS = 1000; // не чаще 1 проверки живым стаканом на токен раз в 1с (бот проверяет сразу на каждом тике)
+const ARB_SAMPLE_MS = 5 * 1000; // замер арбитража живыми стаканами раз в 5с
+const FETCH_TIMEOUT_MS = 4 * 1000;
+const STALE_DIFF = 0.02; // насколько ask в памяти должен отличаться от живого, чтобы считать его устаревшим
+
+const MIN_TRADES_FOR_TOP = 10; // минимум записей, чтобы комбинация попала в топ
+const MAX_SETTLED_REMEMBERED = 3000;
+
+// Ограничения бота (как settings.maxPerWindow / settings.maxOpenTotal в fastflip.ts). Применяются к КАЖДОЙ комбинации отдельно.
+// 999 = лимита нет: статистика записывает каждый сигнал. Поставь 3 и 6, чтобы увидеть, как считал бы бот с лимитами.
+const MAX_PER_WINDOW = 999;
+const MAX_OPEN_TOTAL = 999;
+// true — комбинация входит в рынок только один раз (в любую сторону); false — по разу в каждую сторону.
+const ONE_PER_MARKET = false;
+const RULES_TEXT =
+  ONE_PER_MARKET || MAX_PER_WINDOW < 100 || MAX_OPEN_TOTAL < 100
+    ? `${ONE_PER_MARKET ? "одна позиция на рынок, " : ""}${MAX_PER_WINDOW < 100 ? `не больше ${MAX_PER_WINDOW} в окне, ` : ""}${MAX_OPEN_TOTAL < 100 ? `не больше ${MAX_OPEN_TOTAL} открытых` : "без лимита открытых"}`
+    : "без лимитов: записывается каждый сигнал";
+// v3.6: «как бы покупает» — для идей отсюда LAB пишет в лог и в Telegram момент покупки (бумажная торговля, ордеров не шлёт),
+// чтобы сверять с реальным ботом секунда в секунду. size — ставка в $, sizeRefPrice — цена, от которой бот считает число акций (нижняя граница коридора).
+interface TradeCfg {
+  name: string; // короткое имя для команд и сообщений («лаб объем fair2 6»)
+  idea: string;
+  combo?: string; // если задано — торгуем только эту ячейку идеи
+  label: string;
+  size: number; // ставка в $ (меняется командой «лаб объем»)
+  sizeRefPrice: number; // цена, от которой считаем число акций (нижняя граница коридора)
+  cap: number; // потолок цены покупки
+  minBid?: number; // не входить, если живой bid ниже
+  /** Дополнительное условие входа (проверяется один раз, в момент первого срабатывания ячейки — как считает страница). */
+  filter?: (e: LabEntry, tb60: number | null, x?: { tb30: number | null; clo: number | null; jmp?: number | null; rdd?: number | null; b0?: number | null; mono?: number | null; chi?: number | null; crg?: number | null }) => boolean;
+  needTb60?: boolean; // условию нужен показатель «bid токена: вход − 60с назад»
+  needTb30?: boolean; // v5.7: …«bid токена: вход − 30с назад»
+  needPath?: boolean; // v6: …«токен до входа: самый резкий скачок вверх (jmp)» и «откат от своего максимума (rdd)» — по ленте токена с начала окна
+  group?: string; // v6: общая группа (команды «лаб тс вкл/выкл kol», «лаб акций kol 5» действуют на всю группу)
+  needClo?: boolean; // v5.7: …«свеча до входа: минимум монеты, bps» (≤ 0)
+  shares?: number; // v4.0: если задано — всегда покупаем столько акций (ставка в $ тогда не используется)
+  on: boolean; // v4.0: стратегия торгует (команда «лаб тс вкл/выкл»); выключенная только пишется в статистику
+  goalP: number; // v4.0: дневная цель по прибыли, $ (0 = выкл): набрала за день (UTC) — до конца дня не покупает
+  goalL: number; // v4.0: дневной стоп по убытку, $ (0 = выкл)
+  goalW?: number; // v11: дневная цель — N прибыльных закрытых сделок за день (UTC), потом до 00:00 UTC не покупает (0/не задано = выкл)
+  stopPct?: number; // v5.3: реальный стоп — продаём по рынку, когда bid ≤ цена входа × (1 − stopPct)
+  fromDay?: string; // v4.8: начать торговать с этого дня (UTC, «2026-11-07»); до этого только пишет статистику
+  untilDay?: string; // v7: торговать ДО конца предыдущего дня (UTC): с 00:00 этого дня только пишет статистику
+  groupOne?: boolean; // v12: «одна сделка на рынок и сторону» на ВЕСЬ коллектив (как на странице): если на этот рынок/сторону уже купила другая ТС группы — эта считается виртуально (в её цель идёт, денег не тратит)
+  paper?: boolean; // v11: бумажный режим — сделки только виртуально («LAB БЫ»), реальных денег нет; включается «лаб бумага <имя> вкл»
+  entryPx?: number; // v14: «особый вход» как на странице: сигнал по условиям ТС, а покупаем, только когда bid токена дойдёт до (entryPx − спред сигнала); цена входа на странице = entryPx
+  exact?: boolean; // v7: число акций = ставка ÷ реальная цена входа (для ТС с широким коридором цены); иначе от sizeRefPrice
+}
+const KOL_FROM = "2026-11-15"; // v6: коллектив начинает торговать с этого дня (UTC)
+const KOL_UNTIL = "2026-11-17"; // v7: старый коллектив торгует до конца 2026-11-16 (UTC), дальше его заменяет «Набор 15» (k19)
+const notStarted = (c: TradeCfg): boolean => c.fromDay !== undefined && Date.now() < Date.parse(`${c.fromDay}T00:00:00Z`);
+const ended = (c: TradeCfg): boolean => c.untilDay !== undefined && Date.now() >= Date.parse(`${c.untilDay}T00:00:00Z`);
+// ══ v7: помощники для фильтров «Набора 15» (считаются, как на странице: сначала округление значения до тех же знаков, потом сравнение)
+const R1 = (v: number): number => Math.round(v * 10) / 10;
+const R2 = (v: number): number => Math.round(v * 100) / 100;
+const R3 = (v: number): number => Math.round(v * 1000) / 1000;
+/** Биржа ÷ поток (во сколько раз биржа прошла от открытия относительно потока); меньше 0 — против. Нужен поток в нашу сторону > 0. */
+const exRatioOf = (e: LabEntry, v: number | null | undefined): number | null => (e.pm != null && e.pm > 0 && v != null ? v / e.pm : null);
+/** Корзина 0-4 («0 против, 1 <50%, 2 50-80%, 3 80-120%, 4 >120%») */
+const bucketIdx = (r: number): number => (r < 0 ? 0 : r < 0.5 ? 1 : r < 0.8 ? 2 : r < 1.2 ? 3 : 4);
+/** «Бирж против»: сколько из доступных бирж (Binance, Coinbase, Bybit, OKX, Kraken, Bitget) ушли против нашей стороны */
+const nagOf = (e: LabEntry): number | null => {
+  if (!(e.pm != null && e.pm > 0)) return null;
+  const vals: Array<number | null | undefined> = [e.bin, e.cb, ...Object.values(e.xs ?? {})];
+  let n = 0;
+  for (const v of vals) if (v != null && bucketIdx(v / e.pm) === 0) n++;
+  return n;
+};
+const inR = (v: number | null | undefined, lo: number | null, hi: number | null): boolean =>
+  v != null && (lo === null || v >= lo - 1e-9) && (hi === null || v <= hi + 1e-9);
+// v14: потолок цены для «особого входа»: страница считает вход ровно по цене входа, живой ask в момент касания может быть выше — разрешаем на LAB_EN_SLIP центов (по умолчанию 1¢) выше
+const EN_SLIP = Number(process.env.LAB_EN_SLIP ?? "1");
+const EN_CAP = Math.min(0.99, Math.round((0.85 + EN_SLIP / 100) * 100) / 100);
+const enCapOf = (p: number): number => Math.min(0.99, Math.round((p + EN_SLIP / 100) * 100) / 100); // v19: потолок для ТС с другим «особым входом»
+const TRADE_CFGS: TradeCfg[] = [
+  // ══ v11: КОЛЛЕКТИВ POJ (5 ТС, группа poj), только ETH. ВСЕ прежние ТС удалены. Ставка $1.1, дневная цель — 1 прибыльная сделка (goalW), старт 2026-11-22 00:00 UTC (= 07:00 Бангкок). Общий дневной стоп — TOTAL_STOP.
+  {
+    name: "p1", group: "poj", idea: "fair1", combo: "edge <0 / 180-240с / 0.60-0.70", label: "Коллектив POJ №1: СЦ σ60с, edge<0, 180-240с, ask 0.60-0.70, только ETH",
+    size: 1.1, on: true, goalP: 0, goalL: 0, goalW: 1, groupOne: true, fromDay: "2026-11-22", sizeRefPrice: 0.6, cap: 0.7,
+    filter: (e) => e.coin === "Ethereum",
+  },
+  {
+    name: "p2", group: "poj", idea: "model", combo: "сила 0.5-1 / 120-180с / 0.70-0.80", label: "Коллектив POJ №2: Модель цены, сила 0.5-1, 120-180с, ask 0.70-0.80, только ETH",
+    size: 1.1, on: true, goalP: 0, goalL: 0, goalW: 1, groupOne: true, fromDay: "2026-11-22", sizeRefPrice: 0.7, cap: 0.8,
+    filter: (e) => e.coin === "Ethereum",
+  },
+  {
+    name: "p3", group: "poj", idea: "model", combo: "сила 2-3 / 120-180с / 0.70-0.80", label: "Коллектив POJ №3: Модель цены, сила 2-3, 120-180с, ask 0.70-0.80, только ETH",
+    size: 1.1, on: true, goalP: 0, goalL: 0, goalW: 1, groupOne: true, fromDay: "2026-11-22", sizeRefPrice: 0.7, cap: 0.8,
+    filter: (e) => e.coin === "Ethereum",
+  },
+  {
+    name: "p4", group: "poj", idea: "fair2", combo: "edge <0 / 180-240с / 0.80-0.85", label: "Коллектив POJ №4: СЦ σ120с, edge<0, 180-240с, ask 0.80-0.85, только ETH",
+    size: 1.1, on: true, goalP: 0, goalL: 0, goalW: 1, groupOne: true, fromDay: "2026-11-22", sizeRefPrice: 0.8, cap: 0.85,
+    filter: (e) => e.coin === "Ethereum",
+  },
+  {
+    name: "p5", group: "poj", idea: "model", combo: "сила 1-1.5 / 180-240с / 0.85-0.90", label: "Коллектив POJ №5: Модель цены, сила 1-1.5, 180-240с, ask 0.85-0.90, только ETH",
+    size: 1.1, on: true, goalP: 0, goalL: 0, goalW: 1, groupOne: true, fromDay: "2026-11-22", sizeRefPrice: 0.85, cap: 0.9,
+    filter: (e) => e.coin === "Ethereum",
+  },
+  // ══ v14: ТС «e1» — «особый вход по 0.85» (только BTC+ETH): Справедливая цена σ120с, edge<0, 180-240с, ask 0.70-0.80; покупка, только когда цена дойдёт до 0.85 (как «Особые новые условия» на странице). Цели дня нет.
+  {
+    name: "e1", idea: "fair2", combo: "edge <0 / 180-240с / 0.70-0.80", label: "ТС e1: СЦ σ120с, edge<0, 180-240с, сигнал ask 0.70-0.80, ОСОБЫЙ ВХОД по 0.85, только BTC+ETH",
+    size: 1.65, on: true, goalP: 0, goalL: 0, goalW: 0, paper: true, entryPx: 0.85, exact: true, sizeRefPrice: 0.85, cap: EN_CAP,
+    filter: (e) => e.coin === "Bitcoin" || e.coin === "Ethereum", // v14: только BTC+ETH — на SOL/XRP биржа отвергает подпись ордера («invalid POLY_1271 signature»)
+  },
+  // ══ v19: два БУМАЖНЫХ замера (реальных денег нет) — найдены «перебором коллективов» на странице: проверка на новых днях. Живут рядом с e1, ничего не трогают.
+  {
+    name: "x1", idea: "model", combo: "сила 0.5-1 / 30-60с / 0.60-0.70", label: "Замер x1: Модель цены, сила 0.5-1, 30-60с, ask 0.60-0.70, ОСОБЫЙ ВХОД по 0.80, только ETH (бумага)",
+    size: 1.1, on: true, goalP: 0, goalL: 0, goalW: 0, paper: true, entryPx: 0.80, exact: true, sizeRefPrice: 0.80, cap: enCapOf(0.80),
+    filter: (e) => e.coin === "Ethereum",
+  },
+  {
+    name: "x2", idea: "fair1", combo: "edge 0-2% / 180-240с / 0.70-0.80", label: "Замер x2: СЦ σ60с, edge 0-2%, 180-240с, ask 0.70-0.80, ОСОБЫЙ ВХОД по 0.82, только SOL (бумага)",
+    size: 1.1, on: true, goalP: 0, goalL: 0, goalW: 0, paper: true, entryPx: 0.82, exact: true, sizeRefPrice: 0.82, cap: enCapOf(0.82),
+    filter: (e) => e.coin === "Solana",
+  },
+];
+/** v6: стратегии по имени, «все» или имени группы (например «kol»). */
+const pickCfgs = (n: string): TradeCfg[] => (n === "все" ? TRADE_CFGS : TRADE_CFGS.filter((c) => c.name === n || (c.group !== undefined && c.group === n)));
+const cfgFor = (idea: string, combo: string): TradeCfg | undefined => TRADE_CFGS.find((c) => c.idea === idea && (c.combo === undefined || c.combo === combo));
+// v5.5 «Вход после дна» для ячейки fair2 «edge <0 / 60-120с / 0.80-0.85»: после сигнала НЕ покупаем сразу, а ждём — bid токена падает до low, потом возвращается до buy — и тогда покупаем по ask
+// (как «Вход после дна» на странице: упала до 75, отросла до 80 — купить). Стопа нет: держим до конца. Цены меняются командой «лаб дно 75 80».
+const DIP = { on: true, low: 75, buy: 80, shares: 5, minLeft: 15, spread: 3 };
+const DIP_IDEA = "fair2";
+const DIP_COMBO = "edge <0 / 60-120с / 0.80-0.85";
+const DIP_NAME = "dip";
+const dipCfg = (): TradeCfg => ({
+  name: DIP_NAME, idea: DIP_IDEA, combo: DIP_COMBO,
+  label: `Справедливая цена σ120с, edge <0, 60-120с, вход после дна (дно ≤${DIP.low}¢, покупка от ${DIP.buy}¢)`,
+  size: DIP.shares, sizeRefPrice: 0.8, cap: Math.min(0.99, (DIP.buy + DIP.spread) / 100), shares: DIP.shares, on: DIP.on, goalP: 0, goalL: 0,
+});
+const MAX_STAKE = Number(process.env.LAB_MAX_STAKE ?? "50");
+const MAX_SHARES = Number(process.env.LAB_MAX_SHARES ?? "100");
+// v6: проверено пробой («лаб проба», 14.11.2026): биржа принимает покупку и продажу МЕНЬШЕ 5 акций (минимум 5 был только в нашем clob.ts).
+// У покупки остаётся минимум $1 на сумму ордера, поэтому нижняя граница — 1 акция и не меньше ~$1.05 по цене входа. Ставки по умолчанию не менялись (5 акций).
+const MIN_SHARES = 1;
+const MIN_NOTIONAL = 1.05; // биржа: покупка рыночным ордером — минимум $1
+const minStakeOf = (c: TradeCfg): number => Math.max(MIN_NOTIONAL, Math.ceil(MIN_SHARES * c.sizeRefPrice * 100) / 100);
+const sharesOf = (c: TradeCfg, price?: number): number => (c.shares !== undefined && c.shares > 0 ? c.shares : c.size / (c.exact && price !== undefined && price > 0.05 ? price : c.sizeRefPrice));
+const stakeTxt = (c: TradeCfg): string => (c.shares !== undefined && c.shares > 0 ? `${c.shares} акций` : `$${c.size}`) + (c.stopPct ? `, стоп ${Math.round(c.stopPct * 100)}%` : "");
+const limitsTxt = (c: TradeCfg): string => `цель ${(c.goalW ?? 0) > 0 ? `${c.goalW} приб. сделк.` : c.goalP > 0 ? `+$${c.goalP}` : "выкл"}, стоп ${c.goalL > 0 ? `−$${c.goalL}` : "выкл"}`;
+const LIVE_CFG_FILE = path.resolve(process.env.LAB_DATA_PATH || process.env.RAILWAY_VOLUME_MOUNT_PATH || process.cwd(), "lab-live-config.json");
+// v9: ОБЩИЙ дневной стоп — сумма закрытых результатов всех ТС за день (UTC) ≤ −$4.5 → никто не покупает до 00:00 UTC (env LAB_TOTAL_STOP, 0 = выкл)
+const TOTAL_STOP = Number(process.env.LAB_TOTAL_STOP ?? "9");
+const DAY_STATE_FILE = path.resolve(path.dirname(LIVE_CFG_FILE), "lab-day-state.json");
+function loadDayState(): Map<string, { day: number; real: number; told: boolean; wins?: number; wq?: number[]; stopW?: boolean; virt?: number }> {
+  const m = new Map<string, { day: number; real: number; told: boolean; wins?: number; wq?: number[]; stopW?: boolean; virt?: number }>();
+  try {
+    const o = JSON.parse(fs.readFileSync(DAY_STATE_FILE, "utf8")) as Record<string, { day: number; real: number; told?: boolean; wins?: number; wq?: number[]; stopW?: boolean; virt?: number }>;
+    const today = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
+    for (const [k, v] of Object.entries(o)) if (v && v.day === today && typeof v.real === "number") m.set(k, { day: v.day, real: v.real, told: !!v.told, wins: typeof v.wins === "number" ? v.wins : 0, wq: Array.isArray(v.wq) ? v.wq : [], stopW: typeof v.stopW === "boolean" ? v.stopW : (v.wins ?? 0) > 0 && v.real > 1e-9, virt: typeof v.virt === "number" ? v.virt : 0 });
+  } catch {
+    /* файла нет — счётчики с нуля */
+  }
+  // v12 (разовая правка 2026-11-22): после перезапуска в счётчики дня попали несуществующие результаты; возвращаем настоящие значения из Telegram-сообщений (все 7 реальных сделок дня)
+  try {
+    const FIX = path.resolve(path.dirname(DAY_STATE_FILE), "lab-day-fix-20261122.flag");
+    const today = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
+    if (today === Math.floor(Date.UTC(2026, 10, 22) / (24 * 60 * 60 * 1000)) && !fs.existsSync(FIX)) {
+      const mk = (real: number, wq: number[], stopW: boolean) => ({ day: today, real, told: stopW, wins: 1, wq, stopW, virt: 0 });
+      m.set("p1", mk(0.57, [0.57], true));
+      m.set("p2", mk(-0.83, [0.38], false));
+      m.set("p3", mk(0.38, [0.38], true));
+      m.set("p4", mk(0.31, [0.31], true));
+      m.set("p5", mk(-0.86, [0.24], false));
+      fs.writeFileSync(DAY_STATE_FILE, JSON.stringify(Object.fromEntries(m)));
+      fs.writeFileSync(FIX, "1");
+    }
+  } catch {
+    /* не получилось — счётчики остаются как есть */
+  }
+  return m;
+}
+function saveDayState(m: Map<string, { day: number; real: number; told: boolean; wins?: number; wq?: number[]; stopW?: boolean; virt?: number }>): void {
+  try {
+    fs.writeFileSync(DAY_STATE_FILE, JSON.stringify(Object.fromEntries(m)));
+  } catch (err) {
+    console.log("[day-state] не удалось сохранить дневные счётчики:", (err as Error).message);
+  }
+}
+let v3Pending = false;
+// v4.4: подробный путь цены по каждой сделке записываем для ячеек, которые торгует бот (для окна сделки на странице)
+// v5.0: ячейки, для которых пишем путь bid по секундам, хотя бот их не торгует (проверка стопов на реальных ценах продажи)
+const EXTRA_PATH_CELLS: string[] = ["fair2|edge <0 / 60-120с / 0.80-0.85"];
+setPathCells([...TRADE_CFGS.filter((c) => c.combo).map((c) => `${c.idea}|${c.combo}`), ...EXTRA_PATH_CELLS]);
+// v5.2 «бумажный стоп»: для этой ячейки бот ничего не покупает, но записывает, когда стоп сработал бы и по какой цене реально продалось бы
+const PAPER_STOP = { idea: "fair2", combo: "edge <0 / 60-120с / 0.80-0.85", pct: 0.28, shares: 5 };
+interface PaperStopRec {
+  slug: string;
+  coin: string;
+  side: "Up" | "Down";
+  tokenId: string;
+  entryTs: number;
+  entry: number; // цена входа (ask)
+  level: number; // уровень стопа: bid ≤ level
+  hitTs?: number;
+  bidHit?: number; // bid в момент срабатывания
+  vwap?: number; // средняя цена продажи 5 акций по глубине стакана (REST) в момент срабатывания
+  depthOk?: boolean; // хватило ли глубины на все акции
+  bid2?: number | null; // bid через ~2 с
+  bid5?: number | null; // bid через ~5 с
+  winner?: "Up" | "Down";
+}
+const PAPER_STOP_LOG_MAX = 500;
+/** Все заявки на покупку (bids) токена: [цена, размер] по убыванию цены. */
+/** Стакан целиком (v6, для бумажных «лимиток»): bids по убыванию цены, asks по возрастанию. */
+async function fetchBookFull(tokenId: string): Promise<{ bids: Array<[number, number]>; asks: Array<[number, number]> } | null> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const resp = await fetch(`${CLOB_HOST}/book?token_id=${tokenId}`, { signal: ctrl.signal });
+    if (!resp.ok) return null;
+    const ob: any = await resp.json();
+    const conv = (arr: any[]): Array<[number, number]> => {
+      const out: Array<[number, number]> = [];
+      for (const o of arr ?? []) {
+        const px = Number(o.price), sz = Number(o.size);
+        if (Number.isFinite(px) && Number.isFinite(sz) && sz > 0) out.push([px, sz]);
+      }
+      return out;
+    };
+    const bids = conv(ob.bids).sort((a, b) => b[0] - a[0]);
+    const asks = conv(ob.asks).sort((a, b) => a[0] - b[0]);
+    return { bids, asks };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+async function fetchBids(tokenId: string): Promise<Array<[number, number]> | null> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const resp = await fetch(`${CLOB_HOST}/book?token_id=${tokenId}`, { signal: ctrl.signal });
+    if (!resp.ok) return null;
+    const ob: any = await resp.json();
+    const out: Array<[number, number]> = [];
+    for (const o of ob.bids ?? []) {
+      const px = Number(o.price);
+      const sz = Number(o.size);
+      if (Number.isFinite(px) && Number.isFinite(sz) && sz > 0) out.push([px, sz]);
+    }
+    out.sort((a, b) => b[0] - a[0]);
+    return out;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// v8 (разовая миграция): торгует только «Набор 2» (группа k2, 18 ТС): ставка $1.1, цель дня +$0.25 у каждой, старт 2026-11-17 00:00 UTC. Все остальные ТС выключены.
+// v9 (разовая миграция): в боте остался ТОЛЬКО «Набор 1007» (группа k8, s01…s08): ставка $1.1, цель дня +$0.5 у каждой, все включены.
+function applyV9(): void {
+  for (const c of TRADE_CFGS) { c.on = true; c.shares = undefined; c.size = 1.1; c.goalP = 0; c.goalL = 0; c.goalW = 1; c.paper = false; }
+}
+function loadLiveCfg(): void {
+  try {
+    const o = JSON.parse(fs.readFileSync(LIVE_CFG_FILE, "utf8")) as Record<string, any>;
+    for (const c of TRADE_CFGS) if (typeof o[c.name] === "number" && o[c.name] >= minStakeOf(c) && o[c.name] <= MAX_STAKE) c.size = o[c.name];
+    const v2 = o.__v2 as Record<string, { shares?: number | null; on?: boolean; goalP?: number; goalL?: number; goalW?: number; paper?: boolean }> | undefined;
+    if (v2 && typeof v2 === "object") {
+      for (const c of TRADE_CFGS) {
+        const x = v2[c.name];
+        if (!x) continue;
+        if (typeof x.on === "boolean") c.on = x.on;
+        if (x.shares === null) c.shares = undefined;
+        else if (typeof x.shares === "number" && x.shares >= MIN_SHARES && x.shares <= MAX_SHARES) c.shares = x.shares;
+        if (typeof x.goalP === "number" && x.goalP >= 0) c.goalP = x.goalP;
+        if (typeof x.goalL === "number" && x.goalL >= 0) c.goalL = x.goalL;
+        if (typeof x.paper === "boolean") c.paper = x.paper;
+        if (typeof x.goalW === "number" && x.goalW >= 0) c.goalW = x.goalW;
+      }
+    }
+    // v12: разовая смена ставки всех ТС коллектива POJ на $1.65 (дальше «лаб объем» работает как обычно)
+    if (!o.__v12) {
+      for (const c of TRADE_CFGS) c.size = 1.65;
+      v3Pending = true;
+    }
+    const dp = o.__dip as Record<string, any> | undefined;
+    if (dp && typeof dp === "object") {
+      if (typeof dp.on === "boolean") DIP.on = dp.on;
+      if (typeof dp.low === "number" && typeof dp.buy === "number" && dp.low >= 1 && dp.buy <= 98 && dp.low < dp.buy) { DIP.low = dp.low; DIP.buy = dp.buy; }
+      if (typeof dp.shares === "number" && dp.shares >= MIN_SHARES && dp.shares <= MAX_SHARES) DIP.shares = dp.shares;
+      if (typeof dp.minLeft === "number" && dp.minLeft >= 3 && dp.minLeft <= 120) DIP.minLeft = dp.minLeft;
+      if (typeof dp.spread === "number" && dp.spread >= 0 && dp.spread <= 10) DIP.spread = dp.spread;
+    }
+    // v4.3 (разовая миграция): торгуют только m98 и f30, у каждой 5 акций и цель дня +$2.5; остальные выключены (включаются командой «лаб тс вкл <имя>»)
+    if (!o.__v3) {
+      for (const c of TRADE_CFGS) {
+        const mine = c.name === "m98" || c.name === "f30";
+        c.on = mine;
+        if (mine) { c.shares = 5; c.goalP = 2.5; }
+      }
+      v3Pending = true;
+    }
+    // v4.8 (разовая миграция): торгуют m98 (цель +$2.5), cb4 (цель +$3) и fbg (цель +$2.5), у каждой 5 акций; cb4 и fbg стартуют с 7 ноября (UTC)
+    if (!o.__v4) {
+      const goals: Record<string, number> = { m98: 2.5, cb4: 3, fbg: 2.5 };
+      for (const c of TRADE_CFGS) {
+        const g = goals[c.name];
+        c.on = g !== undefined;
+        if (g !== undefined) { c.shares = 5; c.goalP = g; }
+      }
+      v3Pending = true;
+    }
+    // v5.6 (разовая миграция): cb4 — ставка $5 (без фиксированных акций), цель дня +$3, торгует с 2026-11-13 00:00 UTC (= 07:00 по Бангкоку)
+    if (!o.__v5) {
+      const c = TRADE_CFGS.find((x) => x.name === "cb4");
+      if (c) { c.on = true; c.shares = undefined; c.size = 5; c.goalP = 3; }
+      v3Pending = true;
+    }
+    // v6 (разовая миграция): реально торгует ТОЛЬКО коллектив (kol1-kol10, т.е. и fz2, fz3), у каждой ставка $1.1 (без фиксированных акций), без дневной цели. Остальные выключены — только пишут статистику (включить: «лаб тс вкл <имя>»). «Вход после дна» выключен.
+    if (!o.__v6) {
+      for (const c of TRADE_CFGS) {
+        const mine = c.group === "kol";
+        c.on = mine;
+        if (mine) { c.shares = undefined; c.size = 1.1; c.goalP = 0; c.goalL = 0; }
+      }
+      DIP.on = false;
+      v3Pending = true;
+    }
+    // v7 (разовая миграция): «Набор 15» (группа k19: ts03…ts22 + fz2, fz3, kol8) — ставка $1.1, цель дня +$1 у каждой, включены. Старый коллектив не трогаем: он сам остановится по untilDay.
+    if (!o.__v7) {
+      for (const c of TRADE_CFGS) {
+        if (c.group !== "k19") continue;
+        c.on = true; c.shares = undefined; c.size = 1.1; c.goalP = 1; c.goalL = 0;
+      }
+      v3Pending = true;
+    }
+    if (!o.__v11) {
+      applyV9();
+      v3Pending = true;
+    }
+  } catch {
+    /* файла ещё нет — настройки по умолчанию */
+    applyV9();
+  }
+  if (v3Pending) saveLiveCfg();
+}
+function saveLiveCfg(): void {
+  try {
+    const o: Record<string, any> = Object.fromEntries(TRADE_CFGS.map((c) => [c.name, c.size]));
+    o.__v2 = Object.fromEntries(TRADE_CFGS.map((c) => [c.name, { shares: c.shares ?? null, on: c.on, goalP: c.goalP, goalL: c.goalL, goalW: c.goalW ?? 0, paper: c.paper === true }]));
+    o.__v3 = true;
+    o.__v4 = true;
+    o.__v5 = true;
+    o.__v6 = true;
+    o.__v7 = true;
+    o.__v8 = true;
+    o.__v9 = true;
+    o.__v10 = true;
+    o.__v11 = true;
+    o.__v12 = true;
+    o.__dip = { ...DIP };
+    fs.writeFileSync(LIVE_CFG_FILE, JSON.stringify(o));
+    tgbSettingsSoon(); // v15: копия настроек в Telegram (если нет тома)
+  } catch (err) {
+    console.log("[live-cfg] не удалось сохранить настройки:", (err as Error).message);
+  }
+}
+// v3.7: РЕАЛЬНАЯ торговля теми же идеями (PAPER_TRADE). Включается переменной LAB_TRADE=on (нужны PRIVATE_KEY, FUNDER_ADDRESS и т.д. как у бота).
+// v3.9: каждая стратегия торгует независимо (одна позиция на рынок — только внутри стратегии); общие лимиты широкие: 12 в окне, 30 открытых, 200 в час (env LAB_MAX_PER_WINDOW / LAB_MAX_OPEN / LAB_QUOTA_PER_HOUR).
+const LIVE_TRADE_ENV = (process.env.LAB_TRADE ?? "off").toLowerCase() === "on";
+const LIVE_MAX_PER_WINDOW = Number(process.env.LAB_MAX_PER_WINDOW ?? "25"); // v3.9: стратегии независимы, лимит общий и широкий
+const LIVE_MAX_OPEN = Number(process.env.LAB_MAX_OPEN ?? "30");
+const LIVE_QUOTA_PER_HOUR = Number(process.env.LAB_QUOTA_PER_HOUR ?? "200");
+const LIVE_ATTEMPTS = 3; // сколько раз пробуем купить, если ордер не исполнился (FAK без встречных заявок)
+const LIVE_RETRY_DELAY_MS = 700;
+const SIG_RETRIES = 6; // v14: сколько раз повторить заказ, если биржа отвергла подпись (ничего не куплено — безопасно)
+const SIG_RETRY_DELAY_MS = 150;
+const LIVE_MIN_SEC_LEFT = 3; // не пытаемся покупать, если до закрытия меньше стольких секунд
+
+function resolveFillLive(rawA: number, rawB: number, expectedPrice: number): { filledSize: number; avgPrice: number } {
+  const cands: { shares: number; price: number }[] = [];
+  for (const [shares, dollars] of [[rawA, rawB], [rawB, rawA]] as const) {
+    if (shares <= 0) continue;
+    const price = dollars / shares;
+    if (price > 0 && price < 1) cands.push({ shares, price });
+  }
+  if (cands.length === 0) return { filledSize: 0, avgPrice: 0 };
+  cands.sort((a, b) => Math.abs(a.price - expectedPrice) - Math.abs(b.price - expectedPrice));
+  return { filledSize: cands[0].shares, avgPrice: cands[0].price };
+}
+const ABOVE_CAP_MAX_ASK = 0.995; // v3.5: сигналы профилей с ask выше потолка пишем (идея bot{N}hi), пока ask не выше этого
+const BOT_ENTRY_PRICE = 0.97; // бот считает размер в акциях как «доллары / 0.97»
+const DAY_MS = 24 * 60 * 60 * 1000;
+const LIVE_LOG_MAX = 4000;
+
+// Что торгует реальный бот СЕЙЧАС: идея -> размер ставки в $. Идея вида bot7b2 = профиль 7 + корзина Binance №2 (50-80%).
+// Корзины: b0 = Binance против, b1 = меньше 50%, b2 = 50-80%, b3 = 80-120%, b4 = больше 120%. Без «b» = без фильтра.
+// v3.1: то же для Coinbase: bot7c0 … bot7c4; по двум биржам сразу: bot7k2 (обе против), bot7k1 (одна против), bot7k0 (обе не против).
+// Если включишь в боте профиль 6 — добавь сюда  bot6: 7  (или тот размер, что стоит в боте).
+const LIVE_VARIANTS: Record<string, number> = { bot7b2: 5 };
+
+interface CoinPriceFeed {
+  getPriceAt(ts: number): number | null;
+  getLatestPrice(): number | null;
+}
+const PRICE_FEEDS: Record<string, CoinPriceFeed> = {
+  Bitcoin: btcPriceFeed,
+  Ethereum: ethPriceFeed,
+  Solana: solPriceFeed,
+  XRP: xrpPriceFeed,
+  Dogecoin: dogePriceFeed,
+};
+const INCLUDED_COINS = Object.keys(PRICE_FEEDS);
+// ───── v6: свечи 15м и 1ч по монете (подтверждение старшим таймфреймом) ─────
+// Раз в 15с запоминаем цену каждой монеты (история ~2 ч, сохраняется в файл), по ней считаем, что делала монета на 15-минутке и часовике до входа.
+const HTF_KEEP_MS = 135 * 60 * 1000;
+const HTF_STEP_MS = 15 * 1000;
+interface HtfFeats { m15: number | null; m60: number | null; q5: number | null; q15: number | null; q60: number | null }
+class HtfTracker {
+  private h: Record<string, { t: number; p: number }[]> = {};
+  private readonly file = path.resolve(STORAGE_DIR, "lab-htf.json");
+  load(): void {
+    try {
+      const j = JSON.parse(fs.readFileSync(this.file, "utf8"));
+      if (j && typeof j === "object") this.h = j;
+    } catch { /* нет файла — начнём с нуля */ }
+  }
+  save(): void {
+    try {
+      fs.writeFileSync(this.file + ".tmp", JSON.stringify(this.h));
+      fs.renameSync(this.file + ".tmp", this.file);
+    } catch { /* не критично */ }
+  }
+  sample(): void {
+    const t = Date.now();
+    for (const [coin, feed] of Object.entries(PRICE_FEEDS)) {
+      const p = feed.getLatestPrice();
+      if (p === null || !(p > 0)) continue;
+      const a = this.h[coin] ?? (this.h[coin] = []);
+      a.push({ t, p });
+      const cut = t - HTF_KEEP_MS;
+      while (a.length > 0 && a[0].t < cut) a.shift();
+    }
+  }
+  private at(coin: string, ts: number): number | null {
+    const a = this.h[coin];
+    if (!a || a.length === 0) return null;
+    let best: number | null = null;
+    let bd = Infinity;
+    for (let i = a.length - 1; i >= 0; i--) {
+      const d = Math.abs(a[i].t - ts);
+      if (d < bd) { bd = d; best = a[i].p; }
+      if (a[i].t < ts - 60000) break;
+    }
+    return best !== null && bd <= 45000 ? best : null;
+  }
+  /** Движения в bps в нашу сторону: m — с начала текущей свечи до сейчас, q — вся предыдущая свеча. */
+  feats(coin: string, now: number, coinNow: number, dir: 1 | -1): HtfFeats {
+    const mv = (a: number | null, b: number | null): number | null =>
+      a === null || b === null || b <= 0 ? null : Math.round(((a - b) / b) * 1e4 * dir * 10) / 10;
+    const o5 = Math.floor(now / 300000) * 300000;
+    const o15 = Math.floor(now / 900000) * 900000;
+    const o60 = Math.floor(now / 3600000) * 3600000;
+    const p15 = this.at(coin, o15);
+    const p60 = this.at(coin, o60);
+    return {
+      m15: mv(coinNow, p15),
+      m60: mv(coinNow, p60),
+      q5: mv(this.at(coin, o5), this.at(coin, o5 - 300000)),
+      q15: mv(p15, this.at(coin, o15 - 900000)),
+      q60: mv(p60, this.at(coin, o60 - 3600000)),
+    };
+  }
+}
+const htfTracker = new HtfTracker();
+const COIN_SHORT: Record<string, string> = {
+  Bitcoin: "BTC",
+  Ethereum: "ETH",
+  Solana: "SOL",
+  XRP: "XRP",
+  Dogecoin: "DOGE",
+};
+
+const volTracker = new VolatilityTracker(PRICE_FEEDS);
+
+// ─────────────────────────── Сетки идей ───────────────────────────
+
+// v3.2 / «Темка»: покупка в начале окна и продажа по тейк-профиту.
+const TEMKA_TIMEFRAMES = [5, 15]; // минуты
+const TEMKA_OPEN_MAX_SEC = 30; // рынок берём в игру, только если мы застали его не позже N секунд после открытия окна (иначе статистика грязная)
+const TEMKA_MARKET_ASK_MIN = 0.3; // «по рынку» на открытии: ask должен быть в разумных пределах (не перекошенный стакан)
+const TEMKA_MARKET_ASK_MAX = 0.7;
+const TEMKA_LIMIT_LEVELS = [0.5, 0.48, 0.45, 0.4, 0.35]; // уровни лимитных покупок (ждут, пока ask опустится до уровня)
+const TEMKA_LIMIT_WAITS: Record<number, number[]> = { 5: [60, 180], 15: [180, 540] }; // сколько секунд от открытия окна лимитка живёт
+const TEMKA_TP_DELTAS = [0.02, 0.03, 0.04, 0.05, 0.07, 0.1]; // тейк-профит: +N от цены входа (при входе 0.50 это 0.52 / 0.53 / 0.54 / 0.55 / 0.57 / 0.60)
+const TEMKA_MIN_SIZE = 5; // на лучшем уровне стакана должно быть минимум столько акций, чтобы вход/выход считались исполненными
+const TEMKA_CONFIRM_COOLDOWN_MS = 1000; // не чаще 1 проверки живым стаканом на токен в секунду
+const TEMKA_MIN_FILLS = 30; // минимум входов для общего топа и значков ✅/❌
+const TEMKA_MIN_FILLS_COIN = 15; // минимум входов для топа по монете
+
+// «Контртренд»: монета резко (за TEMKA_CT_LOOKBACK_SEC секунд) ушла ПРОТИВ стороны, токен этой стороны подешевел до уровня — покупаем его
+// ради отскока. Рывок меряем в «сигмах»: движение за окно ÷ (типичное 5-мин движение × √(окно/300)), как z в остальном LAB.
+const TEMKA_CT_LEVELS = [0.4, 0.3, 0.2];
+const TEMKA_CT_ZS = [1.5, 2.5];
+const TEMKA_CT_LOOKBACK_SEC = 30;
+const TEMKA_CT_MIN_ELAPSED_SEC = 30; // не раньше, чем через N секунд после открытия окна
+const TEMKA_CT_MIN_SEC_TO_CLOSE = 60; // и не позже, чем за N секунд до закрытия
+
+interface TemkaMode {
+  id: string;
+  label: string;
+  level?: number; // лимитка: уровень покупки
+  waitSec?: number; // лимитка: сколько секунд от открытия ждём
+  ctLevel?: number; // контртренд: потолок ask токена
+  ctZ?: number; // контртренд: минимальный рывок монеты против стороны (в σ)
+}
+function temkaModesFor(tf: number): TemkaMode[] {
+  const waits = TEMKA_LIMIT_WAITS[tf] ?? TEMKA_LIMIT_WAITS[5];
+  return [
+    { id: "m", label: "по рынку на открытии окна" },
+    ...TEMKA_LIMIT_LEVELS.flatMap((l) =>
+      waits.map((w) => ({ id: `l${l.toFixed(2)}w${w}`, label: `лимит ${l.toFixed(2)}, ждём ${w}с`, level: l, waitSec: w })),
+    ),
+    ...TEMKA_CT_LEVELS.flatMap((l) =>
+      TEMKA_CT_ZS.map((z) => ({
+        id: `ct${l.toFixed(2)}z${z.toFixed(1)}`,
+        label: `контртренд: токен ≤ ${l.toFixed(2)}, рывок монеты против ≥ ${z.toFixed(1)}σ за ${TEMKA_CT_LOOKBACK_SEC}с`,
+        ctLevel: l,
+        ctZ: z,
+      })),
+    ),
+  ];
+}
+const TEMKA_MODES_BY_TF: Record<number, TemkaMode[]> = Object.fromEntries(TEMKA_TIMEFRAMES.map((tf) => [tf, temkaModesFor(tf)]));
+/** Ключ режима в агрегате: для 5м как раньше (совместимо со старой статистикой), для остальных с суффиксом таймфрейма. */
+function temkaKeyMode(mode: string, tf: number): string {
+  return tf === 5 ? mode : `${mode}@${tf}`;
+}
+
+// 1. «Запас»
+const Z_LEVELS = [1.0, 1.5, 2.0, 2.5, 3.0, 4.0];
+const MARGIN_WINDOWS = [30, 60, 90, 120, 180, 300];
+const MARGIN_PRICE_LOW = 0.97;
+const MARGIN_PRICE_HIGH = 0.98;
+
+// 2. «Недооценка»
+const CHEAP_THRESHOLDS = [0.001, 0.0015, 0.002, 0.003];
+const CHEAP_WINDOWS = [60, 90, 120, 180, 300];
+const CHEAP_BANDS: [number, number][] = [
+  [0.85, 0.9],
+  [0.9, 0.93],
+  [0.93, 0.96],
+];
+
+// 3. «Паника без разворота»
+const PANIC_THRESHOLDS = [0.001, 0.0015, 0.002, 0.003];
+const PANIC_WINDOWS = [30, 60, 90, 120, 180, 300];
+const PANIC_BANDS: [number, number][] = [
+  [0.85, 0.9],
+  [0.9, 0.95],
+];
+const PANIC_PEAK = 0.97;
+
+// 4. «Импульс последних секунд»
+const IMPULSE_LOOKBACKS_SEC = [15, 30];
+const IMPULSE_THRESHOLDS = [0.0003, 0.0005, 0.0008, 0.0012];
+const IMPULSE_WINDOWS = [60, 120, 180];
+const IMPULSE_ASK_MIN = 0.6;
+const IMPULSE_ASK_MAX = 0.98;
+
+// 6. «Подтверждение другими монетами»
+const CONFIRM_LEVEL_1 = 0.0005; // 0.05%
+const CONFIRM_LEVEL_2 = 0.001; // 0.10%
+
+// 8. «Модель цены»: сила движения (z) × секунды до закрытия × цена токена (ask).
+const MODEL_Z_BANDS: [number, number][] = [
+  [0.5, 1],
+  [1, 1.5],
+  [1.5, 2],
+  [2, 3],
+  [3, 99],
+];
+const MODEL_SEC_BANDS: [number, number][] = [
+  [0, 30],
+  [30, 60],
+  [60, 120],
+  [120, 180],
+  [180, 240],
+];
+const MODEL_PRICE_BANDS: [number, number][] = [
+  [0.6, 0.7],
+  [0.7, 0.8],
+  [0.8, 0.85],
+  [0.85, 0.9],
+  [0.9, 0.93],
+  [0.93, 0.96],
+  [0.96, 0.97],
+  [0.97, 0.98],
+  [0.98, 0.99],
+];
+const MODEL_ASK_MIN = 0.6;
+const MODEL_ASK_MAX = 0.99;
+const MODEL_MAX_SEC = 240;
+const MODEL_MIN_TRADES = 30; // минимум записей на комбинацию для общего топа
+const MODEL_MIN_COIN = 15; // минимум записей на комбинацию для отчёта по монете
+
+// v3.1 / A. Binance-против на всей сетке модели: граница «чуть против» / «сильно против» (в долях потока бота).
+// ratio = движение по Binance ÷ движение по потоку бота. ratio < 0 — Binance уже за ценой открытия (против).
+const MODEL_BIN_DOSE_CUT = -0.25;
+
+function zLabel(b: [number, number]): string {
+  return `сила ${b[1] >= 99 ? `${b[0]}+` : `${b[0]}-${b[1]}`}`;
+}
+function secLabel(b: [number, number]): string {
+  return b[0] === 0 ? `до ${b[1]}с` : `${b[0]}-${b[1]}с`;
+}
+function priceLabel(b: [number, number]): string {
+  return `${b[0].toFixed(2)}-${b[1].toFixed(2)}`;
+}
+
+// 9. «Пила»
+const SAW_LOOKBACK_SEC = 180;
+const SAW_STEP_SEC = 5;
+const SAW_BUCKETS = [0, 1, 2, 3]; // 3 = «3 и больше»
+
+function sawLabel(n: number): string {
+  return n >= 3 ? "3+" : String(n);
+}
+
+// 10. «Пара BTC+ETH»
+const PAIR_COINS = ["Bitcoin", "Ethereum"]; // порядок важен: [0] = BTC, [1] = ETH
+const PAIR_WINDOWS = [60, 90, 120, 180];
+const PAIR_MOVES = [0.001, 0.0015, 0.002, 0.003]; // 0.10% / 0.15% / 0.20% / 0.30%
+const PAIR_BANDS: [number, number][] = [
+  [0.95, 0.97],
+  [0.97, 0.98],
+];
+const PAIR_MIN_TRADES = 10;
+const PAIR_PRUNE_MS = 10 * 60 * 1000;
+
+// v3.1 / D. «Справедливая цена»: p = Φ(d / (σ·√t)); edge = p − ask.
+const FAIR_SHORT = ["<0", "0-2%", "2-4%", "4-6%", "6%+"];
+const FAIR_EDGE_LABELS = FAIR_SHORT.map((s) => `edge ${s}`);
+function fairIdx(edge: number): number {
+  return edge < 0 ? 0 : edge < 0.02 ? 1 : edge < 0.04 ? 2 : edge < 0.06 ? 3 : 4;
+}
+// σ считается из тиков фида (реализованная волатильность за последние look секунд, шаг step секунд).
+const FAIR_VARIANTS = [
+  { idea: "fair1", look: 60, step: 3, label: "σ за последние 60с" },
+  { idea: "fair2", look: 120, step: 5, label: "σ за последние 120с" },
+];
+// Защита от «тихого фида»: σ не опускается ниже этой доли от обычной (часовой) секундной σ.
+const FAIR_SIGMA_FLOOR = 0.3;
+
+// v3.1 / C. Режим волатильности: σ за короткий период ÷ обычная σ (из VolatilityTracker, то же что в z).
+const REGIME_SHORT_SEC = 120;
+const REGIME_LONG_SEC = 300;
+const LOSS_WINDOWS_MAX = 400;
+
+// v3.1 / E. Заражение между монетами
+const CONTAGION_PEAK = 0.95; // токен соседа был не ниже
+const CONTAGION_DROP_TO = 0.85; // а сейчас ниже
+const CONTAGION_SOFT_PEAK = 0.9; // мягкий вариант: был не ниже 0.90 и упал на 0.10+
+const CONTAGION_SOFT_DROP = 0.1;
+
+// v3.1 / F. Траектория токена
+const TRAJ_LOOKBACK_SEC = 15;
+const ASK_HIST_KEEP_MS = 40 * 1000;
+
+// 11-14. Бинанс и Coinbase, признаки лосей, согласие профилей, стопы
+const BINANCE_SYMBOLS: Record<string, string> = {
+  Bitcoin: "BTCUSDT",
+  Ethereum: "ETHUSDT",
+  Solana: "SOLUSDT",
+  XRP: "XRPUSDT",
+  Dogecoin: "DOGEUSDT",
+};
+const BINANCE_HOSTS = ["https://data-api.binance.vision", "https://api.binance.com"];
+const BINANCE_POLL_MS = 1000;
+const BINANCE_KEEP_MS = 15 * 60 * 1000;
+const BINANCE_MATCH_MS = 4000;
+const BINANCE_FRESH_MS = 5000;
+
+const COINBASE_PRODUCTS: Record<string, string> = {
+  Bitcoin: "BTC-USD",
+  Ethereum: "ETH-USD",
+  Solana: "SOL-USD",
+  XRP: "XRP-USD",
+  Dogecoin: "DOGE-USD",
+};
+const COINBASE_HOSTS = ["https://api.exchange.coinbase.com", "https://api.coinbase.com"];
+const COINBASE_POLL_MS = 1000;
+
+/** Общая часть опроса биржи по REST раз в N мс: история цен за 15 минут, поиск цены на момент времени. */
+abstract class RestFeed {
+  protected hist: Record<string, { t: number; p: number }[]> = {};
+  protected hostIdx = 0;
+  private failStreak = 0;
+  private polling = false;
+  okCount = 0;
+  failCount = 0;
+
+  constructor(
+    private readonly pollMs: number,
+    private readonly keepMs: number,
+    private readonly freshMs: number,
+    private readonly matchMs: number,
+  ) {}
+
+  protected abstract hostCount(): number;
+  /** Возвращает цены по монетам (название монеты -> цена). Кидает ошибку, если ничего не получено. */
+  protected abstract fetchPrices(hostIdx: number, signal: AbortSignal): Promise<Record<string, number>>;
+
+  start(): void {
+    void this.poll();
+    setInterval(() => void this.poll(), this.pollMs);
+  }
+
+  private async poll(): Promise<void> {
+    if (this.polling) return;
+    this.polling = true;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 3000);
+    try {
+      const prices = await this.fetchPrices(this.hostIdx, ctrl.signal);
+      const t = Date.now();
+      let got = 0;
+      for (const [coin, p] of Object.entries(prices)) {
+        if (!Number.isFinite(p) || p <= 0) continue;
+        const h = this.hist[coin] ?? (this.hist[coin] = []);
+        h.push({ t, p });
+        const cutoff = t - this.keepMs;
+        while (h.length > 0 && h[0].t < cutoff) h.shift();
+        got++;
+      }
+      if (got === 0) throw new Error("пустой ответ");
+      this.okCount++;
+      this.failStreak = 0;
+    } catch {
+      this.failCount++;
+      this.failStreak++;
+      if (this.failStreak >= 5) {
+        this.hostIdx = (this.hostIdx + 1) % this.hostCount();
+        this.failStreak = 0;
+      }
+    } finally {
+      clearTimeout(timer);
+      this.polling = false;
+    }
+  }
+
+  getLatest(coin: string): number | null {
+    const h = this.hist[coin];
+    if (!h || h.length === 0) return null;
+    const last = h[h.length - 1];
+    return Date.now() - last.t <= this.freshMs ? last.p : null;
+  }
+
+  getPriceAt(coin: string, ts: number): number | null {
+    const h = this.hist[coin];
+    if (!h || h.length === 0) return null;
+    let best: { t: number; p: number } | null = null;
+    let bestD = Infinity;
+    for (let i = h.length - 1; i >= 0; i--) {
+      const d = Math.abs(h[i].t - ts);
+      if (d < bestD) {
+        best = h[i];
+        bestD = d;
+      }
+      if (h[i].t < ts - this.matchMs) break;
+    }
+    return best !== null && bestD <= this.matchMs ? best.p : null;
+  }
+}
+
+/** Цена монет с Binance: опрос REST раз в секунду, история за 15 минут. Без внешних библиотек. */
+class BinanceFeed extends RestFeed {
+  constructor() {
+    super(BINANCE_POLL_MS, BINANCE_KEEP_MS, BINANCE_FRESH_MS, BINANCE_MATCH_MS);
+  }
+  protected hostCount(): number {
+    return BINANCE_HOSTS.length;
+  }
+  protected async fetchPrices(hostIdx: number, signal: AbortSignal): Promise<Record<string, number>> {
+    const symbols = Object.values(BINANCE_SYMBOLS);
+    const url = `${BINANCE_HOSTS[hostIdx]}/api/v3/ticker/price?symbols=${encodeURIComponent(JSON.stringify(symbols))}`;
+    const resp = await fetch(url, { signal });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const arr: any[] = await resp.json();
+    const out: Record<string, number> = {};
+    for (const row of arr) {
+      const coin = Object.keys(BINANCE_SYMBOLS).find((c) => BINANCE_SYMBOLS[c] === row.symbol);
+      const p = Number(row.price);
+      if (coin && Number.isFinite(p) && p > 0) out[coin] = p;
+    }
+    return out;
+  }
+}
+
+/** Цена монет с Coinbase (публичный REST, раз в секунду, по одному запросу на монету). Без ключей. */
+class CoinbaseFeed extends RestFeed {
+  constructor() {
+    super(COINBASE_POLL_MS, BINANCE_KEEP_MS, BINANCE_FRESH_MS, BINANCE_MATCH_MS);
+  }
+  protected hostCount(): number {
+    return COINBASE_HOSTS.length;
+  }
+  protected async fetchPrices(hostIdx: number, signal: AbortSignal): Promise<Record<string, number>> {
+    const host = COINBASE_HOSTS[hostIdx];
+    const headers = { "User-Agent": "research-lab/3.1", Accept: "application/json" };
+    const coins = Object.keys(COINBASE_PRODUCTS);
+    const results = await Promise.allSettled(
+      coins.map(async (coin) => {
+        const prod = COINBASE_PRODUCTS[coin];
+        const url = hostIdx === 0 ? `${host}/products/${prod}/ticker` : `${host}/v2/prices/${prod}/spot`;
+        const resp = await fetch(url, { signal, headers });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const j: any = await resp.json();
+        const p = Number(hostIdx === 0 ? j.price : j?.data?.amount);
+        if (!Number.isFinite(p) || p <= 0) throw new Error("bad price");
+        return [coin, p] as [string, number];
+      }),
+    );
+    const out: Record<string, number> = {};
+    for (const r of results) if (r.status === "fulfilled") out[r.value[0]] = r.value[1];
+    return out;
+  }
+}
+
+const binance = new BinanceFeed();
+const coinbase = new CoinbaseFeed();
+
+// ───── v3.4: ещё биржи (Bybit, OKX, Kraken, Bitget) — те же корзины «прошла ли биржа за потоком», что у Binance/Coinbase ─────
+
+/** Опрос биржи по одному запросу на монету (публичный REST, без ключей). */
+abstract class PerCoinFeed extends RestFeed {
+  protected abstract hosts(): string[];
+  protected abstract coinsMap(): Record<string, string>;
+  protected abstract urlFor(host: string, sym: string): string;
+  protected abstract parse(j: any): number;
+  protected hostCount(): number {
+    return this.hosts().length;
+  }
+  protected async fetchPrices(hostIdx: number, signal: AbortSignal): Promise<Record<string, number>> {
+    const host = this.hosts()[hostIdx];
+    const map = this.coinsMap();
+    const results = await Promise.allSettled(
+      Object.keys(map).map(async (coin) => {
+        const resp = await fetch(this.urlFor(host, map[coin]), { signal, headers: { "User-Agent": "research-lab/3.4", Accept: "application/json" } });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const p = this.parse(await resp.json());
+        if (!Number.isFinite(p) || p <= 0) throw new Error("bad price");
+        return [coin, p] as [string, number];
+      }),
+    );
+    const out: Record<string, number> = {};
+    for (const r of results) if (r.status === "fulfilled") out[r.value[0]] = r.value[1];
+    return out;
+  }
+}
+
+const USDT_SYMBOLS: Record<string, string> = { Bitcoin: "BTCUSDT", Ethereum: "ETHUSDT", Solana: "SOLUSDT", XRP: "XRPUSDT", Dogecoin: "DOGEUSDT" };
+
+class BybitFeed extends PerCoinFeed {
+  constructor() {
+    super(1000, BINANCE_KEEP_MS, BINANCE_FRESH_MS, BINANCE_MATCH_MS);
+  }
+  protected hosts(): string[] {
+    return ["https://api.bybit.com", "https://api.bytick.com"];
+  }
+  protected coinsMap(): Record<string, string> {
+    return USDT_SYMBOLS;
+  }
+  protected urlFor(host: string, sym: string): string {
+    return `${host}/v5/market/tickers?category=spot&symbol=${sym}`;
+  }
+  protected parse(j: any): number {
+    return Number(j?.result?.list?.[0]?.lastPrice);
+  }
+}
+
+class OkxFeed extends PerCoinFeed {
+  constructor() {
+    super(1000, BINANCE_KEEP_MS, BINANCE_FRESH_MS, BINANCE_MATCH_MS);
+  }
+  protected hosts(): string[] {
+    return ["https://www.okx.com", "https://aws.okx.com"];
+  }
+  protected coinsMap(): Record<string, string> {
+    return { Bitcoin: "BTC-USDT", Ethereum: "ETH-USDT", Solana: "SOL-USDT", XRP: "XRP-USDT", Dogecoin: "DOGE-USDT" };
+  }
+  protected urlFor(host: string, sym: string): string {
+    return `${host}/api/v5/market/ticker?instId=${sym}`;
+  }
+  protected parse(j: any): number {
+    return Number(j?.data?.[0]?.last);
+  }
+}
+
+class BitgetFeed extends PerCoinFeed {
+  constructor() {
+    super(1000, BINANCE_KEEP_MS, BINANCE_FRESH_MS, BINANCE_MATCH_MS);
+  }
+  protected hosts(): string[] {
+    return ["https://api.bitget.com"];
+  }
+  protected coinsMap(): Record<string, string> {
+    return USDT_SYMBOLS;
+  }
+  protected urlFor(host: string, sym: string): string {
+    return `${host}/api/v2/spot/market/tickers?symbol=${sym}`;
+  }
+  protected parse(j: any): number {
+    return Number(j?.data?.[0]?.lastPr);
+  }
+}
+
+/** Kraken: одним запросом все пары, раз в 2с (у публичного API Kraken строже лимиты). */
+class KrakenFeed extends RestFeed {
+  constructor() {
+    super(2000, BINANCE_KEEP_MS, 8000, 6000);
+  }
+  protected hostCount(): number {
+    return 1;
+  }
+  protected async fetchPrices(_hostIdx: number, signal: AbortSignal): Promise<Record<string, number>> {
+    const resp = await fetch("https://api.kraken.com/0/public/Ticker?pair=XBTUSD,ETHUSD,SOLUSD,XRPUSD,XDGUSD", { signal, headers: { "User-Agent": "research-lab/3.4" } });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const j: any = await resp.json();
+    const out: Record<string, number> = {};
+    for (const [key, v] of Object.entries<any>(j?.result ?? {})) {
+      const k = key.toUpperCase();
+      const coin = k.includes("XBT") || k.startsWith("XXBT") ? "Bitcoin" : k.includes("ETH") ? "Ethereum" : k.includes("SOL") ? "Solana" : k.includes("XRP") ? "XRP" : k.includes("XDG") || k.includes("DOGE") ? "Dogecoin" : null;
+      const p = Number(v?.c?.[0]);
+      if (coin && Number.isFinite(p) && p > 0) out[coin] = p;
+    }
+    return out;
+  }
+}
+
+const bybit = new BybitFeed();
+const okx = new OkxFeed();
+const kraken = new KrakenFeed();
+const bitget = new BitgetFeed();
+/** Дополнительные биржи: ключ в записи сделки -> подпись и фид */
+const EXTRA_EXCHANGES: { key: string; label: string; feed: RestFeed }[] = [
+  { key: "by", label: "Bybit", feed: bybit },
+  { key: "ok", label: "OKX", feed: okx },
+  { key: "kr", label: "Kraken", feed: kraken },
+  { key: "bg", label: "Bitget", feed: bitget },
+];
+
+const BIN_LABELS = [
+  "Binance против (уже за ценой открытия)",
+  "Binance прошёл меньше 50% от потока",
+  "50-80% от потока",
+  "80-120% (примерно как поток)",
+  "Binance дальше от открытия, чем поток (больше 120%)",
+];
+const CB_LABELS = BIN_LABELS.map((s) => s.replace("Binance", "Coinbase"));
+const K_LABELS = ["обе биржи не против", "одна из двух бирж против", "обе биржи против"];
+const RATIO_SHORT = ["против", "меньше 50%", "50-80%", "80-120%", "больше 120%"];
+function binBucketIdx(r: number): number {
+  return r < 0 ? 0 : r < 0.5 ? 1 : r < 0.8 ? 2 : r < 1.2 ? 3 : 4;
+}
+
+/** Расшифровка идеи вида bot7 / bot7b2 / bot7c0 / bot7k2. */
+function variantTitle(idea: string): string {
+  const m = idea.match(/^bot(\d+)(?:([bc])(\d)|k(\d))?$/);
+  if (!m) return idea;
+  let s = `Профиль ${m[1]}`;
+  if (m[2] === "b") s += `, ${BIN_LABELS[Number(m[3])]}`;
+  else if (m[2] === "c") s += `, ${CB_LABELS[Number(m[3])]}`;
+  else if (m[4] !== undefined) s += `, ${K_LABELS[Number(m[4])]}`;
+  else s += ", без фильтра бирж";
+  return s;
+}
+
+const AG_LABELS = ["сигнал дал только он (1 профиль)", "согласны 2 профиля", "согласны 3 и больше"];
+
+const DIP_LABELS = ["не опускался ниже 0.95", "0.90-0.95", "0.80-0.90", "0.70-0.80", "0.50-0.70", "0.30-0.50", "ниже 0.30"];
+function dipBucketIdx(minBid: number): number {
+  return minBid >= 0.95 ? 0 : minBid >= 0.9 ? 1 : minBid >= 0.8 ? 2 : minBid >= 0.7 ? 3 : minBid >= 0.5 ? 4 : minBid >= 0.3 ? 5 : 6;
+}
+const STOP_LEVELS = [0.92, 0.9, 0.85, 0.8, 0.7, 0.6, 0.5, 0.4];
+const LOSS_LOG_MAX = 60;
+
+function fmtPct(v: number | null | undefined, d = 2): string {
+  return v === null || v === undefined ? "—" : `${(v * 100).toFixed(d)}%`;
+}
+function fmtNum(v: number): string {
+  const a = Math.abs(v);
+  return a >= 100 ? v.toFixed(0) : a >= 10 ? v.toFixed(1) : v.toFixed(2);
+}
+
+/** Функция распределения стандартного нормального закона (Абрамовиц-Стеган 26.2.17, ошибка < 1e-7). */
+function normCdf(x: number): number {
+  const t = 1 / (1 + 0.2316419 * Math.abs(x));
+  const d = 0.3989422804014327 * Math.exp((-x * x) / 2);
+  const p = d * t * (0.31938153 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
+  return x > 0 ? 1 - p : p;
+}
+
+// корзины новых признаков
+const REGIME_LABELS = ["до 0.7", "0.7-1.0", "1.0-1.5", "1.5-2.5", "больше 2.5"];
+function regimeIdx(r: number): number {
+  return r < 0.7 ? 0 : r < 1 ? 1 : r < 1.5 ? 2 : r < 2.5 ? 3 : 4;
+}
+const NEAR_LABELS = ["0", "1", "2+"];
+const TRAJ_LABELS = [
+  "резко падает (−0.05 и ниже)",
+  "падает (−0.05…−0.015)",
+  "стоит (±0.015)",
+  "растёт (+0.015…+0.05)",
+  "резко растёт (+0.05 и выше)",
+];
+function trajIdx(d: number): number {
+  return d <= -0.05 ? 0 : d <= -0.015 ? 1 : d < 0.015 ? 2 : d < 0.05 ? 3 : 4;
+}
+const HOUR_LABELS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0"));
+
+const F_REGIME2 = "режим волатильности: σ за 2 мин ÷ обычная σ";
+const F_REGIME5 = "режим волатильности: σ за 5 мин ÷ обычная σ";
+const F_CONTAGION = "соседние монеты с просевшим токеном (был ≥0.95, стал <0.85)";
+const F_CONTAGION_SOFT = "соседние монеты: токен упал на 0.10+ от пика (пик ≥0.90)";
+const F_TRAJ = "траектория токена за 15с (ask сейчас − ask 15с назад)";
+const F_FAIR = "запас справедливой цены (p − ask, σ за 120с)";
+const F_CB = "Coinbase к потоку бота (доля пройденного)";
+const F_EXCH2 = "сколько бирж (Binance, Coinbase) против";
+const F_HOUR = "час суток UTC (по одному)";
+
+interface FeatureDef {
+  name: string;
+  labels: string[];
+  bucket: (e: LabEntry) => string | null;
+  perProfile?: boolean; // считать ещё и по каждому профилю отдельно (featProf)
+  loss?: boolean; // показывать в «лаб лоси» (по умолчанию да)
+}
+
+const FEATURE_DEFS: FeatureDef[] = [
+  {
+    name: "скорость монеты за 10с (в нашу сторону)",
+    labels: ["против", "почти стоит (меньше 0.02%)", "0.02-0.05%", "больше 0.05%"],
+    bucket: (e) =>
+      e.sp10 == null ? null : e.sp10 < 0 ? "против" : e.sp10 < 0.0002 ? "почти стоит (меньше 0.02%)" : e.sp10 < 0.0005 ? "0.02-0.05%" : "больше 0.05%",
+  },
+  {
+    name: "скорость монеты за 30с (в нашу сторону)",
+    labels: ["против", "до 0.05%", "0.05-0.15%", "больше 0.15%"],
+    bucket: (e) => (e.sp30 == null ? null : e.sp30 < 0 ? "против" : e.sp30 < 0.0005 ? "до 0.05%" : e.sp30 < 0.0015 ? "0.05-0.15%" : "больше 0.15%"),
+  },
+  {
+    name: "час суток (UTC)",
+    labels: ["00-06", "06-12", "12-18", "18-24"],
+    bucket: (e) => (e.hr === undefined ? null : e.hr < 6 ? "00-06" : e.hr < 12 ? "06-12" : e.hr < 18 ? "12-18" : "18-24"),
+  },
+  {
+    name: "размер bid к размеру ask в стакане",
+    labels: ["bid меньше ask", "bid в 1-3 раза больше", "bid в 3+ раз больше"],
+    bucket: (e) => {
+      if (e.bsz == null || e.asz == null) return null;
+      if (e.asz <= 0) return "bid в 3+ раз больше";
+      const r = e.bsz / e.asz;
+      return r < 1 ? "bid меньше ask" : r < 3 ? "bid в 1-3 раза больше" : "bid в 3+ раз больше";
+    },
+  },
+  {
+    name: "сила движения z",
+    labels: ["до 2", "2-3", "3-4", "4 и больше"],
+    bucket: (e) => (e.z == null ? null : e.z < 2 ? "до 2" : e.z < 3 ? "2-3" : e.z < 4 ? "3-4" : "4 и больше"),
+  },
+  {
+    name: "сколько других монет идут туда же (от 0.05%)",
+    labels: ["0", "1", "2", "3", "4"],
+    bucket: (e) => String(Math.min(e.c05, 4)),
+  },
+  {
+    name: "пересечения цены открытия за 3 мин",
+    labels: ["0", "1", "2", "3+"],
+    bucket: (e) => (e.xings === undefined ? null : e.xings >= 3 ? "3+" : String(e.xings)),
+  },
+  // ── v3.1 ──
+  {
+    name: F_REGIME2,
+    labels: REGIME_LABELS,
+    perProfile: true,
+    bucket: (e) => (e.rv2 == null ? null : REGIME_LABELS[regimeIdx(e.rv2)]),
+  },
+  {
+    name: F_REGIME5,
+    labels: REGIME_LABELS,
+    perProfile: true,
+    bucket: (e) => (e.rv5 == null ? null : REGIME_LABELS[regimeIdx(e.rv5)]),
+  },
+  {
+    name: F_CONTAGION,
+    labels: NEAR_LABELS,
+    perProfile: true,
+    bucket: (e) => (e.cg === undefined ? null : NEAR_LABELS[Math.min(e.cg, 2)]),
+  },
+  {
+    name: F_CONTAGION_SOFT,
+    labels: NEAR_LABELS,
+    perProfile: true,
+    bucket: (e) => (e.cgs === undefined ? null : NEAR_LABELS[Math.min(e.cgs, 2)]),
+  },
+  {
+    name: F_TRAJ,
+    labels: TRAJ_LABELS,
+    perProfile: true,
+    bucket: (e) => (e.tr15 == null ? null : TRAJ_LABELS[trajIdx(e.tr15)]),
+  },
+  {
+    name: F_FAIR,
+    labels: FAIR_SHORT,
+    perProfile: true,
+    bucket: (e) => (e.fe == null ? null : FAIR_SHORT[fairIdx(e.fe)]),
+  },
+  {
+    name: F_CB,
+    labels: RATIO_SHORT,
+    perProfile: true,
+    bucket: (e) => (e.cb == null || e.pm == null || e.pm <= 0 ? null : RATIO_SHORT[binBucketIdx(e.cb / e.pm)]),
+  },
+  {
+    name: F_EXCH2,
+    labels: ["0", "1", "2"],
+    perProfile: true,
+    bucket: (e) => {
+      if (e.bin == null || e.cb == null) return null;
+      return String((e.bin < 0 ? 1 : 0) + (e.cb < 0 ? 1 : 0));
+    },
+  },
+  {
+    name: F_HOUR,
+    labels: HOUR_LABELS,
+    loss: false,
+    bucket: (e) => (e.hr === undefined ? null : HOUR_LABELS[e.hr]),
+  },
+];
+
+const NUM_FEATURES: { name: string; get: (e: LabEntry) => number | null }[] = [
+  { name: "сила движения z", get: (e) => e.z ?? null },
+  { name: "скорость монеты за 10с, %", get: (e) => (e.sp10 == null ? null : e.sp10 * 100) },
+  { name: "скорость монеты за 30с, %", get: (e) => (e.sp30 == null ? null : e.sp30 * 100) },
+  { name: "движение от открытия по потоку бота, %", get: (e) => (e.pm == null ? null : e.pm * 100) },
+  { name: "движение от открытия по Binance, %", get: (e) => (e.bin == null ? null : e.bin * 100) },
+  { name: "движение от открытия по Coinbase, %", get: (e) => (e.cb == null ? null : e.cb * 100) },
+  {
+    name: "размер bid / размер ask",
+    get: (e) => (e.bsz == null || e.asz == null || e.asz <= 0 ? null : Math.min(e.bsz / e.asz, 50)),
+  },
+  { name: "другие монеты идут туда же (0.05%)", get: (e) => e.c05 },
+  { name: "пересечения цены открытия", get: (e) => e.xings ?? null },
+  { name: "сколько профилей согласны", get: (e) => e.agreeN ?? null },
+  { name: "режим: σ 2 мин ÷ обычная", get: (e) => e.rv2 ?? null },
+  { name: "режим: σ 5 мин ÷ обычная", get: (e) => e.rv5 ?? null },
+  { name: "соседей с просевшим токеном", get: (e) => e.cg ?? null },
+  { name: "траектория токена за 15с", get: (e) => e.tr15 ?? null },
+  { name: "запас справедливой цены (p − ask), %", get: (e) => (e.fe == null ? null : e.fe * 100) },
+  { name: "секунд до закрытия", get: (e) => e.sec },
+  { name: "цена входа", get: (e) => e.price },
+];
+
+/** Правила «что было бы, если не входить при такой корзине» для новых признаков (n = индекс корзины). */
+const FEAT_RULES: Record<string, { label: string; remove: (n: number) => boolean }[]> = {
+  [F_REGIME2]: [
+    { label: "не входить при σ2м/обычная > 1.0", remove: (n) => n >= 2 },
+    { label: "не входить при σ2м/обычная > 1.5", remove: (n) => n >= 3 },
+    { label: "не входить при σ2м/обычная > 2.5", remove: (n) => n >= 4 },
+  ],
+  [F_REGIME5]: [
+    { label: "не входить при σ5м/обычная > 1.0", remove: (n) => n >= 2 },
+    { label: "не входить при σ5м/обычная > 1.5", remove: (n) => n >= 3 },
+    { label: "не входить при σ5м/обычная > 2.5", remove: (n) => n >= 4 },
+  ],
+  [F_CONTAGION]: [
+    { label: "не входить при 1+ просевших соседях", remove: (n) => n >= 1 },
+    { label: "не входить при 2+ просевших соседях", remove: (n) => n >= 2 },
+  ],
+  [F_CONTAGION_SOFT]: [
+    { label: "не входить при 1+ соседях с падением на 0.10+", remove: (n) => n >= 1 },
+    { label: "не входить при 2+ соседях с падением на 0.10+", remove: (n) => n >= 2 },
+  ],
+  [F_TRAJ]: [
+    { label: "не входить, если токен «падает» или «резко падает»", remove: (n) => n <= 1 },
+    { label: "не входить, если токен «резко падает»", remove: (n) => n === 0 },
+    { label: "не входить, если токен «растёт» или «резко растёт»", remove: (n) => n >= 3 },
+  ],
+  [F_FAIR]: [
+    { label: "не входить при edge меньше 2%", remove: (n) => n <= 1 },
+    { label: "не входить при edge меньше 4%", remove: (n) => n <= 2 },
+  ],
+  [F_CB]: [{ label: "не входить, если Coinbase против", remove: (n) => n === 0 }],
+  [F_EXCH2]: [
+    { label: "не входить, если хоть одна биржа против", remove: (n) => n >= 1 },
+    { label: "не входить, если обе биржи против", remove: (n) => n >= 2 },
+  ],
+};
+
+/** Строки «что было бы, если не входить в корзинах с индексом меньше upTo». */
+function cutLines(buckets: Stat[], cuts: { upTo: number; label: string }[]): string[] {
+  const out: string[] = [];
+  const tot = buckets.reduce((a, s) => ({ w: a.w + s.w, t: a.t + s.t, roi: a.roi + s.roi }), { w: 0, t: 0, roi: 0 });
+  if (tot.t === 0) return out;
+  const baseRoi = tot.roi / tot.t;
+  for (const c of cuts) {
+    let kw = 0;
+    let kt = 0;
+    let kr = 0;
+    let cw = 0;
+    let ct = 0;
+    buckets.forEach((s, n) => {
+      if (n >= c.upTo) {
+        kw += s.w;
+        kt += s.t;
+        kr += s.roi;
+      } else {
+        cw += s.w;
+        ct += s.t;
+      }
+    });
+    if (ct === 0) {
+      out.push(`  ${c.label}: ничего не отсекает`);
+      continue;
+    }
+    const helps = kt > 0 && kr / kt > baseRoi && ct - cw > cw;
+    out.push(
+      `  ${c.label}: остаётся ${kw}/${kt} (${winPct(kw, kt)}), прибыль ${roiLabel(kr, kt)}; отсекли ${ct} (побед ${cw}, проигрышей ${ct - cw}) ${helps ? "✅ помогает" : "— не помогает"}`,
+    );
+  }
+  return out;
+}
+
+/** То же, но произвольное правило отсечения (remove(n) = true — корзину отбрасываем). */
+function cutLine(buckets: Stat[], remove: (n: number) => boolean, label: string): string | null {
+  const tot = buckets.reduce((a, s) => ({ w: a.w + s.w, t: a.t + s.t, roi: a.roi + s.roi }), { w: 0, t: 0, roi: 0 });
+  if (tot.t === 0) return null;
+  const baseRoi = tot.roi / tot.t;
+  let kw = 0;
+  let kt = 0;
+  let kr = 0;
+  let cw = 0;
+  let ct = 0;
+  buckets.forEach((s, n) => {
+    if (remove(n)) {
+      cw += s.w;
+      ct += s.t;
+    } else {
+      kw += s.w;
+      kt += s.t;
+      kr += s.roi;
+    }
+  });
+  if (ct === 0) return `  ${label}: ничего не отсекает`;
+  const helps = kt > 0 && kr / kt > baseRoi && ct - cw > cw;
+  return `  ${label}: остаётся ${kw}/${kt} (${winPct(kw, kt)}), прибыль ${roiLabel(kr, kt)}; отсекли ${ct} (побед ${cw}, проигрышей ${ct - cw}) ${helps ? "✅ помогает" : "— не помогает"}`;
+}
+
+// ─────────────────────────── Профили бота (моделирование) ───────────────────────────
+
+interface BotProfile {
+  id: number;
+  mode: "fixed" | "adaptive" | "margin";
+  priceMode: "corridor" | "touch-drop" | "none" | "retouch";
+  priceLow?: number;
+  priceHigh?: number;
+  touchAbove?: number;
+  retouchDropBelow?: number;
+  requireLiveBid?: boolean; // как в боте: живой bid не ниже priceLow
+  windowSec: Record<string, number>;
+  param: Record<string, number>; // fixed: доля (0.0015 = 0.15%), adaptive: множитель, margin: минимальный z
+}
+
+const DEFAULT_LOW = 0.97;
+const DEFAULT_HIGH = 0.98;
+
+const BOT_PROFILES: BotProfile[] = [
+  {
+    id: 1,
+    mode: "fixed",
+    priceMode: "corridor",
+    windowSec: { Bitcoin: 180, Ethereum: 60, Solana: 90, XRP: 180, Dogecoin: 90 },
+    param: { Bitcoin: 0.0015, Ethereum: 0.003, Solana: 0.002, XRP: 0.003, Dogecoin: 0.0015 },
+  },
+  {
+    id: 2,
+    mode: "adaptive",
+    priceMode: "corridor",
+    windowSec: { Bitcoin: 120, Ethereum: 30, Solana: 30, XRP: 30, Dogecoin: 60 },
+    param: { Bitcoin: 3.0, Ethereum: 0.3, Solana: 0.5, XRP: 0.3, Dogecoin: 1.0 },
+  },
+  {
+    id: 3,
+    mode: "fixed",
+    priceMode: "touch-drop",
+    touchAbove: 0.995,
+    priceLow: 0.985,
+    priceHigh: 0.993,
+    windowSec: { Bitcoin: 180, Ethereum: 180, Solana: 90, XRP: 180, Dogecoin: 90 },
+    param: { Bitcoin: 0.0013, Ethereum: 0.0014, Solana: 0.0015, XRP: 0.0015, Dogecoin: 0.0015 },
+  },
+  {
+    id: 4,
+    mode: "fixed",
+    priceMode: "none",
+    windowSec: { Bitcoin: 10, Ethereum: 10, Solana: 10, XRP: 30, Dogecoin: 60 },
+    param: { Bitcoin: 0.002, Ethereum: 0.001, Solana: 0.001, XRP: 0.0014, Dogecoin: 0.003 },
+  },
+  {
+    id: 5,
+    mode: "fixed",
+    priceMode: "retouch",
+    priceLow: 0.97,
+    priceHigh: 0.98,
+    retouchDropBelow: 0.9,
+    windowSec: { Bitcoin: 180, Ethereum: 180, Solana: 180, XRP: 180, Dogecoin: 120 },
+    param: { Bitcoin: 0.001, Ethereum: 0.0013, Solana: 0.002, XRP: 0.001, Dogecoin: 0.001 },
+  },
+  {
+    // Профиль 6 «Запас» — как в боте v7.7: z вместо порога, коридор 0.97-0.98, вход только при живом bid не ниже 0.97.
+    id: 6,
+    mode: "margin",
+    priceMode: "corridor",
+    requireLiveBid: true,
+    windowSec: { Bitcoin: 60, Ethereum: 180, Solana: 60, XRP: 180, Dogecoin: 120 },
+    param: { Bitcoin: 2.0, Ethereum: 4.0, Solana: 1.5, XRP: 2.5, Dogecoin: 1.0 },
+  },
+  {
+    // Профиль 7 «Модель» — как в боте v7.9: z от 2.0, последние 180с, цена токена 0.93-0.96, живой bid не ниже 0.93.
+    // Фильтр Binance в этой версии — отдельные «боты» по корзинам (bot7b0 … bot7b4), см. LIVE_VARIANTS.
+    id: 7,
+    mode: "margin",
+    priceMode: "corridor",
+    priceLow: 0.92, // v3.6: как в боте сейчас (было 0.93-0.96)
+    priceHigh: 0.98,
+    requireLiveBid: true,
+    windowSec: { Bitcoin: 180, Ethereum: 180, Solana: 180, XRP: 180, Dogecoin: 180 },
+    param: { Bitcoin: 2.0, Ethereum: 2.0, Solana: 2.0, XRP: 2.0, Dogecoin: 2.0 },
+  },
+];
+
+// ─────────────────────────── Типы и хелперы ───────────────────────────
+
+interface Stat {
+  w: number;
+  t: number;
+  roi: number; // сумма доходностей на $1 ставки
+  px?: number; // сумма цен входа (чтобы считать среднюю цену)
+}
+type StatMap = Record<string, Stat>;
+
+function bump(m: StatMap, key: string, won: boolean, roi: number, price?: number): void {
+  const s = m[key] ?? (m[key] = { w: 0, t: 0, roi: 0 });
+  s.t++;
+  if (won) s.w++;
+  s.roi += roi;
+  if (price !== undefined) s.px = (s.px ?? 0) + price;
+}
+
+/** Базовая запись профиля бота: bot1 … bot7 (без суффикса корзины Binance). */
+function isBase(idea: string): boolean {
+  return /^bot\d+$/.test(idea);
+}
+
+function fireKey(idea: string, combo: string, slug: string, side: string): string {
+  return ONE_PER_MARKET ? `${idea}|${combo}|${slug}` : `${idea}|${combo}|${slug}|${side}`;
+}
+function pairKey(pk: string, closeTimeMs: number, side: string): string {
+  return ONE_PER_MARKET ? `${pk}|${closeTimeMs}` : `${pk}|${closeTimeMs}|${side}`;
+}
+
+interface LabEntry {
+  idea: string; // "margin" | "cheap" | "panic" | "impulse" | "model" | "modelb0".. | "fair1" | "fair2" | "psolo" | "bot1".."bot7" | "bot7b0".."bot7k2"
+  combo: string;
+  coin: string;
+  side: "Up" | "Down";
+  ts: number;
+  price: number; // цена входа = живой ask
+  sec: number; // секунд до закрытия в момент входа
+  c05: number; // сколько других монет идут в ту же сторону >= 0.05%
+  c10: number; // то же для >= 0.10%
+  xings?: number; // сколько раз монета пересекла цену открытия за последние 3 мин (только базовые bot-входы)
+  z?: number | null;
+  sp10?: number | null;
+  sp30?: number | null;
+  hr?: number;
+  bsz?: number | null;
+  asz?: number | null;
+  bin?: number | null;
+  cb?: number | null; // движение по Coinbase от открытия окна (в нашу сторону)
+  pm?: number;
+  rv2?: number | null; // σ за 2 мин ÷ обычная σ
+  rv5?: number | null; // σ за 5 мин ÷ обычная σ
+  cg?: number; // соседей с просевшим токеном (строго)
+  cgs?: number; // соседей с токеном, упавшим на 0.10+ от пика (мягко)
+  tr15?: number | null; // ask сейчас − ask 15с назад
+  m15?: number | null; // v6: монета с начала 15-мин свечи, bps в нашу сторону
+  m60?: number | null; // …с начала часа
+  q5?: number | null; // …вся предыдущая 5-мин свеча
+  q15?: number | null; // …предыдущая 15-мин свеча
+  q60?: number | null; // …предыдущий час
+  fp?: number | null; // справедливая вероятность p
+  fe?: number | null; // edge = p − ask
+  xs?: Record<string, number | null>; // v3.4: Bybit/OKX/Kraken/Bitget
+  agreeN?: number;
+  bid0?: number | null; // v3.3: bid в момент входа
+  pk?: number; // v3.3: пик цены токена до входа
+  minBid?: number;
+  stops?: (number | null)[];
+  bs10?: number | null; // v5.4: объём лучшего bid, когда bid упал на 10¢ от входа
+  dp10?: number | null; // …и объём заявок в 5¢ от лучшего bid
+  bs20?: number | null;
+  dp20?: number | null;
+}
+
+interface Feat {
+  z: number | null;
+  sp10: number | null;
+  sp30: number | null;
+  hr: number;
+  bsz: number | null;
+  asz: number | null;
+  bin: number | null;
+  cb: number | null;
+  pm: number;
+  rv2: number | null;
+  rv5: number | null;
+  cg: number;
+  cgs: number;
+  tr15: number | null;
+  m15: number | null;
+  m60: number | null;
+  q5: number | null;
+  q15: number | null;
+  q60: number | null;
+  fe: number | null;
+  xs: Record<string, number | null>; // v3.4: движение остальных бирж в нашу сторону
+}
+
+interface StopAgg {
+  n: number;
+  w: number;
+  stopped: number;
+  stopW: number;
+  stopL: number;
+  roiNo: number;
+  roiStop: number;
+}
+
+interface LiveRec {
+  ts: number;
+  idea: string;
+  coin: string;
+  side: string;
+  price: number;
+  won: boolean;
+  pnl: number; // в долларах с размером ставки бота
+  z: number | null;
+  ratio: number | null; // во сколько раз Binance прошёл от потока
+}
+
+interface LossWin {
+  lost: string[]; // монеты, где в этом окне проиграл хотя бы один базовый вход
+  seen: string[]; // монеты, где в этом окне были базовые входы
+  rvSum: number; // сумма rv2 по входам окна
+  rvN: number;
+}
+
+interface PairEntry {
+  pk: string; // `${окноBTC}:${движениеBTC}:${окноETH}:${движениеETH}:${индекс коридора}`
+  side: "Up" | "Down";
+  ts: number;
+  closeTimeMs: number;
+  btcSlug: string;
+  ethSlug: string;
+  btcPrice: number;
+  ethPrice: number;
+  sec: number;
+}
+
+interface LegState {
+  sec: number;
+  dir: number;
+  price: number;
+  ask: number;
+}
+
+interface ArbMarketInfo {
+  minSum: number;
+  sec99: number | null;
+  size99: number | null;
+}
+
+/** Одна «ордер-позиция» идеи «Темка»: покупка (по рынку или лимиткой) и набор тейк-профитов. */
+interface TemkaPos {
+  mode: string; // см. TEMKA_MODES
+  side: "Up" | "Down";
+  level?: number; // для лимитки: цена, по которой ждём покупку
+  deadlineMs?: number; // для лимитки: до какого момента ждём
+  filled: boolean;
+  price: number; // цена входа
+  fillTs: number;
+  hits: (number | null)[]; // по каждому TP: секунд от входа до достижения цели (null — не достигнута)
+}
+
+/** Агрегат «Темки»: ключ `${режим}|${h | индекс TP}|${монета | *}|${сторона | *}`. */
+interface TStat {
+  n: number; // ордеров поставлено (только в строке "h")
+  f: number; // сколько вошло
+  w: number; // из вошедших: выиграло при удержании до резолва (только "h")
+  px: number; // сумма цен входа (только "h")
+  roiH: number; // сумма доходностей «держим до резолва»
+  roiH2: number; // сумма квадратов (для доверительного интервала)
+  hit: number; // сколько раз достигнут TP (строки по TP)
+  hitSec: number; // сумма секунд до TP
+  roiT: number; // сумма доходностей «TP, иначе держим до резолва»
+  roiT2: number;
+  nhW: number; // не достигли TP, но выиграли на резолве
+}
+
+interface PendingMarket {
+  closeTimeMs: number;
+  coin: string;
+  entries: LabEntry[];
+  arb: ArbMarketInfo | null;
+  temka?: TemkaPos[]; // v3.2
+  temkaInit?: boolean; // v3.2: ордера «Темки» по этому рынку уже поставлены (или рынок пропущен)
+  wm?: number; // v3.2: длина окна в минутах (нет поля — 5)
+  tape?: TapeRow[]; // v3.3: лента цен раз в 5с
+}
+
+interface ArbAgg {
+  total: number;
+  minSumTotal: number;
+  h99: number;
+  h98: number;
+  h97: number;
+  h95: number;
+  sec99Sum: number;
+  size99Sum: number;
+}
+
+interface TokenInfo {
+  market: CryptoUpDownMarket;
+  side: "Up" | "Down";
+}
+
+interface Quote {
+  bid: number | null;
+  ask: number | null;
+}
+
+interface FreshBook {
+  bid: number | null;
+  ask: number | null;
+  bidSize: number;
+  askSize: number;
+}
+
+interface PooledRow {
+  combo: string;
+  w: number;
+  t: number;
+  roi: number;
+  px: number;
+}
+
+interface ModelRow extends PooledRow {
+  wr: number;
+  avgPx: number;
+  lo: number;
+  edge: number;
+  roiAvg: number;
+  verdict: "✅" | "⚠️" | "❌";
+}
+
+function newArbAgg(): ArbAgg {
+  return { total: 0, minSumTotal: 0, h99: 0, h98: 0, h97: 0, h95: 0, sec99Sum: 0, size99Sum: 0 };
+}
+
+function buildTokenIndex(markets: CryptoUpDownMarket[]): Map<string, TokenInfo> {
+  const idx = new Map<string, TokenInfo>();
+  for (const m of markets) {
+    idx.set(m.upTokenId, { market: m, side: "Up" });
+    idx.set(m.downTokenId, { market: m, side: "Down" });
+  }
+  return idx;
+}
+
+function isIncludedCoin(coin: string): boolean {
+  return INCLUDED_COINS.some((c) => c.toUpperCase() === coin.toUpperCase());
+}
+
+function observeWindowMs(windowMinutes: number): number {
+  return (windowMinutes + 1) * 60 * 1000;
+}
+
+function pctLabel(v: number): string {
+  return `${(v * 100).toFixed(2)}%`;
+}
+
+function winPct(w: number, t: number): string {
+  if (t <= 0) return "—";
+  if (w === t) return "100%";
+  const r = (100 * w) / t;
+  return r >= 99.5 ? `${r.toFixed(1)}%` : `${r.toFixed(0)}%`;
+}
+
+function roiLabel(roiSum: number, t: number): string {
+  if (t <= 0) return "—";
+  const r = (roiSum / t) * 100;
+  return `${r >= 0 ? "+" : ""}${r.toFixed(1)}%`;
+}
+
+function signedPct(v: number): string {
+  const r = v * 100;
+  return `${r >= 0 ? "+" : ""}${r.toFixed(1)}%`;
+}
+
+function usdLabel(v: number): string {
+  return `${v >= 0 ? "+" : "-"}$${Math.abs(v).toFixed(2)}`;
+}
+
+/** Осторожная оценка винрейта: нижняя граница интервала Уилсона (95%). */
+function wilsonLower(w: number, t: number): number {
+  if (t <= 0) return 0;
+  const z = 1.96;
+  const p = w / t;
+  const d = 1 + (z * z) / t;
+  const c = p + (z * z) / (2 * t);
+  const m = z * Math.sqrt((p * (1 - p) + (z * z) / (4 * t)) / t);
+  return Math.max(0, (c - m) / d);
+}
+
+function findBand(bands: [number, number][], price: number): [number, number] | null {
+  for (const b of bands) {
+    if (price >= b[0] && price < b[1]) return b;
+  }
+  return null;
+}
+
+/**
+ * Сколько раз монета пересекла цену открытия окна за последние SAW_LOOKBACK_SEC секунд
+ * (но не раньше открытия окна). Замер раз в SAW_STEP_SEC секунд — число это нижняя оценка.
+ */
+function countCrossings(feed: CoinPriceFeed, openPrice: number, openTimeMs: number, nowMs: number, coinNow: number): number {
+  const from = Math.max(openTimeMs, nowMs - SAW_LOOKBACK_SEC * 1000);
+  let last = 0;
+  let n = 0;
+  for (let t = from; t < nowMs; t += SAW_STEP_SEC * 1000) {
+    const px = feed.getPriceAt(t);
+    if (px === null) continue;
+    const s = Math.sign(px - openPrice);
+    if (s === 0) continue;
+    if (last !== 0 && s !== last) n++;
+    last = s;
+  }
+  const sNow = Math.sign(coinNow - openPrice);
+  if (sNow !== 0 && last !== 0 && sNow !== last) n++;
+  return n;
+}
+
+/** Живой стакан токена через REST (то же самое, что делает бот перед покупкой). */
+async function fetchBook(tokenId: string): Promise<FreshBook | null> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const resp = await fetch(`${CLOB_HOST}/book?token_id=${tokenId}`, { signal: ctrl.signal });
+    if (!resp.ok) return null;
+    const ob: any = await resp.json();
+
+    let bestAsk: number | null = null;
+    let askSize = 0;
+    for (const o of ob.asks ?? []) {
+      const p = Number(o.price);
+      const s = Number(o.size);
+      if (!Number.isFinite(p)) continue;
+      if (bestAsk === null || p < bestAsk) {
+        bestAsk = p;
+        askSize = Number.isFinite(s) ? s : 0;
+      } else if (p === bestAsk && Number.isFinite(s)) {
+        askSize += s;
+      }
+    }
+    let bestBid: number | null = null;
+    let bidSize = 0;
+    for (const o of ob.bids ?? []) {
+      const p = Number(o.price);
+      const s = Number(o.size);
+      if (!Number.isFinite(p)) continue;
+      if (bestBid === null || p > bestBid) {
+        bestBid = p;
+        bidSize = Number.isFinite(s) ? s : 0;
+      } else if (p === bestBid && Number.isFinite(s)) {
+        bidSize += s;
+      }
+    }
+    return { bid: bestBid, ask: bestAsk, bidSize, askSize };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function resolveWinner(eventSlug: string): Promise<"Up" | "Down" | null> {
+  try {
+    const resp = await fetch(`${GAMMA_HOST}/events/slug/${eventSlug}`);
+    if (!resp.ok) return null;
+    const event = await resp.json();
+    const market = (event.markets ?? [])[0];
+    if (!market) return null;
+
+    // 1. Рынок должен быть официально закрыт и подтверждён
+    if (market.closed !== true) return null;
+    if (typeof market.umaResolutionStatus === "string" && market.umaResolutionStatus !== "resolved") return null;
+
+    // 2. Главный источник — официальное поле winner в CLOB
+    if (market.conditionId) {
+      try {
+        const r = await fetch(`https://clob.polymarket.com/markets/${market.conditionId}`);
+        if (r.ok) {
+          const m: any = await r.json();
+          const win = (m.tokens ?? []).find((t: any) => t.winner === true);
+          if (win) {
+            const o = String(win.outcome).trim().toLowerCase();
+            console.log(`[resolve] ${eventSlug}: CLOB winner = ${o}`);
+            if (o === "up") return "Up";
+            if (o === "down") return "Down";
+          }
+        }
+      } catch {
+        // упало — идём по запасному варианту ниже
+      }
+    }
+
+    // 3. Запасной вариант: цены, но только совсем крайние (0.99 / 0.01)
+    let outcomes: string[];
+    let outcomePrices: string[];
+    try {
+      outcomes = JSON.parse(market.outcomes ?? "[]");
+      outcomePrices = JSON.parse(market.outcomePrices ?? "[]");
+    } catch {
+      return null;
+    }
+    if (outcomes.length !== 2 || outcomePrices.length !== 2) return null;
+    const upIdx = outcomes.findIndex((o) => /^up$/i.test(o.trim()));
+    const downIdx = outcomes.findIndex((o) => /^down$/i.test(o.trim()));
+    if (upIdx === -1 || downIdx === -1) return null;
+    const upPrice = Number(outcomePrices[upIdx]);
+    const downPrice = Number(outcomePrices[downIdx]);
+    console.log(`[resolve] ${eventSlug}: по ценам Up=${upPrice} Down=${downPrice}`);
+    if (upPrice >= 0.99 && downPrice <= 0.01) return "Up";
+    if (downPrice >= 0.99 && upPrice <= 0.01) return "Down";
+    return null;
+  } catch (err) {
+    console.error(`[resolve] ошибка ${eventSlug}:`, (err as Error).message);
+    return null;
+  }
+}
+
+// ─────────────────────────── Основной класс ───────────────────────────
+
+class ResearchLab {
+  private watcher: PriceWatcher | null = null;
+  private tokenIndex = new Map<string, TokenInfo>();
+  private activeMarkets = new Map<string, CryptoUpDownMarket>();
+  private lastTokenIds: string[] = [];
+
+  private quotes = new Map<string, Quote>();
+  private wicks = new Map<string, { mn: number; mx: number }>(); // v6: минимум/максимум bid токена между замерами ленты (прострелы)
+  // v6: замер «после окна» (стаканы после закрытия до резолва) — только запись, торговлю не трогает
+  private postWatch = new PostWatcher({
+    dir: path.resolve(STORAGE_DIR, "lab-post"),
+    fetchBook: (t) => fetchBook(t),
+    resolveWinner: (s) => resolveWinner(s),
+    coinMove: (coin, openMs) => {
+      const f = PRICE_FEEDS[coin];
+      if (!f) return null;
+      const o = f.getPriceAt(openMs), n = f.getLatestPrice();
+      return o === null || n === null || o === 0 ? null : ((n - o) / o) * 1e4;
+    },
+    coinMoveAt: (coin, openMs, atMs) => {
+      const f = PRICE_FEEDS[coin];
+      if (!f) return null;
+      const o = f.getPriceAt(openMs), n = f.getPriceAt(atMs);
+      return o === null || n === null || o === 0 ? null : ((n - o) / o) * 1e4;
+    },
+  });
+  postText(days: number): string { return this.postWatch.report(days); }
+
+  /** «лаб минимум»: бесплатная проверка — что биржа сообщает про минимальный размер ордера на живых рынках (ничего не покупает). */
+  async minInfoText(): Promise<string> {
+    const list = [...this.activeMarkets.values()].filter((m) => m.closeTimeMs - Date.now() > 20000).slice(0, 4);
+    if (list.length === 0) return "Живых рынков сейчас нет — повтори через минуту.";
+    const L: string[] = ["📏 Что биржа говорит про минимальный ордер (только чтение, ничего не покупается):"];
+    for (const m of list) {
+      for (const [nm, tok] of [["Up", m.upTokenId], ["Down", m.downTokenId]] as const) {
+        try {
+          const resp = await fetch(`${CLOB_HOST}/book?token_id=${tok}`);
+          const ob: any = await resp.json();
+          L.push(`${m.eventSlug} ${nm}: min_order_size=${ob.min_order_size ?? "—"} акций, tick_size=${ob.tick_size ?? "—"}, neg_risk=${ob.neg_risk ?? "—"}`);
+        } catch (err) {
+          L.push(`${m.eventSlug} ${nm}: не удалось прочитать (${(err as Error).message})`);
+        }
+      }
+    }
+    L.push("");
+    L.push("Это то, что биржа объявляет. Принимает ли она реально меньше — проверяет «лаб проба» (покупка ~$1, платная).");
+    return L.join("\n");
+  }
+
+  /** «лаб проба да»: РЕАЛЬНАЯ покупка на ~$1 (меньше 5 акций) и сразу продажа обратно — узнать, пропускает ли биржа ордера меньше минимума. */
+  async probeSmallText(confirmed: boolean, wantShares: number | null, coinOnly: string | null = null): Promise<string> {
+    if (!this.clob) return "Торговый клиент не подключён — проба невозможна.";
+    if (!confirmed) {
+      return "⚠️ «лаб проба» — РЕАЛЬНАЯ сделка на деньги: купит на ~$1 (меньше 5 акций) токен на живом рынке и сразу продаст обратно. Потеря обычно несколько центов (спред). Цель — узнать, принимает ли биржа ордер меньше 5 акций. Чтобы выполнить, напиши: лаб проба да (или «лаб проба да 2» — столько акций, от 1 до 4.9)";
+    }
+    const list = [...this.activeMarkets.values()].filter((m) => m.closeTimeMs - Date.now() > 100000 && (coinOnly === null || m.coin === coinOnly)); // v14: можно проверить конкретную монету («лаб проба да sol»)
+    let pick: { m: CryptoUpDownMarket; tok: string; side: string; ask: number; bid: number | null } | null = null;
+    for (const m of list) {
+      for (const [sd, tok] of [["Up", m.upTokenId], ["Down", m.downTokenId]] as const) {
+        const b = await fetchBook(tok);
+        if (b && b.ask !== null && b.ask >= 0.25 && b.ask <= 0.8 && b.bid !== null && b.ask - b.bid <= 0.03 && b.askSize >= 6) { pick = { m, tok, side: sd, ask: b.ask, bid: b.bid }; break; }
+      }
+      if (pick) break;
+    }
+    if (!pick) return "Не нашёл подходящий рынок (нужен токен 25–80¢ с узким спредом и до закрытия больше 100с). Повтори через минуту.";
+    const size = wantShares !== null && wantShares >= 1 && wantShares < 5 ? wantShares : Math.min(4.9, Math.max(1, Math.ceil((1.05 / pick.ask) * 100) / 100));
+    const L: string[] = [`🧪 Проба: ${pick.m.eventSlug} ${pick.side}, ask ${pick.ask}, пробую купить ${size} акций (~$${(size * pick.ask).toFixed(2)})`];
+    let filled = 0;
+    try {
+      const resp: any = await this.clob.placeLimitOrder({ tokenId: pick.tok, side: Side.BUY, price: pick.ask, size, maxSlippagePct: 0.5, maxBuyPrice: Math.min(0.99, pick.ask + 0.03), priceAtCap: true, allowBelowMin: true } as any);
+      // у биржи поля перепутаны (making = доллары, taking = акции): акции определяем так же, как при обычной покупке
+      const fl = resolveFillLive(Number(resp?.filledSize ?? 0), Number(resp?.filledUsdc ?? 0), pick.ask);
+      filled = fl.filledSize;
+      L.push(`BUY: ✅ БИРЖА ПРИНЯЛА ордер меньше 5 акций. Куплено ${filled.toFixed(4)} акций по средней ${fl.avgPrice.toFixed(3)} (сырой ответ: ${JSON.stringify(resp).slice(0, 260)})`);
+    } catch (err) {
+      L.push(`BUY: ОТКАЗ — ${(err as Error).message}`);
+      L.push("Вывод: покупка меньше 5 акций не прошла. Если в тексте выше нет слов «not submitted» — это отказ самой биржи (наш локальный блок в clob.ts для пробы отключён).");
+      return L.join("\n");
+    }
+    if (filled > 0) {
+      // токены появляются на счёте не мгновенно (ончейн-расчёт) — продаём с повторами, пока биржа отвечает «баланс 0»
+      let sold = false;
+      let lastErr = "";
+      for (let k = 1; k <= 8 && !sold; k++) {
+        await new Promise((r) => setTimeout(r, k === 1 ? 6000 : 4000));
+        const b2 = await fetchBook(pick.tok);
+        const bid = b2?.bid ?? pick.bid ?? 0.01;
+        try {
+          const r2: any = await this.clob.placeLimitOrder({ tokenId: pick.tok, side: Side.SELL, price: bid, size: filled, maxSlippagePct: 45, allowBelowMin: true } as any);
+          const f2 = resolveFillLive(Number(r2?.filledSize ?? 0), Number(r2?.filledUsdc ?? 0), bid);
+          L.push(`SELL (попытка ${k}, через ~${6 + (k - 1) * 4}с после покупки): ✅ БИРЖА ПРИНЯЛА продажу меньше 5 акций. Продано ${f2.filledSize.toFixed(4)} акций по средней ${f2.avgPrice.toFixed(3)} (сырой ответ: ${JSON.stringify(r2).slice(0, 220)})`);
+          sold = true;
+        } catch (err) {
+          lastErr = (err as Error).message;
+          if (!/balance|allowance/i.test(lastErr)) break;
+        }
+      }
+      if (!sold) {
+        L.push(`SELL: ОТКАЗ — ${lastErr}`);
+        L.push(`⚠️ Купленные ${filled.toFixed(2)} акций остались на счёте — продай вручную на сайте или дождись итога рынка.`);
+      }
+    } else {
+      L.push("Покупка не заполнилась — деньги не потрачены.");
+    }
+    return L.join("\n");
+  }
+
+  private peaks = new Map<string, number>();
+  private openPrices = new Map<string, number>();
+  private touchStates = new Map<string, { touchedHigh: boolean; touchedCorridor: boolean; leftAfterTouch: boolean }>();
+  private firedKeys = new Set<string>(); // см. fireKey(): комбинация входит в рынок один раз на сторону
+
+  // v3.1: история ask токена (для траектории) и кэш реализованной волатильности
+  private askHist = new Map<string, { t: number; a: number }[]>();
+  private rvCache = new Map<string, { t: number; v: number | null }>();
+
+  private verifying = new Set<string>();
+  private lastVerifyAt = new Map<string, number>();
+  private arbSampling = false;
+
+  // v3.2 «Темка»
+  private temkaAgg: Record<string, TStat> = {};
+  private temkaOpening = new Set<string>(); // eventSlug: сейчас идёт постановка ордеров
+  private temkaConfirming = new Set<string>(); // tokenId: сейчас идёт проверка живым стаканом
+  private temkaLastConfirm = new Map<string, number>();
+
+  private pending = new Map<string, PendingMarket>();
+  private settled = new Set<string>();
+
+  // ограничения «как у бота» — на каждую комбинацию отдельно
+  private varWin = new Map<string, Map<number, number>>(); // `${idea}|${combo}` -> closeTimeMs -> сколько позиций в окне
+  private varOpen = new Map<string, number>(); // `${idea}|${combo}` -> сколько позиций ждут резолва
+  private liveLog: LiveRec[] = [];
+  private paperStops = new Map<string, PaperStopRec>(); // ключ slug|side, пока рынок не закрылся
+  private paperStopLog: PaperStopRec[] = [];
+  private liveSkips: Record<string, number> = {};
+  private liveSkipSeen = new Set<string>();
+
+  private agg: StatMap = {};
+  private conf: StatMap = {};
+  private agree: StatMap = {};
+  private saw: StatMap = {};
+  private arbAgg: Record<string, ArbAgg> = {};
+
+  // «Пара BTC+ETH»
+  private pairAgg: StatMap = {};
+  private pairs: PairEntry[] = [];
+  private pairFired = new Set<string>(); // см. pairKey()
+  private pairVerifying = new Set<string>();
+  private pairLastVerify = new Map<string, number>();
+  private winners = new Map<string, "Up" | "Down">();
+
+  // Binance-фильтры, признаки, согласие, стопы
+  private binAgg: StatMap = {};
+  private agAgg: StatMap = {};
+  private featAgg: StatMap = {};
+  private featProf: StatMap = {}; // v3.1: новые признаки по профилям: `${all|botN}|${признак}|${корзина}`
+  private fairCal: StatMap = {}; // v3.1: калибровка справедливой цены: `${idea}|${edge-корзина}`, px = сумма p
+  private lossWin: Record<string, LossWin> = {}; // v3.1: кластеры проигрышей по окнам (closeTimeMs)
+  private featSum: Record<string, { s: number; n: number }> = {};
+  private lossLog: LabEntry[] = [];
+  private dipAgg: StatMap = {};
+  private stopAgg: Record<string, StopAgg> = {};
+
+  // счётчики честности цен
+  private staleSampled = 0;
+  private staleShifted = 0;
+  private verifyConfirmed = 0;
+  private verifyRejected = 0;
+
+  private marketsSeenCount = 0;
+  private resolvedCount = 0;
+  private updateCount = 0;
+  private sinceTs = Date.now();
+
+  // ───── ограничения «как у бота» ─────
+
+  private limitReason(idea: string, combo: string, closeTimeMs: number): string | null {
+    const vk = `${idea}|${combo}`;
+    if ((this.varWin.get(vk)?.get(closeTimeMs) ?? 0) >= MAX_PER_WINDOW) return "лимит окна";
+    if ((this.varOpen.get(vk) ?? 0) >= MAX_OPEN_TOTAL) return "лимит всего";
+    return null;
+  }
+
+  private takeSlot(idea: string, combo: string, closeTimeMs: number): void {
+    const vk = `${idea}|${combo}`;
+    let w = this.varWin.get(vk);
+    if (!w) {
+      w = new Map();
+      this.varWin.set(vk, w);
+    }
+    w.set(closeTimeMs, (w.get(closeTimeMs) ?? 0) + 1);
+    this.varOpen.set(vk, (this.varOpen.get(vk) ?? 0) + 1);
+  }
+
+  private releaseSlot(idea: string, combo: string): void {
+    const vk = `${idea}|${combo}`;
+    const n = (this.varOpen.get(vk) ?? 0) - 1;
+    if (n > 0) this.varOpen.set(vk, n);
+    else this.varOpen.delete(vk);
+  }
+
+  private pruneWindows(now: number): void {
+    for (const [vk, w] of this.varWin) {
+      for (const close of w.keys()) if (close < now - 10 * 60 * 1000) w.delete(close);
+      if (w.size === 0) this.varWin.delete(vk);
+    }
+    if (this.liveSkipSeen.size > 3000) this.liveSkipSeen.clear();
+  }
+
+  /** Записывает, что реальный бот в этом месте пропустил бы вход (только для идей из LIVE_VARIANTS). */
+  private noteLive(idea: string, slug: string, reason: string): void {
+    if (LIVE_VARIANTS[idea] === undefined) return;
+    const key = `${idea}|${slug}|${reason}`;
+    if (this.liveSkipSeen.has(key)) return;
+    this.liveSkipSeen.add(key);
+    this.liveSkips[reason] = (this.liveSkips[reason] ?? 0) + 1;
+  }
+
+  // ───── история ask и реализованная волатильность (v3.1) ─────
+
+  private pushAsk(tokenId: string, t: number, a: number): void {
+    let h = this.askHist.get(tokenId);
+    if (!h) {
+      h = [];
+      this.askHist.set(tokenId, h);
+    }
+    const last = h[h.length - 1];
+    if (last && last.a === a && t - last.t < 1000) return;
+    h.push({ t, a });
+    const cutoff = t - ASK_HIST_KEEP_MS;
+    // оставляем один замер старше границы, чтобы знать цену «15с назад», даже если ask давно не менялся
+    while (h.length > 1 && h[1].t < cutoff) h.shift();
+  }
+
+  private askAgo(tokenId: string, now: number, sec: number): number | null {
+    const h = this.askHist.get(tokenId);
+    if (!h || h.length === 0) return null;
+    const target = now - sec * 1000;
+    for (let i = h.length - 1; i >= 0; i--) {
+      if (h[i].t <= target) return h[i].a;
+    }
+    // истории не хватает: берём самый старый замер, если он покрывает хотя бы 60% нужного срока
+    return now - h[0].t >= sec * 600 ? h[0].a : null;
+  }
+
+  /**
+   * Реализованная секундная волатильность монеты (доля цены на √секунду) за последние lookSec секунд,
+   * по тикам фида с шагом stepSec. Кэш на 1 секунду. null — если данных мало.
+   */
+  private realizedVol(coin: string, lookSec: number, stepSec: number, now: number): number | null {
+    const key = `${coin}|${lookSec}|${stepSec}`;
+    const c = this.rvCache.get(key);
+    if (c && now - c.t < 1000) return c.v;
+    const feed = PRICE_FEEDS[coin];
+    let v: number | null = null;
+    if (feed) {
+      let prevP: number | null = null;
+      let prevT = 0;
+      let sumSq = 0;
+      let sumDt = 0;
+      let n = 0;
+      const consider = (t: number, px: number | null): void => {
+        if (px === null || px <= 0) return;
+        if (prevP !== null && t > prevT) {
+          const r = Math.log(px / prevP);
+          sumSq += r * r;
+          sumDt += (t - prevT) / 1000;
+          n++;
+        }
+        prevP = px;
+        prevT = t;
+      };
+      for (let t = now - lookSec * 1000; t < now; t += stepSec * 1000) consider(t, feed.getPriceAt(t));
+      consider(now, feed.getLatestPrice());
+      const need = Math.max(5, Math.floor((lookSec / stepSec) * 0.5));
+      if (n >= need && sumDt > 0) v = Math.sqrt(sumSq / sumDt);
+    }
+    this.rvCache.set(key, { t: now, v });
+    return v;
+  }
+
+  // ───── сохранение / загрузка ─────
+
+  saveState(): void {
+    try {
+      const data = {
+        version: STATE_VERSION,
+        savedAt: Date.now(),
+        sinceTs: this.sinceTs,
+        agg: this.agg,
+        conf: this.conf,
+        agree: this.agree,
+        saw: this.saw,
+        pairAgg: this.pairAgg,
+        binAgg: this.binAgg,
+        agAgg: this.agAgg,
+        featAgg: this.featAgg,
+        featProf: this.featProf,
+        fairCal: this.fairCal,
+        lossWin: this.lossWin,
+        featSum: this.featSum,
+        lossLog: this.lossLog,
+        dipAgg: this.dipAgg,
+        stopAgg: this.stopAgg,
+        liveLog: this.liveLog,
+        paperStopLog: this.paperStopLog,
+        liveSkips: this.liveSkips,
+        pairs: this.pairs,
+        winners: [...this.winners.entries()],
+        arbAgg: this.arbAgg,
+        temkaAgg: this.temkaAgg,
+        pending: [...this.pending.entries()],
+        settled: [...this.settled].slice(-MAX_SETTLED_REMEMBERED),
+        marketsSeenCount: this.marketsSeenCount,
+        resolvedCount: this.resolvedCount,
+        updateCount: this.updateCount,
+        staleSampled: this.staleSampled,
+        staleShifted: this.staleShifted,
+        verifyConfirmed: this.verifyConfirmed,
+        verifyRejected: this.verifyRejected,
+      };
+      const tmpFile = `${STATE_FILE}.tmp`;
+      fs.writeFileSync(tmpFile, JSON.stringify(data), "utf-8");
+      fs.renameSync(tmpFile, STATE_FILE);
+    } catch (err) {
+      console.error("[saveState] ошибка сохранения:", (err as Error).message);
+    }
+  }
+
+  loadState(): void {
+    if (!fs.existsSync(STATE_FILE)) {
+      console.log("[loadState] файл состояния не найден — начинаем с нуля.");
+      return;
+    }
+    try {
+      const data = JSON.parse(fs.readFileSync(STATE_FILE, "utf-8"));
+      if (data.version !== STATE_VERSION) {
+        const oldFile = path.resolve(process.cwd(), `research-lab-state.v${data.version}.json`);
+        fs.renameSync(STATE_FILE, oldFile);
+        console.log(
+          `[loadState] найден файл состояния старой версии (v${data.version}): сохранён как research-lab-state.v${data.version}.json, статистика начинается с нуля.`,
+        );
+        return;
+      }
+      this.sinceTs = data.sinceTs ?? Date.now();
+      this.agg = data.agg ?? {};
+      this.conf = data.conf ?? {};
+      this.agree = data.agree ?? {};
+      this.saw = data.saw ?? {};
+      this.pairAgg = data.pairAgg ?? {};
+      this.binAgg = data.binAgg ?? {};
+      this.agAgg = data.agAgg ?? {};
+      this.featAgg = data.featAgg ?? {};
+      this.featProf = data.featProf ?? {};
+      this.fairCal = data.fairCal ?? {};
+      this.lossWin = data.lossWin ?? {};
+      this.featSum = data.featSum ?? {};
+      this.lossLog = data.lossLog ?? [];
+      this.dipAgg = data.dipAgg ?? {};
+      this.stopAgg = data.stopAgg ?? {};
+      this.liveLog = data.liveLog ?? [];
+      this.paperStopLog = data.paperStopLog ?? [];
+      this.liveSkips = data.liveSkips ?? {};
+      this.pairs = data.pairs ?? [];
+      this.winners = new Map(data.winners ?? []);
+      for (const e of this.pairs) this.pairFired.add(pairKey(e.pk, e.closeTimeMs, e.side));
+      this.arbAgg = data.arbAgg ?? {};
+      this.temkaAgg = data.temkaAgg ?? {};
+      this.pending = new Map(data.pending ?? []);
+      this.settled = new Set(data.settled ?? []);
+      this.marketsSeenCount = data.marketsSeenCount ?? 0;
+      this.resolvedCount = data.resolvedCount ?? 0;
+      this.updateCount = data.updateCount ?? 0;
+      this.staleSampled = data.staleSampled ?? 0;
+      this.staleShifted = data.staleShifted ?? 0;
+      this.verifyConfirmed = data.verifyConfirmed ?? 0;
+      this.verifyRejected = data.verifyRejected ?? 0;
+
+      for (const [slug, p] of this.pending) {
+        for (const e of p.entries) {
+          this.firedKeys.add(fireKey(e.idea, e.combo, slug, e.side));
+          this.takeSlot(e.idea, e.combo, p.closeTimeMs);
+        }
+      }
+      console.log(
+        `[loadState] восстановлено: рынков обработано ${this.resolvedCount}, ждут резолва ${this.pending.size}.`,
+      );
+    } catch (err) {
+      console.error("[loadState] ошибка загрузки, начинаем с нуля:", (err as Error).message);
+    }
+  }
+
+  // ───── рынки ─────
+
+  private ensurePending(market: CryptoUpDownMarket): PendingMarket | null {
+    if (this.settled.has(market.eventSlug)) return null;
+    let p = this.pending.get(market.eventSlug);
+    if (!p) {
+      if (market.closeTimeMs <= Date.now()) return null;
+      p = { closeTimeMs: market.closeTimeMs, coin: market.coin, entries: [], arb: null, wm: market.windowMinutes };
+      this.pending.set(market.eventSlug, p);
+      try { this.postWatch.add(market.eventSlug, market.coin, market.windowMinutes, market.closeTimeMs, market.upTokenId, market.downTokenId); } catch { /* замер best-effort */ }
+      if (market.windowMinutes === TARGET_WINDOW_MINUTES) this.marketsSeenCount++;
+    }
+    return p;
+  }
+
+  private dropPending(slug: string): void {
+    const p = this.pending.get(slug);
+    if (p) {
+      for (const e of p.entries) {
+        this.firedKeys.delete(fireKey(e.idea, e.combo, slug, e.side));
+        this.releaseSlot(e.idea, e.combo);
+      }
+    }
+    this.pending.delete(slug);
+    this.settled.add(slug);
+  }
+
+  async refreshMarkets(): Promise<void> {
+    let allMarkets: CryptoUpDownMarket[];
+    try {
+      allMarkets = await discoverCryptoUpDownMarkets(TIMEFRAMES_TO_DISCOVER);
+    } catch (err) {
+      console.error("[refresh] ошибка:", (err as Error).message);
+      return;
+    }
+
+    const now = Date.now();
+    const markets = allMarkets.filter(
+      (m) =>
+        isIncludedCoin(m.coin) &&
+        (m.windowMinutes === TARGET_WINDOW_MINUTES || TEMKA_EXTRA_WINDOWS.includes(m.windowMinutes)) &&
+        m.closeTimeMs - now <= observeWindowMs(m.windowMinutes),
+    );
+
+    this.tokenIndex = buildTokenIndex(markets);
+    this.activeMarkets = new Map(markets.map((m) => [m.eventSlug, m]));
+    const tokenIds = [...this.tokenIndex.keys()].sort();
+
+    for (const m of markets) this.ensurePending(m);
+
+    const activeSlugs = new Set(markets.map((m) => m.eventSlug));
+    for (const slug of this.openPrices.keys()) {
+      if (!activeSlugs.has(slug)) this.openPrices.delete(slug);
+    }
+    for (const key of this.touchStates.keys()) {
+      const slug = key.split(":")[1];
+      if (!activeSlugs.has(slug)) this.touchStates.delete(key);
+    }
+    for (const key of this.peaks.keys()) {
+      const slug = key.split(":")[0];
+      if (!activeSlugs.has(slug)) this.peaks.delete(key);
+    }
+    for (const tokenId of this.quotes.keys()) {
+      if (!this.tokenIndex.has(tokenId)) this.quotes.delete(tokenId);
+    }
+    for (const tokenId of this.askHist.keys()) {
+      if (!this.tokenIndex.has(tokenId)) this.askHist.delete(tokenId);
+    }
+    for (const tokenId of this.temkaLastConfirm.keys()) {
+      if (!this.tokenIndex.has(tokenId)) this.temkaLastConfirm.delete(tokenId);
+    }
+    for (const tokenId of this.lastVerifyAt.keys()) {
+      if (!this.tokenIndex.has(tokenId)) this.lastVerifyAt.delete(tokenId);
+    }
+    for (const [k, ts] of this.pairLastVerify) {
+      if (now - ts > PAIR_PRUNE_MS) this.pairLastVerify.delete(k);
+    }
+    this.pruneWindows(now);
+    for (const k of this.liveSlugs) {
+      const s = k.slice(k.indexOf("|") + 1);
+      if (!activeSlugs.has(s) && !this.pending.has(s) && !this.liveFills.has(k)) this.liveSlugs.delete(k);
+    }
+    for (const k of this.liveWindowCount.keys()) if (k < now - 3600_000) this.liveWindowCount.delete(k);
+    for (const k of [...this.dipWatch.keys()]) {
+      const s = k.slice(0, k.lastIndexOf("|"));
+      if (!activeSlugs.has(s) && !this.pending.has(s)) {
+        this.dipWatch.delete(k);
+        this.dipPaper.delete(k);
+      }
+    }
+    if (this.liveEnabled && this.clob) void Promise.resolve((this.clob as any).warmMeta?.(tokenIds)).catch(() => {}); // метаданные рынков заранее — быстрый путь ордера
+
+    console.log(
+      `[refresh] наблюдаем рынков: ${markets.length} (5м ${markets.filter((m) => m.windowMinutes === TARGET_WINDOW_MINUTES).length}, 15м ${markets.filter((m) => m.windowMinutes === 15).length}; ${tokenIds.length} токенов), ждём резолва: ${this.pending.size}`,
+    );
+
+    const sameAsLastTime =
+      tokenIds.length === this.lastTokenIds.length && tokenIds.every((id, i) => id === this.lastTokenIds[i]);
+    if (sameAsLastTime && this.watcher) return;
+
+    this.lastTokenIds = tokenIds;
+    this.watcher?.stop();
+
+    if (tokenIds.length === 0) {
+      this.watcher = null;
+      return;
+    }
+
+    this.watcher = new PriceWatcher(tokenIds, (u) => this.onPriceUpdate(u));
+    this.watcher.start();
+  }
+
+  // ───── обработка каждого апдейта цены ─────
+
+  private onPriceUpdate(update: PriceUpdate): void {
+    this.updateCount++;
+
+    const info = this.tokenIndex.get(update.tokenId);
+    if (!info) return;
+    const { market, side } = info;
+    const now = Date.now();
+    const secToClose = (market.closeTimeMs - now) / 1000;
+
+    // Сообщение с хотя бы одной стороной стакана — это снимок стакана: он полностью заменяет
+    // старые bid/ask (пустая сторона = null). Сообщение без цен (сделка) ничего не меняет.
+    const hasBid = typeof update.bestBid === "number";
+    const hasAsk = typeof update.bestAsk === "number";
+    const q = this.quotes.get(update.tokenId) ?? { bid: null, ask: null };
+    if (hasBid || hasAsk) {
+      q.bid = hasBid ? (update.bestBid as number) : null;
+      q.ask = hasAsk ? (update.bestAsk as number) : null;
+    }
+    this.quotes.set(update.tokenId, q);
+    if (hasBid && q.bid !== null) {
+      const w = this.wicks.get(update.tokenId);
+      if (!w) this.wicks.set(update.tokenId, { mn: q.bid, mx: q.bid });
+      else { if (q.bid < w.mn) w.mn = q.bid; if (q.bid > w.mx) w.mx = q.bid; }
+    }
+    if ((hasBid || hasAsk) && q.ask !== null) this.pushAsk(update.tokenId, now, q.ask);
+
+    // "цена" для условий коридора — как в боте: bestBid, иначе bestAsk
+    const price = update.bestBid ?? update.bestAsk;
+    if (price === null || price === undefined) return;
+
+    const peakKey = `${market.eventSlug}:${side}`;
+    if (price > (this.peaks.get(peakKey) ?? 0)) this.peaks.set(peakKey, price);
+
+    // память для профилей "touch-drop" и "retouch" — обновляется всегда, как в боте
+    for (const prof of BOT_PROFILES) {
+      if (prof.priceMode !== "touch-drop" && prof.priceMode !== "retouch") continue;
+      const key = `${prof.id}:${market.eventSlug}:${side}`;
+      let st = this.touchStates.get(key);
+      if (!st) {
+        st = { touchedHigh: false, touchedCorridor: false, leftAfterTouch: false };
+        this.touchStates.set(key, st);
+      }
+      if (prof.priceMode === "touch-drop") {
+        if (price >= (prof.touchAbove ?? 0.995)) st.touchedHigh = true;
+      } else {
+        const low = prof.priceLow ?? DEFAULT_LOW;
+        const high = prof.priceHigh ?? DEFAULT_HIGH;
+        if (price >= low && price <= high) st.touchedCorridor = true;
+        if (st.touchedCorridor && price < (prof.retouchDropBelow ?? 0.9)) st.leftAfterTouch = true;
+      }
+    }
+
+    if (secToClose < 0) return;
+    const p = this.ensurePending(market);
+    if (!p) return;
+
+    // после входа отслеживаем, насколько низко опускается bid токена (для идеи «Стоп»)
+    this.trackAfterEntry(side, hasBid ? (update.bestBid as number) : null, p, now, update.tokenId);
+    this.paperStopCheck(market.eventSlug, side, hasBid ? (update.bestBid as number) : null, now);
+    this.liveStopCheck(market, side, hasBid ? (update.bestBid as number) : null, now);
+    this.dipCheck(market, side, hasBid ? (update.bestBid as number) : q.bid, q.ask, now);
+    this.enCheck(market, side, hasBid ? (update.bestBid as number) : q.bid, q.ask, now); // тик: только мгновенный вход (g ≤ 0); подъём/падение — в sampleTape
+    try {
+      this.test.onTick(market, side, hasBid ? (update.bestBid as number) : q.bid, q.ask, now);
+    } catch (err) {
+      console.log("[lab-test] ошибка тика:", (err as Error).message);
+    }
+    try {
+      this.lim.onTick(market, side, hasBid ? (update.bestBid as number) : q.bid, q.ask, now);
+    } catch (err) {
+      console.log("[lab-lim] ошибка тика:", (err as Error).message);
+    }
+
+    // v3.2 «Темка»: постановка ордеров в начале окна, проверка исполнения лимиток и тейк-профитов
+    this.temkaTick(market, side, p, q, now);
+
+    // остальные идеи LAB подобраны под 5-минутки: 15-минутные рынки им не показываем
+    if (market.windowMinutes !== TARGET_WINDOW_MINUTES) return;
+
+    // «Пара BTC+ETH» — своя проверка (два рынка сразу), со своим кулдауном
+    if (PAIR_COINS.includes(market.coin)) this.tryPair(market, side);
+
+    // Быстрый предварительный отбор по данным из памяти. Если кандидата нет — выходим.
+    // Если кандидат есть — НЕ записываем сразу, а проверяем живым стаканом.
+    if (q.ask === null) return;
+    if (this.verifying.has(update.tokenId)) return;
+    if (now - (this.lastVerifyAt.get(update.tokenId) ?? 0) < VERIFY_COOLDOWN_MS) return;
+    if (this.evaluate(market, side, p, q.ask, price, q.bid, false) === 0) return;
+
+    void this.verifyAndCommit(market, side, p, update.tokenId);
+  }
+
+  // ───── стоп, признаки, согласие ─────
+
+  /** После входа запоминаем минимальный bid токена и первое касание каждого стоп-уровня (только базовые bot-входы). */
+  /** «Бумажный стоп»: если bid упал до уровня стопа — фиксируем, что реально можно было бы получить при продаже. */
+  private paperStopCheck(slug: string, side: "Up" | "Down", bid: number | null, now: number): void {
+    const r = this.paperStops.get(`${slug}|${side}`);
+    if (!r || r.hitTs !== undefined || bid === null || bid > r.level) return;
+    r.hitTs = now;
+    r.bidHit = bid;
+    void (async () => {
+      const bids = await fetchBids(r.tokenId);
+      if (bids !== null) {
+        let left = PAPER_STOP.shares;
+        let sum = 0;
+        for (const [px, sz] of bids) {
+          const t = Math.min(left, sz);
+          sum += t * px;
+          left -= t;
+          if (left <= 1e-9) break;
+        }
+        r.depthOk = left <= 1e-9;
+        const got = PAPER_STOP.shares - left;
+        r.vwap = got > 0 ? Math.round((sum / got) * 10000) / 10000 : 0.01;
+        if (!r.depthOk) r.vwap = Math.round(((sum + left * 0.01) / PAPER_STOP.shares) * 10000) / 10000;
+      }
+    })();
+    const later = (ms: number, key: "bid2" | "bid5"): void => {
+      setTimeout(() => {
+        const q = this.quotes.get(r.tokenId);
+        r[key] = q ? q.bid : null;
+      }, ms);
+    };
+    later(2000, "bid2");
+    later(5000, "bid5");
+    console.log(`[paper-stop] ${r.coin} ${r.side} вход ${(r.entry * 100).toFixed(0)}¢ стоп ${(r.level * 100).toFixed(0)}¢ bid ${(bid * 100).toFixed(0)}¢`);
+  }
+
+  /** v5.3: реальный стоп. Если bid токена ≤ цена входа × (1 − stopPct) — проверяем стакан по REST и продаём все акции по рынку. */
+  private liveStopCheck(market: CryptoUpDownMarket, side: "Up" | "Down", bid: number | null, now: number): void {
+    if (bid === null || !this.clob) return;
+    const slug = market.eventSlug;
+    for (const [k, f] of this.liveFills) {
+      if (f.slug !== slug || f.side !== side || !f.stopPct || !f.tokenId || f.stopBusy || f.stopFail) continue;
+      const level = f.avg * (1 - f.stopPct);
+      // след bid за последние ~6 с — для сообщения о стопе (скорость падения)
+      const tr = f.trail ?? (f.trail = []);
+      if (!tr.length || now - tr[tr.length - 1][0] >= 250) tr.push([now, bid]);
+      while (tr.length > 1 && now - tr[0][0] > 6000) tr.shift();
+      if (bid > level + 1e-9) continue;
+      if (f.stopLast !== undefined && now - f.stopLast < 1500) continue;
+      f.stopLast = now;
+      let zAg: number | null = null;
+      try { zAg = this.temkaAgainstZ(market, side, now); } catch { zAg = null; }
+      void this.liveStopSell(k, level, bid, zAg);
+    }
+  }
+
+  private async liveStopSell(key: string, level: number, bidWs: number, zAg: number | null = null): Promise<void> {
+    const f = this.liveFills.get(key);
+    if (!f || !f.tokenId || !this.clob || f.stopBusy) return;
+    f.stopBusy = true;
+    const name = `${COIN_SHORT[f.coin] ?? f.coin} ${f.side}`;
+    try {
+      // контрольный запрос стакана: не продаём по случайному «мигающему» bid из потока
+      const bids = await fetchBids(f.tokenId);
+      if (bids !== null && bids.length > 0 && bids[0][0] > level + 1e-9) return;
+      // данные для разбора: стакан в момент стопа и как быстро падал bid
+      let book = "";
+      try {
+        if (bids !== null && bids.length > 0) {
+          const need = f.shares - (f.soldShares ?? 0);
+          let left = need, sum = 0, deep = 0;
+          for (const [px, sz] of bids) {
+            if (px >= bids[0][0] - 0.05 - 1e-9) deep += sz;
+            if (left > 1e-9) { const t = Math.min(left, sz); sum += t * px; left -= t; }
+          }
+          const vw = left <= 1e-9 ? sum / need : (sum + left * 0.01) / need;
+          book = `; стакан: на лучшем bid ${bids[0][1].toFixed(0)} акц., в 5¢ от него ${deep.toFixed(0)}, ${need.toFixed(1)} акц. продались бы по ~${vw.toFixed(3)}${left > 1e-9 ? " (стакана не хватает)" : ""}`;
+        }
+        const tr = f.trail ?? [];
+        const ref = tr.find((x) => Date.now() - x[0] <= 3000);
+        if (ref) book += `; bid 3 с назад ${ref[1].toFixed(2)} → ${bidWs.toFixed(2)}`;
+      } catch { /* необязательно */ }
+      const t0 = Date.now();
+      const errors: string[] = [];
+      f.stopRounds = (f.stopRounds ?? 0) + 1;
+      if (f.shares - (f.soldShares ?? 0) < MIN_SHARES - 1e-9) {
+        f.stopFail = true;
+        this.note(`⚠️ LAB СТОП [${f.idea}] ${name}: стоп сработал, но у нас ${(f.shares - (f.soldShares ?? 0)).toFixed(2)} акций — меньше минимума биржи (${MIN_SHARES}), продать нельзя. Ждём итога рынка.`);
+        return;
+      }
+      for (let attempt = 1; attempt <= 4; attempt++) {
+        const have = f.shares - (f.soldShares ?? 0);
+        if (have < MIN_SHARES - 1e-9) break; // остаток меньше минимального ордера — дождёмся итога рынка
+        try {
+          const resp: any = await this.clob.placeLimitOrder({ tokenId: f.tokenId, side: Side.SELL, price: bidWs, size: have, maxSlippagePct: 45, allowBelowMin: true } as any);
+          const { filledSize, avgPrice } = resolveFillLive(Number(resp.filledSize ?? 0), Number(resp.filledUsdc ?? 0), bidWs);
+          if (filledSize > 0) {
+            f.soldShares = (f.soldShares ?? 0) + filledSize;
+            f.soldUsd = (f.soldUsd ?? 0) + filledSize * avgPrice;
+            this.note(`🛑 LAB СТОП [${f.idea}] ${name}: продал ${filledSize.toFixed(2)} акций по ${avgPrice.toFixed(3)} (вход ${f.avg.toFixed(3)}, стоп-уровень ${level.toFixed(3)}, bid был ${bidWs.toFixed(2)}), ${Date.now() - t0} мс, попытка ${attempt}${zAg !== null ? `; монета против нас: z=${zAg.toFixed(2)}` : ""}${book}`);
+            if (f.shares - f.soldShares < MIN_SHARES - 1e-9) return;
+          } else errors.push(`попытка ${attempt}: без заполнения`);
+        } catch (err) {
+          errors.push(`попытка ${attempt}: ${(err as Error).message}`);
+        }
+        await new Promise((r) => setTimeout(r, 700));
+      }
+      if ((f.soldShares ?? 0) < f.shares - 0.1 && (f.stopRounds ?? 0) >= 3) f.stopFail = true;
+      if ((f.soldShares ?? 0) < f.shares - 0.1) this.note(`⚠️ LAB СТОП [${f.idea}] ${name}: продано ${(f.soldShares ?? 0).toFixed(2)} из ${f.shares.toFixed(2)}; остальное дождётся итога рынка.${errors.length ? `\n${errors.map((x) => `• ${x}`).join("\n")}` : ""}`);
+    } catch (err) {
+      this.note(`⚠️ LAB СТОП [${f.idea}] ${name}: ошибка ${(err as Error).message}`);
+    } finally {
+      f.stopBusy = false;
+    }
+  }
+
+  private paperStopSettle(slug: string, winner: "Up" | "Down"): void {
+    for (const side of ["Up", "Down"] as const) {
+      const r = this.paperStops.get(`${slug}|${side}`);
+      if (!r) continue;
+      this.paperStops.delete(`${slug}|${side}`);
+      r.winner = winner;
+      this.paperStopLog.push(r);
+      if (this.paperStopLog.length > PAPER_STOP_LOG_MAX) this.paperStopLog.shift();
+    }
+  }
+
+  paperStopText(): string {
+    const L = this.paperStopLog;
+    if (L.length === 0) return "🛑 Бумажный стоп: данных пока нет (ждём срабатывания ячейки fair2 edge<0 / 60-120с / 0.80-0.85).";
+    const n = PAPER_STOP.shares;
+    let hold = 0;
+    let stopSim = 0; // как считает страница: уровень − 5¢
+    let stopReal = 0; // по реальному стакану
+    let hits = 0;
+    let withReal = 0;
+    let shallow = 0;
+    let gap = 0; // насколько реальная цена хуже уровня стопа, ¢ (сумма)
+    let gapN = 0;
+    let hitWins = 0; // стоп сработал, а рынок потом выиграл (стоп «зря»)
+    for (const r of L) {
+      const win = r.winner === r.side;
+      const h = (win ? 1 - r.entry : -r.entry) * n;
+      hold += h;
+      if (r.hitTs === undefined) { stopSim += h; stopReal += h; continue; }
+      hits++;
+      if (win) hitWins++;
+      const sim = (Math.max(0.01, r.level - 0.05) - r.entry) * n;
+      stopSim += sim;
+      if (r.vwap !== undefined) {
+        withReal++;
+        if (r.depthOk === false) shallow++;
+        stopReal += (r.vwap - r.entry) * n;
+        gap += (r.level - r.vwap) * 100;
+        gapN++;
+      } else stopReal += sim;
+    }
+    const f = (x: number): string => `${x >= 0 ? "+" : "−"}$${Math.abs(x).toFixed(2)}`;
+    return (
+      `🛑 Бумажный стоп ${Math.round(PAPER_STOP.pct * 100)}% (fair2 edge<0 / 60-120с / 0.80-0.85, ${n} акций), сделок ${L.length}, стоп сработал в ${hits} (${((hits / L.length) * 100).toFixed(0)}%)\n` +
+      `• держим до конца: ${f(hold)}\n` +
+      `• со стопом по модели страницы (−5¢): ${f(stopSim)}\n` +
+      `• со стопом по РЕАЛЬНОМУ стакану: ${f(stopReal)}` + (withReal < hits ? ` (реальная цена записана в ${withReal} из ${hits})` : "") + `\n` +
+      (gapN > 0 ? `• реальная цена продажи в среднем хуже уровня стопа на ${(gap / gapN).toFixed(1)}¢; не хватило глубины стакана: ${shallow}\n` : "") +
+      `• стоп сработал, а рынок потом выиграл: ${hitWins} из ${hits}\n` +
+      (L.length < 100 ? "Данных ещё мало (надо хотя бы 100 сделок, лучше 300)." : "")
+    );
+  }
+
+  private trackAfterEntry(side: "Up" | "Down", bid: number | null, p: PendingMarket, now: number, tokenId: string): void {
+    if (bid === null) return;
+    for (const e of p.entries) {
+      if (!isBase(e.idea) || e.side !== side || e.ts >= now) continue;
+      if (e.minBid === undefined || bid < e.minBid) e.minBid = bid;
+      // v5.4: только для fair2 — снимок глубины стакана в момент просадки на 10 / 20 центов (разбор стопов на странице)
+      if (e.idea === "fair2") {
+        if (e.bs10 === undefined && bid <= e.price - 0.1 + 1e-9) this.snapDepth(e, 10, tokenId);
+        if (e.bs20 === undefined && bid <= e.price - 0.2 + 1e-9) this.snapDepth(e, 20, tokenId);
+      }
+      if (!e.stops) e.stops = STOP_LEVELS.map(() => null);
+      for (let i = 0; i < STOP_LEVELS.length; i++) {
+        if (e.stops[i] === null && bid <= STOP_LEVELS[i]) e.stops[i] = bid;
+      }
+    }
+  }
+
+  /** v5.4: запоминает объём лучшего bid и глубину в 5¢ от него (один запрос стакана на токен в 1.5 с, только для данных страницы). */
+  private depthCache = new Map<string, { t: number; p: Promise<{ bs: number; dp: number } | null> }>();
+  private snapDepth(e: LabEntry, lvl: 10 | 20, tokenId: string): void {
+    if (lvl === 10) { e.bs10 = null; e.dp10 = null; } else { e.bs20 = null; e.dp20 = null; }
+    if (!tokenId) return;
+    const now = Date.now();
+    let c = this.depthCache.get(tokenId);
+    if (!c || now - c.t > 1500) {
+      c = {
+        t: now,
+        p: fetchBids(tokenId).then((b) => {
+          if (!b || b.length === 0) return null;
+          let dp = 0;
+          for (const [px, sz] of b) if (px >= b[0][0] - 0.05 - 1e-9) dp += sz;
+          return { bs: b[0][1], dp };
+        }).catch(() => null),
+      };
+      this.depthCache.set(tokenId, c);
+      if (this.depthCache.size > 200) for (const k of this.depthCache.keys()) { this.depthCache.delete(k); break; }
+    }
+    void c.p.then((r) => {
+      if (!r) return;
+      if (lvl === 10) { e.bs10 = Math.round(r.bs); e.dp10 = Math.round(r.dp); } else { e.bs20 = Math.round(r.bs); e.dp20 = Math.round(r.dp); }
+    });
+  }
+
+  private aggregateBotEntry(e: LabEntry, won: boolean, roi: number): void {
+    if (e.agreeN === undefined) return;
+
+    // Binance против потока бота (по этому входу без фильтра; настоящие «боты по корзинам» считаются отдельно)
+    if (e.bin !== null && e.bin !== undefined && e.pm !== undefined && e.pm > 0) {
+      const bi = binBucketIdx(e.bin / e.pm);
+      bump(this.binAgg, `${e.idea}|b${bi}`, won, roi, e.price);
+      bump(this.binAgg, `all|b${bi}`, won, roi, e.price);
+    }
+
+    const n = Math.min(Math.max(e.agreeN, 1), 3);
+    bump(this.agAgg, `${e.idea}|n${n}`, won, roi, e.price);
+    bump(this.agAgg, `all|n${n}`, won, roi, e.price);
+
+    for (const def of FEATURE_DEFS) {
+      const b = def.bucket(e);
+      if (b === null) continue;
+      bump(this.featAgg, `${def.name}|${b}`, won, roi, e.price);
+      if (def.perProfile) {
+        bump(this.featProf, `all|${def.name}|${b}`, won, roi, e.price);
+        bump(this.featProf, `${e.idea}|${def.name}|${b}`, won, roi, e.price);
+      }
+    }
+    for (const nf of NUM_FEATURES) {
+      const v = nf.get(e);
+      if (v === null || !Number.isFinite(v)) continue;
+      const k = `${nf.name}|${won ? "W" : "L"}`;
+      const s = this.featSum[k] ?? (this.featSum[k] = { s: 0, n: 0 });
+      s.s += v;
+      s.n++;
+    }
+    if (!won) {
+      this.lossLog.push(e);
+      if (this.lossLog.length > LOSS_LOG_MAX) this.lossLog.shift();
+    }
+
+    if (e.minBid !== undefined) {
+      const di = dipBucketIdx(e.minBid);
+      bump(this.dipAgg, `${e.idea}|d${di}`, won, roi, e.price);
+      bump(this.dipAgg, `all|d${di}`, won, roi, e.price);
+    }
+    if (e.stops !== undefined) {
+      for (let i = 0; i < STOP_LEVELS.length; i++) {
+        const fill = e.stops[i];
+        const stopped = fill !== null && fill !== undefined;
+        const roiStop = stopped ? ((fill as number) - e.price) / e.price : roi;
+        for (const key of [`${e.idea}|${i}`, `all|${i}`]) {
+          const a = this.stopAgg[key] ?? (this.stopAgg[key] = { n: 0, w: 0, stopped: 0, stopW: 0, stopL: 0, roiNo: 0, roiStop: 0 });
+          a.n++;
+          if (won) a.w++;
+          a.roiNo += roi;
+          a.roiStop += roiStop;
+          if (stopped) {
+            a.stopped++;
+            if (won) a.stopW++;
+            else a.stopL++;
+          }
+        }
+      }
+    }
+  }
+
+  /** Сумма статистики идеи по всем комбинациям и монетам. */
+  private sumIdea(idea: string): { w: number; t: number; roi: number; px: number } {
+    let w = 0;
+    let t = 0;
+    let roi = 0;
+    let px = 0;
+    for (const s of this.collect(idea)) {
+      w += s.w;
+      t += s.t;
+      roi += s.roi;
+      px += s.px;
+    }
+    return { w, t, roi, px };
+  }
+
+  private verdictFor(w: number, t: number, px: number): { avg: number; verdict: "✅" | "⚠️" | "❌" } {
+    const avg = t > 0 ? px / t : 0;
+    const lo = wilsonLower(w, t);
+    return { avg, verdict: lo > avg ? "✅" : t > 0 && w / t > avg ? "⚠️" : "❌" };
+  }
+
+  /** Одна строка «бот»: итог по идее вида botNbX / botNcX / botNkX. */
+  private variantLine(idea: string, label: string): string {
+    const s = this.sumIdea(idea);
+    if (s.t === 0) return `  ${label}: пока нет входов`;
+    const v = this.verdictFor(s.w, s.t, s.px);
+    const live = LIVE_VARIANTS[idea] !== undefined ? " ← так торгует бот" : "";
+    return `  ${label}: ${s.w}/${s.t} (${winPct(s.w, s.t)}), надёжно ${(wilsonLower(s.w, s.t) * 100).toFixed(0)}%, цена ${v.avg.toFixed(3)}, прибыль ${roiLabel(s.roi, s.t)} ${v.verdict}${s.t < 30 ? " (мало данных)" : ""}${live}`;
+  }
+
+  buildBinanceReport(): string {
+    const lines: string[] = [];
+    lines.push("<b>📊 Второе мнение: Binance (каждая корзина — отдельный бот)</b>");
+    lines.push(
+      "Для каждого профиля бота считаются отдельные «боты»: без фильтра и с фильтром по корзине Binance. Фильтр работает как в реальном боте: условие входа, а не метка. Если в первый момент Binance не попал в корзину, ждём и входим позже, как бот. Правила: " +
+        `${RULES_TEXT}.`,
+    );
+    lines.push(`Опрос Binance: удачно ${binance.okCount}, ошибок ${binance.failCount}. Данные считаются с ${new Date(this.sinceTs).toISOString().slice(0, 16).replace("T", " ")} UTC.`);
+    lines.push("Прибыль — средний результат на $1 ставки (без комиссий). «Надёжно» — осторожная оценка винрейта; ✅ надёжно выше цены входа, ⚠️ винрейт выше цены, но данных мало, ❌ ниже.");
+    lines.push("");
+    let anyProfile = false;
+    for (const prof of BOT_PROFILES) {
+      const ideas: [string, string][] = [[`bot${prof.id}`, "без фильтра Binance"]];
+      BIN_LABELS.forEach((label, i) => ideas.push([`bot${prof.id}b${i}`, label]));
+      if (this.sumIdea(ideas[0][0]).t === 0) continue;
+      anyProfile = true;
+      lines.push(`<b>── Профиль ${prof.id} ──</b>`);
+      for (const [idea, label] of ideas) lines.push(this.variantLine(idea, label));
+      lines.push("");
+    }
+    if (!anyProfile) lines.push("пока нет данных");
+    return lines.join("\n");
+  }
+
+  /** v3.1 / B: Coinbase и «две биржи сразу» для профилей бота. */
+  buildExchangesReport(): string {
+    const lines: string[] = [];
+    lines.push("<b>📊 Другие биржи: Coinbase и «две биржи сразу»</b>");
+    lines.push(
+      "Те же «боты по корзинам», что и для Binance, но по Coinbase (c0-c4), и по двум биржам сразу: k2 = обе против, k1 = одна против, k0 = обе не против. Корзина = во сколько раз биржа прошла от цены открытия окна по сравнению с потоком бота (против = биржа уже за ценой открытия). Фильтр — условие входа с ожиданием, как в боте.",
+    );
+    lines.push(
+      `Опрос Coinbase: удачно ${coinbase.okCount}, ошибок ${coinbase.failCount}. Опрос Binance: удачно ${binance.okCount}, ошибок ${binance.failCount}. Данные считаются с ${new Date(this.sinceTs).toISOString().slice(0, 16).replace("T", " ")} UTC.`,
+    );
+    lines.push(
+      "Важно: сначала проверь правила рынка Polymarket — по какому источнику идёт резолв (для 5-минуток это обычно Chainlink Data Streams, он агрегирует несколько площадок). Если вся логика в том, что токен тянется за биржами, а резолв идёт по агрегату, то совпадение нескольких бирж должно давать фильтр жёстче одной.",
+    );
+    lines.push("");
+    let any = false;
+    for (const prof of BOT_PROFILES) {
+      if (this.sumIdea(`bot${prof.id}`).t === 0) continue;
+      any = true;
+      lines.push(`<b>── Профиль ${prof.id} ──</b>`);
+      lines.push(this.variantLine(`bot${prof.id}`, "без фильтра бирж"));
+      lines.push(this.variantLine(`bot${prof.id}b0`, "для сравнения: Binance против"));
+      CB_LABELS.forEach((label, i) => lines.push(this.variantLine(`bot${prof.id}c${i}`, label)));
+      K_LABELS.forEach((label, i) => lines.push(this.variantLine(`bot${prof.id}k${i}`, label)));
+      lines.push("");
+    }
+    if (!any) lines.push("пока нет данных");
+    lines.push(`Отдельно по признаку «${F_EXCH2}» и «${F_CB}» см. «лаб лоси» (там же числовые средние).`);
+    return lines.join("\n");
+  }
+
+  buildAgreeReport(): string {
+    const get = (key: string): Stat => this.agAgg[key] ?? { w: 0, t: 0, roi: 0 };
+    const lines: string[] = [];
+    lines.push("<b>📊 Согласие профилей в момент входа</b>");
+    lines.push(
+      "Сколько профилей бота дали сигнал одновременно в тот момент, когда сработал этот вход (считаются базовые входы профилей без фильтра Binance). Идея: если сигнал даёт сразу несколько профилей, вход надёжнее.",
+    );
+    lines.push("");
+    const sections: [string, string][] = [["all", "Все профили вместе"], ...BOT_PROFILES.map((p) => [`bot${p.id}`, `Профиль ${p.id}`] as [string, string])];
+    for (const [key, title] of sections) {
+      const buckets = [1, 2, 3].map((n) => get(`${key}|n${n}`));
+      const tot = buckets.reduce((a, s) => ({ w: a.w + s.w, t: a.t + s.t, roi: a.roi + s.roi }), { w: 0, t: 0, roi: 0 });
+      if (tot.t === 0) {
+        if (key === "all") {
+          lines.push("<b>── Все профили вместе ──</b>");
+          lines.push("  пока нет данных");
+          lines.push("");
+        }
+        continue;
+      }
+      lines.push(`<b>── ${title} (входов ${tot.t}, ${winPct(tot.w, tot.t)}) ──</b>`);
+      buckets.forEach((s, i) => {
+        if (s.t === 0) return;
+        lines.push(`  ${AG_LABELS[i]}: ${s.w}/${s.t} (${winPct(s.w, s.t)}), прибыль ${roiLabel(s.roi, s.t)}${s.t < 10 ? " (мало данных)" : ""}`);
+      });
+      lines.push(
+        ...cutLines(buckets, [
+          { upTo: 1, label: "брать только если согласны 2+ профиля" },
+          { upTo: 2, label: "брать только если согласны 3+ профиля" },
+        ]),
+      );
+      lines.push("");
+    }
+    lines.push("Прибыль — средний результат на $1 ставки (без комиссий).");
+    return lines.join("\n");
+  }
+
+  buildLossReport(): string {
+    const lines: string[] = [];
+    let totW = 0;
+    let totT = 0;
+    for (let n = 1; n <= 3; n++) {
+      const s = this.agAgg[`all|n${n}`];
+      if (s) {
+        totW += s.w;
+        totT += s.t;
+      }
+    }
+    lines.push("<b>📊 Вскрытие лосей</b>");
+    lines.push(
+      `К каждому базовому входу профилей бота (без фильтра Binance) записываем признаки момента входа и сравниваем проигравшие входы с выигравшими. Входов с признаками: ${totT}, из них проиграло ${totT - totW}. Новые признаки (режим волатильности, соседи, траектория, edge, Coinbase) накапливаются только с момента обновления до v3.1.`,
+    );
+    lines.push("");
+
+    lines.push("<b>── Чем проигравшие отличаются от выигравших (средние значения) ──</b>");
+    if (totT === 0) {
+      lines.push("  пока нет данных");
+    } else {
+      for (const nf of NUM_FEATURES) {
+        const w = this.featSum[`${nf.name}|W`];
+        const l = this.featSum[`${nf.name}|L`];
+        if (!w && !l) continue;
+        const wTxt = w && w.n > 0 ? `${fmtNum(w.s / w.n)} (${w.n})` : "—";
+        const lTxt = l && l.n > 0 ? `${fmtNum(l.s / l.n)} (${l.n})` : "—";
+        lines.push(`  ${nf.name}: выигравшие ${wTxt} | проигравшие ${lTxt}`);
+      }
+      lines.push(`(в скобках — сколько входов в среднем; при ${totT - totW < 10 ? "малом числе лосей" : "числе лосей"} различия могут быть случайными)`);
+    }
+    lines.push("");
+
+    lines.push("<b>── Винрейт по признакам ──</b>");
+    for (const def of FEATURE_DEFS) {
+      if (def.loss === false) continue;
+      const parts: string[] = [];
+      for (const label of def.labels) {
+        const s = this.featAgg[`${def.name}|${label}`];
+        if (!s || s.t === 0) continue;
+        parts.push(`${label}: ${s.w}/${s.t} ${winPct(s.w, s.t)}`);
+      }
+      lines.push(`  ${def.name}`);
+      lines.push(parts.length > 0 ? `     ${parts.join(" | ")}` : "     пока нет данных");
+    }
+    lines.push("");
+
+    lines.push("<b>── Последние проигрыши (до 15) ──</b>");
+    if (this.lossLog.length === 0) {
+      lines.push("  пока нет проигрышей с признаками");
+    } else {
+      for (const e of [...this.lossLog].slice(-15).reverse()) {
+        const t = new Date(e.ts).toISOString().slice(11, 16);
+        lines.push(
+          `  ${t} UTC ${COIN_SHORT[e.coin] ?? e.coin} ${e.side}, профиль ${e.idea.slice(3)}, цена ${e.price.toFixed(2)}, за ${e.sec}с | z ${e.z != null ? e.z.toFixed(1) : "—"} | скорость 10с ${fmtPct(e.sp10)}, 30с ${fmtPct(e.sp30)} | bid/ask ${e.bsz != null ? Math.round(e.bsz) : "—"}/${e.asz != null ? Math.round(e.asz) : "—"} | Binance ${fmtPct(e.bin)} Coinbase ${fmtPct(e.cb)} (поток ${fmtPct(e.pm)}) | согласны профилей ${e.agreeN ?? "—"} | пересечений ${e.xings ?? "—"} | мин. цена после входа ${e.minBid != null ? e.minBid.toFixed(2) : "—"} | σ2м/обычная ${e.rv2 != null ? e.rv2.toFixed(1) : "—"} | соседей просело ${e.cg ?? "—"} | траектория 15с ${e.tr15 != null ? e.tr15.toFixed(2) : "—"} | edge ${fmtPct(e.fe, 1)}`,
+        );
+      }
+    }
+    return lines.join("\n");
+  }
+
+  buildStopReport(): string {
+    const lines: string[] = [];
+    lines.push("<b>📊 Стоп-лосс: как глубоко проседает цена после входа</b>");
+    lines.push(
+      "Для каждого базового входа профилей бота пишем минимальную цену токена (bid) после входа до закрытия окна. Потом считаем, что было бы, если бы при падении цены до уровня мы продавали: сколько выигрышных входов стоп выбил бы зря, сколько проигрышных поймал, и что с прибылью.",
+    );
+    lines.push(
+      "Продажа считается по первой замеренной цене ниже уровня (без комиссий и проскальзывания, в жизни чуть хуже). Если цена обвалилась уже после закрытия окна или одним скачком, стоп не успевает: такие проигрыши остаются «не пойманными».",
+    );
+    lines.push("");
+
+    const get = (key: string): Stat => this.dipAgg[key] ?? { w: 0, t: 0, roi: 0 };
+    lines.push("<b>── Как глубоко проседали входы (все профили вместе) ──</b>");
+    let anyDip = false;
+    DIP_LABELS.forEach((label, i) => {
+      const s = get(`all|d${i}`);
+      if (s.t === 0) return;
+      anyDip = true;
+      lines.push(`  мин. цена после входа ${label}: выиграло ${s.w}, проиграло ${s.t - s.w}`);
+    });
+    if (!anyDip) lines.push("  пока нет данных");
+    lines.push("(строки с выигравшими внизу таблицы — это шум: цена проседала, но вход всё равно выигрывал; стоп там выбил бы зря)");
+    lines.push("");
+
+    const stopLines = (key: string): string[] => {
+      const out: string[] = [];
+      STOP_LEVELS.forEach((lvl, i) => {
+        const a = this.stopAgg[`${key}|${i}`];
+        if (!a || a.n === 0) return;
+        const better = a.roiStop > a.roiNo + 1e-9 ? "✅" : a.roiStop < a.roiNo - 1e-9 ? "❌" : "—";
+        out.push(
+          `  стоп ${lvl.toFixed(2)}: сработал ${a.stopped} из ${a.n} (зря на выигрышных ${a.stopW}, поймал проигрышных ${a.stopL} из ${a.n - a.w}); прибыль без стопа ${roiLabel(a.roiNo, a.n)}, со стопом ${roiLabel(a.roiStop, a.n)} ${better}`,
+        );
+      });
+      return out;
+    };
+
+    lines.push("<b>── Стоп-уровни (все профили вместе) ──</b>");
+    const allLines = stopLines("all");
+    lines.push(...(allLines.length > 0 ? allLines : ["  пока нет данных"]));
+    lines.push("");
+
+    for (const prof of BOT_PROFILES) {
+      const a0 = this.stopAgg[`bot${prof.id}|0`];
+      if (!a0 || a0.n < 20) continue;
+      lines.push(`<b>── Профиль ${prof.id} (входов ${a0.n}, проиграло ${a0.n - a0.w}) ──</b>`);
+      lines.push(...stopLines(`bot${prof.id}`));
+      lines.push("");
+    }
+    lines.push("Прибыль — средний результат на $1 ставки. Бот пока не умеет продавать до резолва: это только исследование.");
+    return lines.join("\n");
+  }
+
+  /** «лаб бот» — как торговал бы реальный бот (идеи из LIVE_VARIANTS). */
+  buildLiveReport(): string {
+    const now = Date.now();
+    const lines: string[] = [];
+    lines.push("<b>🤖 Как торговал бы реальный бот</b>");
+    lines.push(
+      `Считается так: ${RULES_TEXT}; фильтр бирж с ожиданием, проверка живого стакана, цена входа = живой ask, итог по официальному резолву. Размер ставки как у бота. Счёт с ${new Date(this.sinceTs).toISOString().slice(0, 16).replace("T", " ")} UTC.`,
+    );
+    lines.push("");
+    for (const idea of Object.keys(LIVE_VARIANTS)) {
+      const size = LIVE_VARIANTS[idea];
+      const m = idea.match(/^bot(\d+)/);
+      const title = variantTitle(idea);
+      const s = this.sumIdea(idea);
+      const log = this.liveLog.filter((r) => r.idea === idea);
+      lines.push(`<b>── ${title} (ставка $${size}) ──</b>`);
+      if (s.t === 0) {
+        lines.push("  пока нет сделок");
+        lines.push("");
+        continue;
+      }
+      const v = this.verdictFor(s.w, s.t, s.px);
+      const pnlAll = log.reduce((a, r) => a + r.pnl, 0);
+      lines.push(`  Итого: ${s.w}/${s.t} (${winPct(s.w, s.t)}), проигрышей ${s.t - s.w}, прибыль на $1: ${roiLabel(s.roi, s.t)}, в долларах ${usdLabel(pnlAll)}`);
+      lines.push(`  Средняя цена входа ${v.avg.toFixed(3)} → безубыточный винрейт ${(v.avg * 100).toFixed(1)}%, фактический ${winPct(s.w, s.t)}, надёжная оценка ${(wilsonLower(s.w, s.t) * 100).toFixed(1)}% ${v.verdict}`);
+      for (const [label, ms] of [["за 24 часа", DAY_MS], ["за 7 дней", 7 * DAY_MS]] as [string, number][]) {
+        const part = log.filter((r) => r.ts >= now - ms);
+        const w = part.filter((r) => r.won).length;
+        const pnl = part.reduce((a, r) => a + r.pnl, 0);
+        lines.push(`  ${label}: ${part.length > 0 ? `${w}/${part.length} (${winPct(w, part.length)}), проигрышей ${part.length - w}, ${usdLabel(pnl)}` : "сделок нет"}`);
+      }
+      const byCoin = this.collect(idea);
+      const coinParts = INCLUDED_COINS.map((c) => {
+        const x = byCoin.find((r) => r.coin === c);
+        return x ? `${COIN_SHORT[c]} ${x.w}/${x.t} ${winPct(x.w, x.t)}` : null;
+      }).filter((x) => x !== null);
+      lines.push(`  По монетам: ${coinParts.join(" | ")}`);
+      if (m && idea !== `bot${m[1]}`) {
+        const base = this.sumIdea(`bot${m[1]}`);
+        if (base.t > 0) {
+          lines.push(`  Для сравнения тот же профиль без фильтра бирж: ${base.w}/${base.t} (${winPct(base.w, base.t)}), прибыль на $1: ${roiLabel(base.roi, base.t)}`);
+        }
+      }
+      lines.push("");
+    }
+
+    lines.push("<b>── Что бот пропустил бы (уникальных рынков) ──</b>");
+    const skipKeys = Object.keys(this.liveSkips);
+    if (skipKeys.length === 0) lines.push("  пока ничего");
+    for (const k of skipKeys) lines.push(`  ${k}: ${this.liveSkips[k]}`);
+    lines.push("");
+
+    lines.push("<b>── Последние проигрыши бота (до 10) ──</b>");
+    const losses = this.liveLog.filter((r) => !r.won).slice(-10).reverse();
+    if (losses.length === 0) {
+      lines.push("  пока нет проигрышей");
+    } else {
+      for (const r of losses) {
+        const t = new Date(r.ts).toISOString().slice(5, 16).replace("T", " ");
+        lines.push(
+          `  ${t} UTC ${COIN_SHORT[r.coin] ?? r.coin} ${r.side}, ${r.idea}, цена ${r.price.toFixed(3)}, z ${r.z !== null ? r.z.toFixed(1) : "—"}, Binance ${r.ratio !== null ? `${(r.ratio * 100).toFixed(0)}%` : "—"}, ${usdLabel(r.pnl)}`,
+        );
+      }
+    }
+    lines.push("");
+    lines.push("Прибыль на $1 — средний результат на $1 ставки; в долларах — с реальным размером ставки бота (без комиссий).");
+    return lines.join("\n");
+  }
+
+  // ───── «Пара BTC+ETH» ─────
+
+  private legState(m: CryptoUpDownMarket, side: "Up" | "Down", ask: number | null, bid: number | null): LegState | null {
+    const feed = PRICE_FEEDS[m.coin];
+    if (!feed) return null;
+    const sec = (m.closeTimeMs - Date.now()) / 1000;
+    if (sec < 0) return null;
+    const openTimeMs = m.closeTimeMs - m.windowMinutes * 60 * 1000;
+    let op = this.openPrices.get(m.eventSlug);
+    if (op === undefined) {
+      const v = feed.getPriceAt(openTimeMs);
+      if (v === null) return null;
+      op = v;
+      this.openPrices.set(m.eventSlug, op);
+    }
+    const coinNow = feed.getLatestPrice();
+    if (coinNow === null || op === 0) return null;
+    const pct = (coinNow - op) / op;
+    const price = bid ?? ask;
+    if (ask === null || price === null || ask <= 0 || ask > 0.999) return null;
+    return { sec, dir: side === "Up" ? pct : -pct, price, ask };
+  }
+
+  private pairHolds(lb: LegState, le: LegState): string[] {
+    const out: string[] = [];
+    const wsB = PAIR_WINDOWS.filter((w) => lb.sec <= w);
+    const wsE = PAIR_WINDOWS.filter((w) => le.sec <= w);
+    if (wsB.length === 0 || wsE.length === 0) return out;
+    const msB = PAIR_MOVES.filter((m) => lb.dir >= m);
+    const msE = PAIR_MOVES.filter((m) => le.dir >= m);
+    if (msB.length === 0 || msE.length === 0) return out;
+    for (let bi = 0; bi < PAIR_BANDS.length; bi++) {
+      const [lo, hi] = PAIR_BANDS[bi];
+      const okB = lb.price >= lo && lb.price <= hi && lb.ask <= hi;
+      const okE = le.price >= lo && le.price <= hi && le.ask <= hi;
+      if (!okB || !okE) continue;
+      for (const wB of wsB)
+        for (const mB of msB)
+          for (const wE of wsE)
+            for (const mE of msE) out.push(`${wB}:${mB}:${wE}:${mE}:${bi}`);
+    }
+    return out;
+  }
+
+  private tryPair(market: CryptoUpDownMarket, side: "Up" | "Down"): void {
+    const otherCoin = market.coin === PAIR_COINS[0] ? PAIR_COINS[1] : PAIR_COINS[0];
+    let partner: CryptoUpDownMarket | undefined;
+    for (const m of this.activeMarkets.values()) {
+      if (m.coin === otherCoin && m.closeTimeMs === market.closeTimeMs && m.windowMinutes === market.windowMinutes) {
+        partner = m;
+        break;
+      }
+    }
+    if (!partner) return;
+    const btcM = market.coin === PAIR_COINS[0] ? market : partner;
+    const ethM = market.coin === PAIR_COINS[0] ? partner : market;
+    if (!this.pending.has(btcM.eventSlug) || !this.pending.has(ethM.eventSlug)) return;
+
+    const key = `${market.closeTimeMs}:${side}`;
+    if (this.pairVerifying.has(key)) return;
+    if (Date.now() - (this.pairLastVerify.get(key) ?? 0) < VERIFY_COOLDOWN_MS) return;
+
+    const tB = side === "Up" ? btcM.upTokenId : btcM.downTokenId;
+    const tE = side === "Up" ? ethM.upTokenId : ethM.downTokenId;
+    const qB = this.quotes.get(tB);
+    const qE = this.quotes.get(tE);
+    if (!qB || !qE) return;
+    const lb = this.legState(btcM, side, qB.ask, qB.bid);
+    const le = this.legState(ethM, side, qE.ask, qE.bid);
+    if (!lb || !le) return;
+
+    const fresh = this.pairHolds(lb, le).some((pk) => !this.pairFired.has(pairKey(pk, btcM.closeTimeMs, side)));
+    if (!fresh) return;
+
+    void this.verifyAndCommitPair(btcM, ethM, side, key);
+  }
+
+  private async verifyAndCommitPair(
+    btcM: CryptoUpDownMarket,
+    ethM: CryptoUpDownMarket,
+    side: "Up" | "Down",
+    key: string,
+  ): Promise<void> {
+    this.pairVerifying.add(key);
+    this.pairLastVerify.set(key, Date.now());
+    try {
+      const tB = side === "Up" ? btcM.upTokenId : btcM.downTokenId;
+      const tE = side === "Up" ? ethM.upTokenId : ethM.downTokenId;
+      const [bB, bE] = await Promise.all([fetchBook(tB), fetchBook(tE)]);
+      if (!bB || !bE) return;
+      this.quotes.set(tB, { bid: bB.bid, ask: bB.ask });
+      this.quotes.set(tE, { bid: bE.bid, ask: bE.ask });
+      if (!this.pending.has(btcM.eventSlug) || !this.pending.has(ethM.eventSlug)) return;
+
+      const lb = this.legState(btcM, side, bB.ask, bB.bid);
+      const le = this.legState(ethM, side, bE.ask, bE.bid);
+      if (!lb || !le) return;
+
+      const now = Date.now();
+      for (const pk of this.pairHolds(lb, le)) {
+        const fk = pairKey(pk, btcM.closeTimeMs, side);
+        if (this.pairFired.has(fk)) continue;
+        this.pairFired.add(fk);
+        this.pairs.push({
+          pk,
+          side,
+          ts: now,
+          closeTimeMs: btcM.closeTimeMs,
+          btcSlug: btcM.eventSlug,
+          ethSlug: ethM.eventSlug,
+          btcPrice: lb.ask,
+          ethPrice: le.ask,
+          sec: Math.round(lb.sec),
+        });
+      }
+    } catch (err) {
+      console.error("[pair] ошибка:", (err as Error).message);
+    } finally {
+      this.pairVerifying.delete(key);
+    }
+  }
+
+  private settlePairs(): void {
+    const now = Date.now();
+    const seenSituations = new Set<string>();
+    for (let i = this.pairs.length - 1; i >= 0; i--) {
+      const e = this.pairs[i];
+      const wb = this.winners.get(e.btcSlug);
+      const we = this.winners.get(e.ethSlug);
+      if (wb && we) {
+        const wonB = wb === e.side;
+        const wonE = we === e.side;
+        const roiB = wonB ? (1 - e.btcPrice) / e.btcPrice : -1;
+        const roiE = wonE ? (1 - e.ethPrice) / e.ethPrice : -1;
+        bump(this.pairAgg, `${e.pk}|pair`, wonB && wonE, (roiB + roiE) / 2, (e.btcPrice + e.ethPrice) / 2);
+        bump(this.pairAgg, `${e.pk}|btc`, wonB, roiB, e.btcPrice);
+        bump(this.pairAgg, `${e.pk}|eth`, wonE, roiE, e.ethPrice);
+        bump(this.pairAgg, `${e.pk}|bothlost`, !wonB && !wonE, 0);
+        const sk = `${e.closeTimeMs}:${e.side}`;
+        if (!seenSituations.has(sk)) {
+          seenSituations.add(sk);
+          bump(this.pairAgg, "_sit|pair", wonB && wonE, 0);
+          bump(this.pairAgg, "_sit|btc", wonB, 0);
+          bump(this.pairAgg, "_sit|eth", wonE, 0);
+        }
+        this.pairs.splice(i, 1);
+        this.pairFired.delete(pairKey(e.pk, e.closeTimeMs, e.side));
+      } else if (now - e.closeTimeMs > RESOLVE_GIVE_UP_MS + PAIR_PRUNE_MS) {
+        this.pairs.splice(i, 1);
+        this.pairFired.delete(pairKey(e.pk, e.closeTimeMs, e.side));
+      }
+    }
+  }
+
+  /** Запрашивает живой стакан токена и, если условия выполняются по живым ценам, записывает вход. */
+  private async verifyAndCommit(
+    market: CryptoUpDownMarket,
+    side: "Up" | "Down",
+    p: PendingMarket,
+    tokenId: string,
+  ): Promise<void> {
+    this.verifying.add(tokenId);
+    this.lastVerifyAt.set(tokenId, Date.now());
+    try {
+      const book = await fetchBook(tokenId);
+      if (!book) return;
+      this.quotes.set(tokenId, { bid: book.bid, ask: book.ask });
+      if (book.ask !== null) this.pushAsk(tokenId, Date.now(), book.ask);
+
+      if (this.pending.get(market.eventSlug) !== p) return;
+
+      const price = book.bid ?? book.ask;
+      if (book.ask === null || price === null) {
+        this.verifyRejected++;
+        return;
+      }
+      const recorded = this.evaluate(market, side, p, book.ask, price, book.bid, true, book);
+      if (recorded > 0) this.verifyConfirmed++;
+      else this.verifyRejected++;
+    } catch (err) {
+      console.error("[verify] ошибка:", (err as Error).message);
+    } finally {
+      this.verifying.delete(tokenId);
+    }
+  }
+
+  /**
+   * Проверяет условия всех идей для данной стороны рынка при заданных ask/price/bid.
+   * commit=false — только считает, сколько новых входов записалось бы.
+   * commit=true  — записывает входы. Возвращает число (новых) входов.
+   * v3.0: каждая комбинация записывает каждый сигнал (лимиты и «один вход на рынок» включаются константами вверху файла).
+   */
+  private evaluate(
+    market: CryptoUpDownMarket,
+    side: "Up" | "Down",
+    p: PendingMarket,
+    ask: number,
+    price: number,
+    bid: number | null,
+    commit: boolean,
+    book: FreshBook | null = null,
+  ): number {
+    const now = Date.now();
+    const secToClose = (market.closeTimeMs - now) / 1000;
+    if (secToClose < 0) return 0;
+    if (ask <= 0 || ask > 0.999) return 0;
+
+    const feed = PRICE_FEEDS[market.coin];
+    if (!feed) return 0;
+
+    const openTimeMs = market.closeTimeMs - market.windowMinutes * 60 * 1000;
+    let openPrice = this.openPrices.get(market.eventSlug);
+    if (openPrice === undefined) {
+      const op = feed.getPriceAt(openTimeMs);
+      if (op === null) return 0;
+      openPrice = op;
+      this.openPrices.set(market.eventSlug, openPrice);
+    }
+    const openP: number = openPrice;
+    const coinNow = feed.getLatestPrice();
+    if (coinNow === null) return 0;
+    const pctMove = (coinNow - openP) / openP;
+    const dirMove = side === "Up" ? pctMove : -pctMove;
+    const peak = this.peaks.get(`${market.eventSlug}:${side}`) ?? 0;
+    const tokenId = side === "Up" ? market.upTokenId : market.downTokenId;
+
+    let volCache: number | null | undefined;
+    const getVol = (): number | null => {
+      if (volCache === undefined) volCache = volTracker.getRecentVolatility(market.coin, now);
+      return volCache ?? null;
+    };
+    const getZ = (): number | null => {
+      if (dirMove <= 0) return null;
+      const v = getVol();
+      if (v === null || v <= 1e-6) return null;
+      return dirMove / (v * Math.sqrt(Math.max(secToClose, 1) / 300));
+    };
+    let confCache: { c05: number; c10: number } | undefined;
+    const getConf = (): { c05: number; c10: number } => {
+      if (confCache === undefined) {
+        let c05 = 0;
+        let c10 = 0;
+        for (const c of INCLUDED_COINS) {
+          if (c === market.coin) continue;
+          const f = PRICE_FEEDS[c];
+          const o = f.getPriceAt(openTimeMs);
+          const n = f.getLatestPrice();
+          if (o === null || n === null || o === 0) continue;
+          const mv = side === "Up" ? (n - o) / o : (o - n) / o;
+          if (mv >= CONFIRM_LEVEL_1) c05++;
+          if (mv >= CONFIRM_LEVEL_2) c10++;
+        }
+        confCache = { c05, c10 };
+      }
+      return confCache;
+    };
+    let xingsCache: number | undefined;
+    const getXings = (): number => {
+      if (xingsCache === undefined) xingsCache = countCrossings(feed, openP, openTimeMs, now, coinNow);
+      return xingsCache;
+    };
+
+    // Движение монеты по бирже от открытия окна в нашу сторону (Binance / Coinbase)
+    const exMove = (ex: RestFeed): number | null => {
+      const o = ex.getPriceAt(market.coin, openTimeMs);
+      const n = ex.getLatest(market.coin);
+      if (o === null || n === null || o === 0) return null;
+      const m = (n - o) / o;
+      return side === "Up" ? m : -m;
+    };
+    let binCache: number | null | undefined;
+    const getBin = (): number | null => {
+      if (binCache === undefined) binCache = exMove(binance);
+      return binCache;
+    };
+    let cbCache: number | null | undefined;
+    const getCb = (): number | null => {
+      if (cbCache === undefined) cbCache = exMove(coinbase);
+      return cbCache;
+    };
+    // Во сколько раз биржа прошла от потока бота (как в боте: нужно движение по потоку в нашу сторону и свежая биржа)
+    const getRatioOf = (src: "b" | "c"): number | null => {
+      const mv = src === "b" ? getBin() : getCb();
+      return mv !== null && dirMove > 0 ? mv / dirMove : null;
+    };
+    const getRatio = (): number | null => getRatioOf("b");
+
+    // Режим волатильности: σ за короткий период ÷ обычная секундная σ (та же, что в z)
+    let regCache: { rv2: number | null; rv5: number | null } | undefined;
+    const getRegime = (): { rv2: number | null; rv5: number | null } => {
+      if (regCache === undefined) {
+        const v = getVol();
+        const base = v !== null && v > 1e-6 ? v / Math.sqrt(300) : null;
+        const s2 = this.realizedVol(market.coin, REGIME_SHORT_SEC, 5, now);
+        const s5 = this.realizedVol(market.coin, REGIME_LONG_SEC, 10, now);
+        regCache = {
+          rv2: base !== null && s2 !== null ? s2 / base : null,
+          rv5: base !== null && s5 !== null ? s5 / base : null,
+        };
+      }
+      return regCache;
+    };
+
+    // «Справедливая цена»: p = Φ(d / (σ·√t))
+    const fairCache = new Map<string, { p: number; edge: number } | null>();
+    const getFair = (look: number, step: number): { p: number; edge: number } | null => {
+      const ck = `${look}:${step}`;
+      if (fairCache.has(ck)) return fairCache.get(ck) ?? null;
+      let res: { p: number; edge: number } | null = null;
+      if (dirMove > 0) {
+        let sig = this.realizedVol(market.coin, look, step, now);
+        const v = getVol();
+        const base = v !== null && v > 1e-6 ? v / Math.sqrt(300) : null;
+        if (sig !== null && base !== null) sig = Math.max(sig, FAIR_SIGMA_FLOOR * base);
+        if (sig !== null && sig > 0) {
+          const pFair = normCdf(dirMove / (sig * Math.sqrt(Math.max(secToClose, 1))));
+          res = { p: pFair, edge: pFair - ask };
+        }
+      }
+      fairCache.set(ck, res);
+      return res;
+    };
+
+    // «Заражение»: сколько соседних монет (то же окно закрытия) имеют просевший токен нашей стороны
+    let contCache: { strict: number; soft: number } | undefined;
+    const getContagion = (): { strict: number; soft: number } => {
+      if (contCache === undefined) {
+        let strict = 0;
+        let soft = 0;
+        for (const m of this.activeMarkets.values()) {
+          if (m.closeTimeMs !== market.closeTimeMs || m.coin === market.coin || m.windowMinutes !== market.windowMinutes) continue;
+          const tok = side === "Up" ? m.upTokenId : m.downTokenId;
+          const pk = this.peaks.get(`${m.eventSlug}:${side}`) ?? 0;
+          const q2 = this.quotes.get(tok);
+          const cur = q2 ? (q2.bid ?? q2.ask) : null;
+          if (cur === null) continue;
+          if (pk >= CONTAGION_PEAK && cur < CONTAGION_DROP_TO) strict++;
+          if (pk >= CONTAGION_SOFT_PEAK && pk - cur >= CONTAGION_SOFT_DROP) soft++;
+        }
+        contCache = { strict, soft };
+      }
+      return contCache;
+    };
+
+    // «Траектория токена»: ask сейчас − ask 15с назад
+    const getTraj = (): number | null => {
+      const a0 = this.askAgo(tokenId, now, TRAJ_LOOKBACK_SEC);
+      return a0 === null ? null : ask - a0;
+    };
+
+    let featCache: Feat | undefined;
+    const getFeat = (): Feat => {
+      if (featCache === undefined) {
+        const sp = (lb: number): number | null => {
+          const p0 = feed.getPriceAt(now - lb * 1000);
+          if (p0 === null || p0 === 0) return null;
+          const m = (coinNow - p0) / p0;
+          return side === "Up" ? m : -m;
+        };
+        const reg = getRegime();
+        const cont = getContagion();
+        featCache = {
+          z: getZ(),
+          sp10: sp(10),
+          sp30: sp(30),
+          hr: new Date(now).getUTCHours(),
+          bsz: book ? book.bidSize : null,
+          asz: book ? book.askSize : null,
+          bin: getBin(),
+          cb: getCb(),
+          pm: dirMove,
+          rv2: reg.rv2,
+          rv5: reg.rv5,
+          cg: cont.strict,
+          cgs: cont.soft,
+          tr15: getTraj(),
+          ...htfTracker.feats(market.coin, now, coinNow, side === "Up" ? 1 : -1),
+          fe: getFair(120, 5)?.edge ?? null,
+          xs: Object.fromEntries(EXTRA_EXCHANGES.map((x) => [x.key, exMove(x.feed)])),
+        };
+      }
+      return featCache;
+    };
+    let agreeNow = 0;
+
+    let count = 0;
+    const emit = (idea: string, combo: string, extra?: Partial<LabEntry>): void => {
+      const key = fireKey(idea, combo, market.eventSlug, side);
+      if (this.firedKeys.has(key)) return; // комбинация уже вошла в этот рынок
+      const lim = this.limitReason(idea, combo, market.closeTimeMs);
+      if (lim !== null) {
+        if (commit) this.noteLive(idea, market.eventSlug, lim);
+        return;
+      }
+      count++;
+      if (!commit) return;
+      this.firedKeys.add(key);
+      this.takeSlot(idea, combo, market.closeTimeMs);
+      const c = getConf();
+      const entryRec: LabEntry = {
+        idea,
+        combo,
+        coin: market.coin,
+        side,
+        ts: now,
+        price: ask,
+        sec: Math.round(secToClose),
+        c05: c.c05,
+        c10: c.c10,
+        xings: isBase(idea) ? getXings() : undefined,
+        ...getFeat(),
+        bid0: bid,
+        pk: peak,
+        ...(isBase(idea) ? { agreeN: agreeNow } : {}),
+        ...(extra ?? {}),
+      };
+      p.entries.push(entryRec);
+      try {
+        this.testSigEntry = entryRec;
+        this.test.onSignal(idea, combo, market, side, ask, bid, now);
+      } catch (err) {
+        console.log("[lab-test] ошибка сигнала:", (err as Error).message);
+      } finally {
+        this.testSigEntry = null;
+      }
+      if (idea === PAPER_STOP.idea && combo === PAPER_STOP.combo) {
+        const tokenId = side === "Up" ? market.upTokenId : market.downTokenId;
+        this.paperStops.set(`${market.eventSlug}|${side}`, {
+          slug: market.eventSlug, coin: market.coin, side, tokenId, entryTs: now, entry: ask,
+          level: Math.max(0.01, Math.round(ask * (1 - PAPER_STOP.pct) * 100) / 100),
+        });
+      }
+      const tcfg = cfgFor(idea, combo);
+      if (tcfg !== undefined) {
+        // дополнительное условие входа стратегии (считается один раз, в момент первого срабатывания ячейки — так же, как в статистике страницы)
+        let pass = true;
+        if (tcfg.filter) {
+          const tb60 = tcfg.needTb60 ? this.tokenBidDelta(p, market, side, bid, 60, now) : null;
+          const ext = {
+            tb30: tcfg.needTb30 ? this.tokenBidDelta(p, market, side, bid, 30, now) : null,
+            ...(tcfg.needClo ? this.candleStats(p, market, side, now, entryRec.pm ?? null) : { clo: null }),
+            ...(tcfg.needPath ? this.tokenPath(p, market, side, now) : {}),
+          };
+          pass = tcfg.filter(entryRec, tb60, ext);
+        }
+        const tkey = `${tcfg.name}|${market.eventSlug}|${side}`;
+        const tj = this.tjEnsure(tcfg, market, side, entryRec);
+        const dayBlk = pass && tcfg.on ? this.dayBlock(tcfg) : null;
+        if (!pass) { this.tradeSkipped.add(tkey); tj.st = "skip"; tj.why = "не прошла фильтр ТС (монеты/условия)"; }
+        else if (!tcfg.on || notStarted(tcfg) || ended(tcfg)) {
+          tj.st = "skip"; tj.why = !tcfg.on ? "ТС выключена" : "ТС ещё не стартовала / уже закончила";
+          /* стратегия выключена командой «лаб тс выкл» (или ещё не наступил день старта / он уже закончился): в статистику пишем, не торгуем */
+          if (tcfg.on) this.tradeSkipped.add(tkey); // v7: без «LAB БЫ» сообщений для ещё не стартовавших и уже закончивших ТС
+        } else if (dayBlk !== null) {
+          this.tradeSkipped.add(tkey);
+          tj.st = "skip"; tj.why = dayBlk;
+          const ds = this.dayState(tcfg.name);
+          if (!ds.told) {
+            ds.told = true;
+            this.note(`🎯 LAB [${tcfg.name}]: ${dayBlk}. До 00:00 UTC новых покупок нет.`);
+          }
+        } else if (tcfg.entryPx !== undefined && Math.abs(tcfg.entryPx - entryRec.price) >= 0.0049) {
+          // v14: «особый вход» (как на странице): не покупаем сразу — ждём, пока bid дойдёт до (цена входа − спред сигнала); дальше слежение в enCheck
+          const ek = `${tcfg.name}|${market.eventSlug}|${side}`;
+          if (!this.enWatch.has(ek)) this.enWatch.set(ek, { cfg: tcfg, market, side, e: entryRec, done: false });
+          tj.st = "watch"; tj.why = undefined;
+        } else {
+          // v12: общий дедуп коллектива, как на странице («одна сделка на рынок и сторону»): первая по времени ТС покупает, остальные — виртуально (их результат идёт только в их дневную цель)
+          const gk = tcfg.groupOne && tcfg.group ? `${tcfg.group}|${market.eventSlug}|${side}` : null;
+          if (gk !== null && this.groupTaken.has(gk)) {
+            this.paperBuy(idea, market, side, entryRec, getRatioOf("b"), tcfg, "виртуально: на этот рынок и сторону уже купила другая ТС коллектива (общий дедуп, как на странице); результат идёт только в цель этой ТС");
+          } else {
+            if (gk !== null) this.groupTaken.add(gk);
+            if (this.liveEnabled && this.clob && !tcfg.paper) void this.liveBuy(idea, market, side, entryRec, getRatioOf("b"));
+            else this.paperBuy(idea, market, side, entryRec, getRatioOf("b"));
+          }
+        }
+      }
+      // v5.5: «вход после дна» — отдельный наблюдатель на тот же сигнал (спред сигнала ≤2¢, как у fair2s)
+      if (idea === DIP_IDEA && combo === DIP_COMBO && DIP.on && entryRec.bid0 != null && entryRec.price - entryRec.bid0 <= 0.02 + 1e-9) {
+        const dk = `${market.eventSlug}|${side}`;
+        if (!this.dipWatch.has(dk)) this.dipWatch.set(dk, { market, side, e: entryRec, armed: false, lowBid: null, lowTs: 0, done: false });
+      }
+    };
+
+    // ── 1. «Запас» ──
+    if (price >= MARGIN_PRICE_LOW && price <= MARGIN_PRICE_HIGH && ask <= MARGIN_PRICE_HIGH && dirMove > 0) {
+      const vol = getVol();
+      if (vol !== null && vol > 1e-6) {
+        const z = dirMove / (vol * Math.sqrt(Math.max(secToClose, 1) / 300));
+        for (const w of MARGIN_WINDOWS) {
+          if (secToClose > w) continue;
+          for (const zl of Z_LEVELS) {
+            if (z < zl) continue;
+            emit("margin", `z≥${zl.toFixed(1)} / ${w}с`);
+          }
+        }
+      }
+    }
+
+    // ── 2. «Недооценка» ──
+    if (dirMove > 0) {
+      const band = findBand(CHEAP_BANDS, ask);
+      if (band) {
+        for (const w of CHEAP_WINDOWS) {
+          if (secToClose > w) continue;
+          for (const thr of CHEAP_THRESHOLDS) {
+            if (dirMove < thr) continue;
+            emit("cheap", `${pctLabel(thr)} / ${w}с / ${band[0].toFixed(2)}-${band[1].toFixed(2)}`);
+          }
+        }
+      }
+    }
+
+    // ── 3. «Паника без разворота» ──
+    if (dirMove > 0 && peak >= PANIC_PEAK) {
+      const band = findBand(PANIC_BANDS, ask);
+      if (band) {
+        for (const w of PANIC_WINDOWS) {
+          if (secToClose > w) continue;
+          for (const thr of PANIC_THRESHOLDS) {
+            if (dirMove < thr) continue;
+            emit("panic", `${pctLabel(thr)} / ${w}с / ${band[0].toFixed(2)}-${band[1].toFixed(2)}`);
+          }
+        }
+      }
+    }
+
+    // ── 4. «Импульс последних секунд» ──
+    if (secToClose <= 180 && dirMove > 0 && ask >= IMPULSE_ASK_MIN && ask <= IMPULSE_ASK_MAX) {
+      for (const lb of IMPULSE_LOOKBACKS_SEC) {
+        const p0 = feed.getPriceAt(now - lb * 1000);
+        if (p0 === null || p0 === 0) continue;
+        const imp = (coinNow - p0) / p0;
+        const dirImp = side === "Up" ? imp : -imp;
+        if (dirImp <= 0) continue;
+        for (const w of IMPULSE_WINDOWS) {
+          if (secToClose > w) continue;
+          for (const thr of IMPULSE_THRESHOLDS) {
+            if (dirImp < thr) continue;
+            emit("impulse", `${pctLabel(thr)} за ${lb}с / ${w}с`);
+          }
+        }
+      }
+    }
+
+    // ── 8. «Модель цены»: сила (z) × секунды × цена. Одна запись на комбинацию корзин. ──
+    // v3.1: те же ячейки дублируются по корзинам Binance (modelb0..b4, «против» делится на чуть/сильно: modelbW / modelbS),
+    // по корзинам Coinbase (modelc0..c4) и по двум биржам сразу (modelk0..k2).
+    if (secToClose <= MODEL_MAX_SEC && ask >= MODEL_ASK_MIN && ask < MODEL_ASK_MAX) {
+      const z = getZ();
+      if (z !== null) {
+        const zb = findBand(MODEL_Z_BANDS, z);
+        const sb = findBand(MODEL_SEC_BANDS, secToClose);
+        const pb = findBand(MODEL_PRICE_BANDS, ask);
+        if (zb && sb && pb) {
+          const combo = `${zLabel(zb)} / ${secLabel(sb)} / ${priceLabel(pb)}`;
+          emit("model", combo);
+          const rb = getRatioOf("b");
+          const rc = getRatioOf("c");
+          if (rb !== null) {
+            emit(`modelb${binBucketIdx(rb)}`, combo);
+            if (rb < 0) emit(rb >= MODEL_BIN_DOSE_CUT ? "modelbW" : "modelbS", combo);
+          }
+          if (rc !== null) emit(`modelc${binBucketIdx(rc)}`, combo);
+          if (rb !== null && rc !== null) emit(`modelk${(rb < 0 ? 1 : 0) + (rc < 0 ? 1 : 0)}`, combo);
+        }
+      }
+    }
+
+    // ── 15. «Справедливая цена»: p = Φ(d / (σ·√t)), edge = p − ask. Ячейки: корзина edge × секунды × цена. ──
+    if (secToClose <= MODEL_MAX_SEC && dirMove > 0 && ask >= MODEL_ASK_MIN && ask < MODEL_ASK_MAX) {
+      const sb = findBand(MODEL_SEC_BANDS, secToClose);
+      const pb = findBand(MODEL_PRICE_BANDS, ask);
+      if (sb && pb) {
+        for (const fv of FAIR_VARIANTS) {
+          const f = getFair(fv.look, fv.step);
+          if (!f) continue;
+          const combo = `${FAIR_EDGE_LABELS[fairIdx(f.edge)]} / ${secLabel(sb)} / ${priceLabel(pb)}`;
+          const extra: Partial<LabEntry> = { fp: f.p, fe: f.edge };
+          emit(fv.idea, combo, extra);
+          if (fv.idea === "fair2") {
+            const rb = getRatioOf("b");
+            if (rb !== null && rb < 0) emit("fair2b0", combo, extra);
+          }
+        }
+      }
+    }
+
+    // ── 16. v4.6 «Движение монеты»: идеи, которые смотрят только на то, как шла монета (в нашу сторону), без привязки к цене токена ──
+    // Цена токена здесь не условие (берём широко 0.55-0.985) — на странице по ней можно фильтровать. Ячейка = «паттерн / секунды до закрытия».
+    if (secToClose >= 20 && secToClose <= MODEL_MAX_SEC && dirMove > 0 && ask >= 0.55 && ask <= 0.985) {
+      const sb = findBand(MODEL_SEC_BANDS, secToClose);
+      const vol = getVol();
+      const z0 = getZ();
+      if (sb && vol !== null && vol > 1e-6 && z0 !== null && z0 >= 1) {
+        const startMs = Math.max(openTimeMs, now - 300_000);
+        const pts: number[] = [];
+        for (let t = startMs; t < now - 1000; t += 5000) {
+          const px = feed.getPriceAt(t);
+          if (px === null) continue;
+          pts.push(((side === "Up" ? px / openP - 1 : 1 - px / openP)) * 1e4);
+        }
+        const dNow = dirMove * 1e4;
+        pts.push(dNow);
+        const n = pts.length;
+        if (n >= 8) {
+          let hi = -1e9, lo = 1e9, hiIdx = 0, cross = 0, lastS = 0, maxAg = 0;
+          for (let i = 0; i < n; i++) {
+            if (pts[i] > hi) { hi = pts[i]; hiIdx = i; }
+            if (pts[i] < lo) lo = pts[i];
+            const sg = Math.sign(pts[i]);
+            if (sg !== 0) { if (lastS !== 0 && sg !== lastS) cross++; lastS = sg; }
+            if (i >= 2) maxAg = Math.max(maxAg, pts[i - 2] - pts[i]);
+          }
+          hi = Math.max(hi, 0); lo = Math.min(lo, 0);
+          const rg = hi - lo;
+          const s10 = vol * Math.sqrt(10 / 300) * 1e4; // σ за 10 секунд, bps
+          const d10 = dNow - pts[Math.max(0, n - 3)];
+          const d30 = dNow - pts[Math.max(0, n - 7)];
+          const secL = secLabel(sb);
+          const zl = z0 < 2 ? "сила 1-2" : "сила 2+";
+          // а) прямой отрыв: монета ни разу не вернулась к открытию
+          if (cross === 0) emit("cdx", `без возврата к открытию · ${zl} / ${secL}`);
+          // б) пробой старого максимума: сейчас на максимуме, а прошлый максимум держался больше 30с
+          if (dNow >= hi - 1e-9) {
+            let prev = -1e9;
+            for (let i = 0; i < n - 6; i++) if (pts[i] > prev) prev = pts[i];
+            if (n - 6 > 0 && dNow > prev && prev > 0) emit("cbk", `пробой максимума · ${zl} / ${secL}`);
+          }
+          // в) разгон: последние 10с — сильный рывок в нашу сторону, 30с тоже вверх
+          if (s10 > 1e-6 && d30 > 0) {
+            const z10 = d10 / s10;
+            if (z10 >= 1) emit("cac", `рывок 10с ${z10 < 2 ? "1-2" : z10 < 3 ? "2-3" : "3+"}σ / ${secL}`);
+          }
+          // г) откат и возврат: от максимума откатывались, теперь снова растём
+          if (hi > 0 && s10 > 1e-6) {
+            const pb = (hi - dNow) / hi;
+            if (hiIdx < n - 1 && d10 > 0 && pb >= 0.1 && pb < 0.7 && hi >= 2 * s10) emit("cpb", `откат ${pb < 0.3 ? "10-30" : "30-70"}% и возврат / ${secL}`);
+          }
+          // д) тело свечи: монета шла почти одним движением
+          if (rg > 2 * s10 && s10 > 1e-6) {
+            const body = dNow / rg;
+            if (body >= 0.5) emit("cbd", `тело свечи ${body < 0.8 ? "50-80" : "80+"}% · ${zl} / ${secL}`);
+          }
+          // е) запас против самого большого отката: текущий отрыв ÷ самый сильный откат за 10с за последние 5 минут
+          if (maxAg > 0.1) {
+            const r = dNow / maxAg;
+            if (r >= 2) emit("crv", `отрыв в ${r < 3 ? "2-3" : r < 5 ? "3-5" : "5+"} раза больше любого отката / ${secL}`);
+          }
+        }
+      }
+    }
+
+    // ── 10. «Соло» для пары: та же монета, тот же триггер, но без условия на вторую монету ──
+    if (PAIR_COINS.includes(market.coin) && dirMove > 0) {
+      for (let bi = 0; bi < PAIR_BANDS.length; bi++) {
+        const [lo, hi] = PAIR_BANDS[bi];
+        if (!(price >= lo && price <= hi && ask <= hi)) continue;
+        for (const w of PAIR_WINDOWS) {
+          if (secToClose > w) continue;
+          for (const mv of PAIR_MOVES) {
+            if (dirMove < mv) continue;
+            emit("psolo", `${w}:${mv}:${bi}`);
+          }
+        }
+      }
+    }
+
+    // ── 7. Профили бота: базовый бот (без фильтра) и боты по корзинам Binance / Coinbase / двух бирж ──
+    /** Подходит ли идея из LIVE_VARIANTS (бот этого профиля с его фильтром бирж) под текущее состояние бирж. */
+    const variantMatches = (idea: string, id: number): boolean => {
+      const m = idea.match(/^bot(\d+)(?:([bc])(\d)|k(\d))?$/);
+      if (!m || Number(m[1]) !== id) return false;
+      if (m[2] === undefined && m[4] === undefined) return true;
+      if (m[2] !== undefined) {
+        const r = getRatioOf(m[2] as "b" | "c");
+        return r !== null && binBucketIdx(r) === Number(m[3]);
+      }
+      const rb = getRatioOf("b");
+      const rc = getRatioOf("c");
+      if (rb === null || rc === null) return false;
+      return (rb < 0 ? 1 : 0) + (rc < 0 ? 1 : 0) === Number(m[4]);
+    };
+    /** Бот из LIVE_VARIANTS пропустил бы вход по этой причине (если его фильтр бирж сейчас тоже пропускает). */
+    const noteLiveFail = (id: number, reason: string): void => {
+      if (!commit) return;
+      for (const idea of Object.keys(LIVE_VARIANTS)) {
+        if (variantMatches(idea, id)) this.noteLive(idea, market.eventSlug, reason);
+      }
+    };
+
+    const holding: number[] = [];
+    const aboveCap: number[] = [];
+    for (const prof of BOT_PROFILES) {
+      const win = prof.windowSec[market.coin];
+      if (win === undefined || secToClose > win) continue;
+
+      const low = prof.priceLow ?? DEFAULT_LOW;
+      const high = prof.priceHigh ?? DEFAULT_HIGH;
+
+      let priceOk: boolean;
+      if (prof.priceMode === "none") {
+        priceOk = true;
+      } else if (prof.priceMode === "touch-drop") {
+        const st = this.touchStates.get(`${prof.id}:${market.eventSlug}:${side}`);
+        priceOk = (st?.touchedHigh ?? false) && price >= low && price <= high;
+      } else if (prof.priceMode === "retouch") {
+        const st = this.touchStates.get(`${prof.id}:${market.eventSlug}:${side}`);
+        priceOk = (st?.touchedCorridor ?? false) && (st?.leftAfterTouch ?? false) && price >= low && price <= high;
+      } else {
+        priceOk = price >= low && price <= high;
+      }
+      if (!priceOk) continue;
+
+      const pv = prof.param[market.coin];
+      if (pv === undefined) continue;
+
+      if (prof.mode === "margin") {
+        const z = getZ();
+        if (z === null || z < pv) continue;
+      } else {
+        let thr: number;
+        if (prof.mode === "adaptive") {
+          const v = getVol();
+          if (v === null) continue;
+          thr = pv * v;
+        } else {
+          thr = pv;
+        }
+        const passes = side === "Up" ? pctMove >= thr : pctMove <= -thr;
+        if (!passes) continue;
+      }
+
+      // сигнал профиля есть — дальше как перед покупкой в боте: потолок цены и живой bid
+      if (ask > high) {
+        noteLiveFail(prof.id, "покупка не прошла: ask выше потолка коридора");
+        // v3.5: записываем и такие сигналы отдельной идеей bot{N}hi — «а что было бы, если бы потолок был выше»
+        if (ask <= ABOVE_CAP_MAX_ASK && !(prof.requireLiveBid && (bid === null || bid < low - 1e-9))) aboveCap.push(prof.id);
+        continue;
+      }
+      if (prof.requireLiveBid && (bid === null || bid < low - 1e-9)) {
+        noteLiveFail(prof.id, "покупка не прошла: живой bid ниже коридора");
+        continue;
+      }
+      holding.push(prof.id);
+    }
+    agreeNow = holding.length;
+    for (const id of aboveCap) {
+      const lo = ask <= 0.97 ? 0.96 : ask <= 0.98 ? 0.97 : ask <= 0.99 ? 0.98 : 0.99;
+      emit(`bot${id}hi`, `ask ${lo.toFixed(2)}-${(lo + 0.01).toFixed(2)} (выше потолка)`);
+    }
+    for (const id of holding) {
+      emit(`bot${id}`, "профиль");
+      const rb = getRatio();
+      const rc = getRatioOf("c");
+      if (rb !== null) emit(`bot${id}b${binBucketIdx(rb)}`, "профиль");
+      if (rc !== null) emit(`bot${id}c${binBucketIdx(rc)}`, "профиль");
+      if (rb !== null && rc !== null) emit(`bot${id}k${(rb < 0 ? 1 : 0) + (rc < 0 ? 1 : 0)}`, "профиль");
+    }
+
+    return count;
+  }
+
+  // ───── v3.2 «Темка»: покупка в начале окна, продажа по тейк-профиту ─────
+
+  private tstat(key: string): TStat {
+    return this.temkaAgg[key] ?? (this.temkaAgg[key] = { n: 0, f: 0, w: 0, px: 0, roiH: 0, roiH2: 0, hit: 0, hitSec: 0, roiT: 0, roiT2: 0, nhW: 0 });
+  }
+
+  /**
+   * В первые TEMKA_OPEN_MAX_SEC секунд окна берём живые стаканы обеих сторон и ставим «ордера» режимов «по рынку» и «лимитка»:
+   * «по рынку» входит по живому ask сразу; лимитки входят сразу, только если ask уже не выше уровня, иначе ждут.
+   * Если рынок замечен позже, он целиком пропускается, чтобы не смешивать входы на разном времени окна.
+   * Режимы «контртренд» создаются позже, по сигналу (см. temkaCtCheck).
+   */
+  private async temkaTryOpen(market: CryptoUpDownMarket, p: PendingMarket): Promise<void> {
+    if (p.temkaInit || this.temkaOpening.has(market.eventSlug)) return;
+    const modes = TEMKA_MODES_BY_TF[market.windowMinutes];
+    if (!modes) {
+      p.temkaInit = true;
+      p.temka = [];
+      return;
+    }
+    const openMs = market.closeTimeMs - market.windowMinutes * 60 * 1000;
+    const elapsed = (Date.now() - openMs) / 1000;
+    if (elapsed < 0) return;
+    if (elapsed > TEMKA_OPEN_MAX_SEC) {
+      p.temkaInit = true;
+      p.temka = [];
+      return;
+    }
+    this.temkaOpening.add(market.eventSlug);
+    try {
+      const [up, down] = await Promise.all([fetchBook(market.upTokenId), fetchBook(market.downTokenId)]);
+      if (!up || !down) return; // повторим на следующем тике / замере, пока не прошло TEMKA_OPEN_MAX_SEC
+      if (this.pending.get(market.eventSlug) !== p || p.temkaInit) return;
+      const t = Date.now();
+      const list: TemkaPos[] = [];
+      for (const [side, tok, b] of [
+        ["Up", market.upTokenId, up],
+        ["Down", market.downTokenId, down],
+      ] as const) {
+        this.quotes.set(tok, { bid: b.bid, ask: b.ask });
+        for (const m of modes) {
+          if (m.ctLevel !== undefined) continue;
+          const pos: TemkaPos = {
+            mode: m.id,
+            side,
+            level: m.level,
+            deadlineMs: m.waitSec !== undefined ? openMs + m.waitSec * 1000 : undefined,
+            filled: false,
+            price: 0,
+            fillTs: 0,
+            hits: TEMKA_TP_DELTAS.map(() => null),
+          };
+          const ask = b.ask;
+          if (ask !== null && b.askSize >= TEMKA_MIN_SIZE) {
+            const okMarket = m.id === "m" && ask >= TEMKA_MARKET_ASK_MIN && ask <= TEMKA_MARKET_ASK_MAX;
+            const okLimit = m.level !== undefined && ask > 0 && ask <= m.level + 1e-9;
+            if (okMarket || okLimit) {
+              pos.filled = true;
+              pos.price = ask;
+              pos.fillTs = t;
+            }
+          }
+          list.push(pos);
+        }
+      }
+      p.temka = list;
+      p.temkaInit = true;
+    } catch (err) {
+      console.error("[temka] ошибка постановки:", (err as Error).message);
+    } finally {
+      this.temkaOpening.delete(market.eventSlug);
+    }
+  }
+
+  /** На каждом тике токена: ищем «кандидатов» на исполнение лимитки или тейк-профита и подтверждаем живым стаканом. */
+  private temkaTick(market: CryptoUpDownMarket, side: "Up" | "Down", p: PendingMarket, q: Quote, now: number): void {
+    if (!p.temkaInit) {
+      void this.temkaTryOpen(market, p);
+      return;
+    }
+    const list = p.temka;
+    if (!list || list.length === 0) return;
+    this.temkaCtCheck(market, side, p, q, now);
+    let candidate = false;
+    for (const pos of list) {
+      if (pos.side !== side) continue;
+      if (!pos.filled) {
+        if (pos.level === undefined || pos.deadlineMs === undefined || now > pos.deadlineMs) continue;
+        if (q.ask !== null && q.ask <= pos.level + 1e-9) candidate = true;
+      } else if (q.bid !== null) {
+        for (let i = 0; i < TEMKA_TP_DELTAS.length; i++) {
+          const target = pos.price + TEMKA_TP_DELTAS[i];
+          if (pos.hits[i] === null && target <= 0.99 + 1e-9 && q.bid >= target - 1e-9) {
+            candidate = true;
+            break;
+          }
+        }
+      }
+      if (candidate) break;
+    }
+    if (candidate) void this.temkaConfirm(market, side, p);
+  }
+
+  /**
+   * Живой стакан токена (REST): лимитка считается исполненной по своей цене, если ask опустился до уровня и на нём есть объём;
+   * тейк-профит считается исполненным по цене цели, если живой bid не ниже цели и на нём есть объём.
+   */
+  private async temkaConfirm(market: CryptoUpDownMarket, side: "Up" | "Down", p: PendingMarket): Promise<void> {
+    const tokenId = side === "Up" ? market.upTokenId : market.downTokenId;
+    if (this.temkaConfirming.has(tokenId)) return;
+    if (Date.now() - (this.temkaLastConfirm.get(tokenId) ?? 0) < TEMKA_CONFIRM_COOLDOWN_MS) return;
+    this.temkaConfirming.add(tokenId);
+    this.temkaLastConfirm.set(tokenId, Date.now());
+    try {
+      const book = await fetchBook(tokenId);
+      if (!book) return;
+      this.quotes.set(tokenId, { bid: book.bid, ask: book.ask });
+      if (book.ask !== null) this.pushAsk(tokenId, Date.now(), book.ask);
+      if (this.pending.get(market.eventSlug) !== p || !p.temka) return;
+      const t = Date.now();
+      for (const pos of p.temka) {
+        if (pos.side !== side) continue;
+        if (!pos.filled) {
+          if (pos.level === undefined || pos.deadlineMs === undefined || t > pos.deadlineMs) continue;
+          if (book.ask !== null && book.ask <= pos.level + 1e-9 && book.askSize >= TEMKA_MIN_SIZE) {
+            pos.filled = true;
+            pos.price = pos.level;
+            pos.fillTs = t;
+          }
+        } else if (book.bid !== null && book.bidSize >= TEMKA_MIN_SIZE) {
+          for (let i = 0; i < TEMKA_TP_DELTAS.length; i++) {
+            const target = pos.price + TEMKA_TP_DELTAS[i];
+            if (pos.hits[i] === null && target <= 0.99 + 1e-9 && book.bid >= target - 1e-9) {
+              pos.hits[i] = Math.max(0, (t - pos.fillTs) / 1000);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error("[temka] ошибка проверки:", (err as Error).message);
+    } finally {
+      this.temkaConfirming.delete(tokenId);
+    }
+  }
+
+  /** Рывок монеты ПРОТИВ стороны за TEMKA_CT_LOOKBACK_SEC секунд в «сигмах» (плюс = монета идёт против токена). null — нет данных. */
+  private temkaAgainstZ(market: CryptoUpDownMarket, side: "Up" | "Down", now: number): number | null {
+    const feed = PRICE_FEEDS[market.coin];
+    if (!feed) return null;
+    const p0 = feed.getPriceAt(now - TEMKA_CT_LOOKBACK_SEC * 1000);
+    const pn = feed.getLatestPrice();
+    if (p0 === null || pn === null || p0 === 0) return null;
+    const mv = (pn - p0) / p0;
+    const against = side === "Up" ? -mv : mv;
+    const vol = volTracker.getRecentVolatility(market.coin, now);
+    if (vol === null || vol <= 1e-6) return null;
+    return against / (vol * Math.sqrt(TEMKA_CT_LOOKBACK_SEC / 300));
+  }
+
+  /** «Контртренд»: токен подешевел до уровня после рывка монеты против него — кандидат на вход (подтверждает temkaCtConfirm). */
+  private temkaCtCheck(market: CryptoUpDownMarket, side: "Up" | "Down", p: PendingMarket, q: Quote, now: number): void {
+    const modes = TEMKA_MODES_BY_TF[market.windowMinutes];
+    if (!modes || !p.temka || q.ask === null || q.ask <= 0) return;
+    const maxLevel = Math.max(...TEMKA_CT_LEVELS);
+    if (q.ask > maxLevel + 1e-9) return;
+    const openMs = market.closeTimeMs - market.windowMinutes * 60 * 1000;
+    if ((now - openMs) / 1000 < TEMKA_CT_MIN_ELAPSED_SEC || (market.closeTimeMs - now) / 1000 < TEMKA_CT_MIN_SEC_TO_CLOSE) return;
+    const free = modes.filter(
+      (m) => m.ctLevel !== undefined && (q.ask as number) <= m.ctLevel + 1e-9 && !(p.temka as TemkaPos[]).some((x) => x.mode === m.id && x.side === side),
+    );
+    if (free.length === 0) return;
+    const z = this.temkaAgainstZ(market, side, now);
+    if (z === null || z < Math.min(...TEMKA_CT_ZS)) return;
+    void this.temkaCtConfirm(market, side, p);
+  }
+
+  private async temkaCtConfirm(market: CryptoUpDownMarket, side: "Up" | "Down", p: PendingMarket): Promise<void> {
+    const tokenId = side === "Up" ? market.upTokenId : market.downTokenId;
+    const key = `ct:${tokenId}`;
+    if (this.temkaConfirming.has(key)) return;
+    if (Date.now() - (this.temkaLastConfirm.get(key) ?? 0) < TEMKA_CONFIRM_COOLDOWN_MS) return;
+    this.temkaConfirming.add(key);
+    this.temkaLastConfirm.set(key, Date.now());
+    try {
+      const modes = TEMKA_MODES_BY_TF[market.windowMinutes];
+      const book = await fetchBook(tokenId);
+      if (!book || !modes) return;
+      this.quotes.set(tokenId, { bid: book.bid, ask: book.ask });
+      if (book.ask !== null) this.pushAsk(tokenId, Date.now(), book.ask);
+      if (this.pending.get(market.eventSlug) !== p || !p.temka) return;
+      const t = Date.now();
+      const openMs = market.closeTimeMs - market.windowMinutes * 60 * 1000;
+      if ((t - openMs) / 1000 < TEMKA_CT_MIN_ELAPSED_SEC || (market.closeTimeMs - t) / 1000 < TEMKA_CT_MIN_SEC_TO_CLOSE) return;
+      if (book.ask === null || book.ask <= 0 || book.askSize < TEMKA_MIN_SIZE) return;
+      const z = this.temkaAgainstZ(market, side, t);
+      if (z === null) return;
+      for (const m of modes) {
+        if (m.ctLevel === undefined || m.ctZ === undefined) continue;
+        if (book.ask > m.ctLevel + 1e-9 || z < m.ctZ) continue;
+        if (p.temka.some((x) => x.mode === m.id && x.side === side)) continue;
+        p.temka.push({
+          mode: m.id,
+          side,
+          filled: true,
+          price: book.ask,
+          fillTs: t,
+          hits: TEMKA_TP_DELTAS.map(() => null),
+        });
+      }
+    } catch (err) {
+      console.error("[temka] ошибка контртренда:", (err as Error).message);
+    } finally {
+      this.temkaConfirming.delete(key);
+    }
+  }
+
+  /** Резолв рынка: считаем итог каждой «ордер-позиции» и пишем в общую статистику, по стороне, по монете и по монете+стороне. */
+  private temkaSettle(p: PendingMarket, winner: "Up" | "Down"): void {
+    if (!p.temka) return;
+    const tf = p.wm ?? 5;
+    for (const pos of p.temka) {
+      const filled = pos.filled && pos.price > 0;
+      const won = pos.side === winner;
+      const roiH = filled ? (won ? (1 - pos.price) / pos.price : -1) : 0;
+      const mk = temkaKeyMode(pos.mode, tf);
+      for (const ck of [p.coin, "*"]) {
+        for (const sk of [pos.side, "*"]) {
+          const suffix = `${ck}|${sk}`;
+          const h = this.tstat(`${mk}|h|${suffix}`);
+          h.n++;
+          if (!filled) continue;
+          h.f++;
+          if (won) h.w++;
+          h.px += pos.price;
+          h.roiH += roiH;
+          h.roiH2 += roiH * roiH;
+          TEMKA_TP_DELTAS.forEach((d, i) => {
+            if (pos.price + d > 0.99 + 1e-9) return;
+            const s = this.tstat(`${mk}|${i}|${suffix}`);
+            const hs = pos.hits[i];
+            const hit = hs !== null && hs !== undefined;
+            const r = hit ? d / pos.price : roiH;
+            s.f++;
+            s.roiH += roiH;
+            s.roiT += r;
+            s.roiT2 += r * r;
+            if (hit) {
+              s.hit++;
+              s.hitSec += hs as number;
+            } else if (won) {
+              s.nhW++;
+            }
+          });
+        }
+      }
+    }
+  }
+
+  // ───── арбитраж: замер живыми стаканами ─────
+
+  async sampleArb(): Promise<void> {
+    if (this.arbSampling) return;
+    this.arbSampling = true;
+    try {
+      const list = [...this.activeMarkets.values()].filter((m) => m.closeTimeMs - Date.now() > 0);
+      await Promise.all(
+        list.map(async (m) => {
+          const p = this.ensurePending(m);
+          if (!p) return;
+          void this.temkaTryOpen(m, p);
+          if (m.windowMinutes !== TARGET_WINDOW_MINUTES) return; // арбитраж и честность цен считаем только по 5м
+          const [up, down] = await Promise.all([fetchBook(m.upTokenId), fetchBook(m.downTokenId)]);
+          if (!up || !down) return;
+
+          for (const [tok, b] of [
+            [m.upTokenId, up],
+            [m.downTokenId, down],
+          ] as const) {
+            const old = this.quotes.get(tok);
+            if (old && old.ask !== null) {
+              this.staleSampled++;
+              if (b.ask === null || Math.abs(b.ask - old.ask) >= STALE_DIFF) this.staleShifted++;
+            }
+            this.quotes.set(tok, { bid: b.bid, ask: b.ask });
+            if (b.ask !== null) this.pushAsk(tok, Date.now(), b.ask);
+          }
+
+          if (up.ask === null || down.ask === null) return;
+          const sum = up.ask + down.ask;
+          const sec = (m.closeTimeMs - Date.now()) / 1000;
+          if (!p.arb) p.arb = { minSum: sum, sec99: null, size99: null };
+          if (sum < p.arb.minSum) p.arb.minSum = sum;
+          if (sum <= 0.99 + 1e-9 && p.arb.sec99 === null) {
+            p.arb.sec99 = sec;
+            p.arb.size99 = Math.min(up.askSize, down.askSize);
+          }
+        }),
+      );
+    } catch (err) {
+      console.error("[arb] ошибка замера:", (err as Error).message);
+    } finally {
+      this.arbSampling = false;
+    }
+  }
+
+  // ───── v3.6: «как бы покупает» ─────
+
+  /** Куда отправлять текст о бумажной покупке/итоге (ставится в main: Telegram). */
+  onPaperText: ((text: string) => void) | null = null;
+
+  // v4.0: дневная цель / дневной стоп (по закрытым сделкам стратегии, день по UTC)
+  // v7: дневные счётчики цели/стопа хранятся и на диске (lab-day-state.json рядом с настройками), чтобы деплой/перезапуск посреди дня НЕ обнулял «цель +$1 набрана»
+  private paperBought = new Set<string>(); // v12: «ТС|рынок|сторона» — виртуальные покупки, сделанные в ЭТОМ запуске (только их результат идёт в дневные счётчики)
+  private groupTaken = new Set<string>(); // v12: «группа|рынок|сторона», где коллектив уже купил
+  private dayPnl: Map<string, { day: number; real: number; told: boolean; wins?: number; wq?: number[]; stopW?: boolean; virt?: number }> = loadDayState();
+  private dayState(name: string): { day: number; real: number; told: boolean; wins?: number; wq?: number[]; stopW?: boolean; virt?: number } {
+    const d = Math.floor(Date.now() / DAY_MS);
+    let st = this.dayPnl.get(name);
+    if (!st || st.day !== d) {
+      st = { day: d, real: 0, told: false, wins: 0, wq: [], stopW: false };
+      this.dayPnl.set(name, st);
+    }
+    return st;
+  }
+  private addDayPnl(name: string, pnl: number, virtual = false): void {
+    const ds = this.dayState(name);
+    ds.real += pnl;
+    if (virtual) ds.virt = (ds.virt ?? 0) + pnl; // виртуальные (бумажные) сделки идут в цель ТС, но не в общий стоп дня (там только реальные деньги)
+    if (pnl > 1e-9) {
+      ds.wins = (ds.wins ?? 0) + 1;
+      // цель «N приб. сделок сверху» (как на странице): после закрытия победы берём сумму последних N побед; если итог дня (по закрытым) не меньше этой суммы — стоп до конца дня
+      const W = TRADE_CFGS.find((c) => c.name === name)?.goalW ?? 0;
+      if (W > 0) {
+        const wq = (ds.wq ??= []);
+        wq.push(pnl);
+        if (wq.length > W) wq.shift();
+        if (wq.length >= W && ds.real >= wq.reduce((a, b) => a + b, 0) - 1e-9) ds.stopW = true;
+      }
+    }
+    saveDayState(this.dayPnl);
+  }
+  private totalDayPnl(): number {
+    let t = 0;
+    for (const c of TRADE_CFGS) { const d = this.dayState(c.name); t += d.real - (d.virt ?? 0); }
+    return t;
+  }
+  private dayBlock(c: TradeCfg): string | null {
+    if (TOTAL_STOP > 0) {
+      const tot = this.totalDayPnl();
+      if (tot <= -TOTAL_STOP + 1e-9) return `ОБЩИЙ дневной стоп −$${TOTAL_STOP} сработал (все ТС вместе сегодня −$${Math.abs(tot).toFixed(2)}) — вся торговля остановлена`;
+    }
+    const st = this.dayState(c.name);
+    if (c.goalP > 0 && st.real >= c.goalP - 1e-9) return `дневная цель +$${c.goalP} достигнута (сегодня ${st.real >= 0 ? "+" : "−"}$${Math.abs(st.real).toFixed(2)})`;
+    if ((c.goalW ?? 0) > 0 && st.stopW) return `дневная цель: ${c.goalW} приб. сделк. сверху набрана (итог дня ${st.real >= 0 ? "+" : "−"}$${Math.abs(st.real).toFixed(2)} не меньше суммы последних ${c.goalW} побед)`;
+    if (c.goalL > 0 && st.real <= -c.goalL + 1e-9) return `дневной стоп −$${c.goalL} сработал (сегодня −$${Math.abs(st.real).toFixed(2)})`;
+    return null;
+  }
+  dayLimitsText(): string {
+    const tot = this.totalDayPnl();
+    const head = TOTAL_STOP > 0 ? `Общий стоп дня: −$${TOTAL_STOP}; все ТС вместе сегодня ${tot >= 0 ? "+" : "−"}$${Math.abs(tot).toFixed(2)}${tot <= -TOTAL_STOP + 1e-9 ? " — ВСЯ ТОРГОВЛЯ ОСТАНОВЛЕНА до 00:00 UTC" : ""}\n` : "";
+    return head + TRADE_CFGS.map((c) => {
+      const st = this.dayState(c.name);
+      return `• ${c.name} ${c.paper ? "📝бумага " : ""}${c.on ? (ended(c) ? "🏁" : notStarted(c) ? "🕒" : "🟢") : "⏸"} ${stakeTxt(c)}${notStarted(c) ? `, старт ${c.fromDay} 00:00 UTC` : ""}${ended(c) ? `, закончила ${c.untilDay} 00:00 UTC (дальше только статистика)` : ""}, ${limitsTxt(c)}; сегодня закрыто ${st.real >= 0 ? "+" : "−"}$${Math.abs(st.real).toFixed(2)}${this.dayBlock(c) ? " — остановлена на день" : ""}`;
+    }).join("\n");
+  }
+
+  // ───── v16: журнал сделок (методы) ─────
+  private tj = new Map<string, Tj>();
+  private tjDirty = false;
+  private tjKey(cfg: string, slug: string, side: string): string { return `${cfg}|${slug}|${side}`; }
+  private tjEnsure(cfg: TradeCfg, market: CryptoUpDownMarket, side: "Up" | "Down", e: LabEntry): Tj {
+    const k = this.tjKey(cfg.name, market.eventSlug, side);
+    let c = this.tj.get(k);
+    if (!c) {
+      c = { k, cfg: cfg.name, coin: COIN_SHORT[market.coin] ?? market.coin, side, slug: market.eventSlug, close: market.closeTimeMs, sig: e.ts, sigPx: e.price, want: cfg.entryPx, cap: cfg.entryPx !== undefined ? cfg.cap : undefined, st: "skip", why: "сигнал без действия", created: Date.now() };
+      this.tj.set(k, c);
+    }
+    this.tjDirty = true;
+    return c;
+  }
+  private tjSet(cfg: TradeCfg, market: CryptoUpDownMarket, side: "Up" | "Down", e: LabEntry, st: TjSt, why?: string): void {
+    try { const c = this.tjEnsure(cfg, market, side, e); c.st = st; c.why = why; } catch { /* журнал best-effort */ }
+  }
+  private tjLoad(): void {
+    try {
+      const arr = JSON.parse(fs.readFileSync(TJ_FILE, "utf8")) as Tj[];
+      for (const c of arr) if (c && c.k) this.tj.set(c.k, c);
+    } catch { /* файла ещё нет */ }
+  }
+  private tjSave(): void {
+    if (!this.tjDirty) return;
+    try {
+      const cut = Date.now() - TJ_KEEP_MS;
+      let arr = [...this.tj.values()].filter((c) => c.created >= cut);
+      if (arr.length > TJ_MAX) arr = arr.sort((a, b) => a.created - b.created).slice(arr.length - TJ_MAX);
+      if (arr.length !== this.tj.size) { this.tj.clear(); for (const c of arr) this.tj.set(c.k, c); }
+      fs.writeFileSync(TJ_FILE, JSON.stringify(arr));
+      this.tjDirty = false;
+    } catch (err) {
+      console.log("[tj] не удалось сохранить журнал:", (err as Error).message);
+    }
+  }
+  /** «лаб сделки [ТС] [N ч|N д] [все]» */
+  tradesText(arg: string): string[] {
+    const toks = arg.split(/\s+/).filter(Boolean);
+    let cfg: string | null = null, hours = 24, all = false;
+    for (const t of toks) {
+      const m = t.match(/^(\d+)\s*(ч|час|h|д|дн|d)?$/);
+      if (/^(все|all)$/.test(t)) all = true;
+      else if (m) { const n = Number(m[1]); hours = m[2] && /^(д|дн|d)$/.test(m[2]) ? n * 24 : n; }
+      else if (TRADE_CFGS.some((c) => c.name.toLowerCase() === t)) cfg = t;
+    }
+    hours = Math.max(1, Math.min(72, hours));
+    return tjFormat([...this.tj.values()], { cfg, hours, all, now: Date.now() });
+  }
+
+  private paperBuy(idea: string, market: CryptoUpDownMarket, side: "Up" | "Down", e: LabEntry, ratio: number | null, cfgIn?: TradeCfg, extra?: string): void {
+    const cfg = cfgIn ?? cfgFor(idea, e.combo)!;
+    try {
+      const tj = this.tjEnsure(cfg, market, side, e);
+      tj.st = extra && extra.startsWith("виртуально") ? "virtual" : "paper";
+      tj.why = tj.st === "virtual" ? "виртуально: уже купила другая ТС коллектива" : undefined;
+      tj.at = e.ts; tj.px = e.price; tj.sh = sharesOf(cfg, e.price);
+    } catch { /* журнал best-effort */ }
+    this.paperBought.add(`${cfg.name}|${market.eventSlug}|${side}`);
+    const shares = sharesOf(cfg, e.price);
+    const t = new Date(e.ts).toISOString().slice(11, 23);
+    const text =
+      `📝 LAB БЫ КУПИЛ [${cfg.name}, ${stakeTxt(cfg)}] ${t} UTC\n` +
+      `${COIN_SHORT[market.coin] ?? market.coin} ${market.windowMinutes}м ${side}, ask ${e.price.toFixed(3)}, bid ${e.bid0 != null ? e.bid0.toFixed(3) : "—"} (потолок бота ${cfg.cap})\n` +
+      `до закрытия ${e.sec}с, z ${e.z != null ? e.z.toFixed(2) : "—"}, Binance ${ratio !== null ? `${(ratio * 100).toFixed(0)}%` : "—"} от потока, ~${shares.toFixed(2)} акций${extra ? `, ${extra}` : ""}\n` +
+      `${market.eventSlug}`;
+    console.log(text.replace(/\n/g, " | "));
+    this.onPaperText?.(text);
+  }
+
+  // ───── v3.7: реальная торговля ─────
+
+  private clob: ClobService | null = null;
+  liveEnabled = false; // рантайм-переключатель («лаб торговля вкл/выкл»)
+  private liveSlugs = new Set<string>(); // рынки, где уже была попытка живой покупки
+  private liveFills = new Map<string, { slug: string; idea: string; coin: string; side: "Up" | "Down"; shares: number; avg: number; usd: number; tokenId?: string; stopPct?: number; stopBusy?: boolean; stopLast?: number; soldShares?: number; soldUsd?: number; stopFail?: boolean; stopRounds?: number; trail?: Array<[number, number]> }>(); // ключ: «стратегия|рынок»
+  private liveWindowCount = new Map<number, number>();
+  private liveTimes: number[] = [];
+  private liveStats = { bought: 0, failed: 0, skipped: 0, wins: 0, losses: 0, pnl: 0 };
+
+  setClob(c: ClobService): void {
+    this.clob = c;
+  }
+  hasClob(): boolean {
+    return this.clob !== null;
+  }
+
+  private note(text: string): void {
+    console.log(text.replace(/\n/g, " | "));
+    this.onPaperText?.(text);
+  }
+
+  liveStatusText(): string {
+    const s = this.liveStats;
+    return (
+      `Торговля LAB: ${this.liveEnabled && this.clob ? "🟢 РЕАЛЬНАЯ" : this.clob ? "⏸ выключена (бумажная)" : "⚪ не подключена (бумажная)"}\n` +
+      `Стратегии:\n${this.dayLimitsText()}\n(менять: «лаб тс», «лаб объем», «лаб акций», «лаб лимит»)\n` +
+      `Куплено ${s.bought}, не удалось ${s.failed}, пропущено по лимитам ${s.skipped}; закрыто: ${s.wins} побед / ${s.losses} проигрышей, итог ${s.pnl >= 0 ? "+" : "−"}$${Math.abs(s.pnl).toFixed(2)}\n` +
+      `Открыто сейчас: ${this.liveFills.size} (лимит ${LIVE_MAX_OPEN}); за последний час покупок: ${this.liveTimes.filter((t) => Date.now() - t < 3600_000).length}/${LIVE_QUOTA_PER_HOUR}`
+    );
+  }
+
+  private async liveBuy(idea: string, market: CryptoUpDownMarket, side: "Up" | "Down", e: LabEntry, ratio: number | null, cfgIn?: TradeCfg, extra?: string): Promise<void> {
+    const cfg = cfgIn ?? cfgFor(idea, e.combo)!;
+    const slug = market.eventSlug;
+    const name = `${COIN_SHORT[market.coin] ?? market.coin} ${market.windowMinutes}м ${side}`;
+    const head = `[${cfg.name}, ${stakeTxt(cfg)}] ${name}, ask ${e.price.toFixed(3)}, bid ${e.bid0 != null ? e.bid0.toFixed(3) : "—"}, z ${e.z != null ? e.z.toFixed(2) : "—"}, Binance ${ratio !== null ? `${(ratio * 100).toFixed(0)}%` : "—"}, до закрытия ${e.sec}с${extra ? `, ${extra}` : ""}`;
+    if (!this.clob) return;
+    const lk = `${cfg.name}|${slug}`;
+    if (this.liveSlugs.has(lk)) return; // эта же стратегия в этом рынке уже пробовала (другие стратегии не мешают)
+    const now = Date.now();
+    this.liveTimes = this.liveTimes.filter((t) => now - t < 3600_000);
+    const limit =
+      this.liveFills.size + this.pendingLive >= LIVE_MAX_OPEN
+        ? `открыто ${this.liveFills.size} (лимит ${LIVE_MAX_OPEN})`
+        : (this.liveWindowCount.get(market.closeTimeMs) ?? 0) >= LIVE_MAX_PER_WINDOW
+          ? `в этом окне уже ${LIVE_MAX_PER_WINDOW} покупки`
+          : this.liveTimes.length >= LIVE_QUOTA_PER_HOUR
+            ? `квота ${LIVE_QUOTA_PER_HOUR} в час`
+            : null;
+    if (limit !== null) {
+      this.liveSlugs.add(lk);
+      this.liveStats.skipped++;
+      this.tjSet(cfg, market, side, e, "limit", `лимит: ${limit}`);
+      this.note(`⛔ LAB НЕ КУПИЛ (лимит: ${limit})\n${head}\n${slug}`);
+      return;
+    }
+    this.liveSlugs.add(lk);
+    this.pendingLive++;
+    this.liveWindowCount.set(market.closeTimeMs, (this.liveWindowCount.get(market.closeTimeMs) ?? 0) + 1);
+
+    const tokenId = side === "Up" ? market.upTokenId : market.downTokenId;
+    // для ТС со стопом берём на ~6% больше: после округления/комиссии заполнение бывает 4.9 акции, а биржа не даёт продать меньше 5 — стоп бы не сработал
+    const size0 = cfg.stopPct ? Math.ceil(sharesOf(cfg, e.price) * 106) / 100 : sharesOf(cfg, e.price);
+    const size = Math.max(size0, Math.ceil((MIN_NOTIONAL / Math.max(0.05, e.price)) * 100) / 100); // меньше $1 по сумме биржа не берёт
+    const errors: string[] = [];
+    const t0 = Date.now();
+    let sigRetries = 0; // v14: биржа иногда отвергает подпись ордера («invalid POLY_1271 signature»); ничего при этом не куплено, поэтому такие отказы повторяем отдельно (не тратя обычные попытки)
+    let sigFirst = "";
+    try {
+      for (let attempt = 1; attempt <= LIVE_ATTEMPTS; attempt++) {
+        const left = (market.closeTimeMs - Date.now()) / 1000;
+        if (left < LIVE_MIN_SEC_LEFT) {
+          errors.push(`попытка ${attempt}: до закрытия осталось ${left.toFixed(1)}с — не пытаюсь`);
+          break;
+        }
+        const snapAge = Date.now() - e.ts;
+        const tAttempt = Date.now();
+        try {
+          // snapshot/priceAtCap есть только в clob.ts v7.16+; через any код компилируется и со старым clob.ts (лишние поля там игнорируются)
+          const orderParams: any = {
+            tokenId,
+            side: Side.BUY,
+            price: e.price,
+            size,
+            maxSlippagePct: 0.5,
+            maxBuyPrice: cfg.cap,
+            minBidPrice: cfg.minBid,
+            snapshot: attempt === 1 && e.bid0 != null && snapAge <= 1500 ? { bid: e.bid0, ask: e.price, ageMs: snapAge } : undefined,
+            priceAtCap: true,
+            cleanAmount: sigRetries % 2 === 1, // v14: после отказа подписи каждая вторая попытка идёт с «чистой» суммой (до центов) — вдруг дело в округлении
+            allowBelowMin: true, // v6: меньше 5 акций биржа принимает (проверено), блок только в старом clob.ts
+          };
+          const resp: any = await this.clob.placeLimitOrder(orderParams);
+          const rawA = Number(resp.filledSize ?? 0);
+          const rawB = Number(resp.filledUsdc ?? 0);
+          const { filledSize, avgPrice } = resolveFillLive(rawA, rawB, e.price);
+          if (filledSize <= 0) {
+            errors.push(`попытка ${attempt}: биржа ответила без заполнения (сырые ${rawA}/${rawB})`);
+          } else {
+            const usd = filledSize * avgPrice;
+            this.liveFills.set(lk, { slug, idea: cfg.name, coin: e.coin, side, shares: filledSize, avg: avgPrice, usd, tokenId, stopPct: cfg.stopPct });
+            this.liveTimes.push(Date.now());
+            this.liveStats.bought++;
+            try { const tj = this.tjEnsure(cfg, market, side, e); tj.st = "bought"; tj.why = undefined; tj.at = Date.now(); tj.px = avgPrice; tj.sh = filledSize; tj.usd = usd; } catch { /* журнал */ }
+            this.note(
+              `💰 LAB КУПИЛ ${head}\n` +
+                `${filledSize.toFixed(2)} акций по ${avgPrice.toFixed(4)} (≈$${usd.toFixed(2)}), попытка ${attempt}/${LIVE_ATTEMPTS}, ордер ${Date.now() - tAttempt} мс, от сигнала ${Date.now() - e.ts} мс${resp.timing ? `, путь ${resp.timing.path === "fast" ? "быстрый" : "обычный"}` : ""}${sigRetries > 0 ? `\n⚠️ прошло после ${sigRetries} отказ(ов) подписи (чистая сумма: ${sigRetries % 2 === 1 ? "да" : "нет"})` : ""}\n${slug}`,
+            );
+            return;
+          }
+        } catch (err) {
+          const em = (err as Error).message ?? String(err);
+          if (/signature/i.test(em) && sigRetries < SIG_RETRIES) {
+            sigRetries++;
+            if (!sigFirst) sigFirst = em;
+            attempt--; // эта попытка не считается
+            await new Promise((r) => setTimeout(r, SIG_RETRY_DELAY_MS));
+            continue;
+          }
+          errors.push(`попытка ${attempt}: ${em}`);
+        }
+        if (attempt < LIVE_ATTEMPTS) await new Promise((r) => setTimeout(r, LIVE_RETRY_DELAY_MS));
+      }
+      if (sigRetries > 0) errors.push(`подпись отвергнута ${sigRetries} раз(а) подряд (повторял): ${sigFirst}`);
+      this.liveStats.failed++;
+      this.tjSet(cfg, market, side, e, "failed", errors.length ? `${errors[0].replace(/^попытка \d+: /, "").slice(0, 140)}${errors.length > 1 ? ` (+ещё ${errors.length - 1})` : ""}` : "нет ответа");
+      this.liveWindowCount.set(market.closeTimeMs, Math.max(0, (this.liveWindowCount.get(market.closeTimeMs) ?? 1) - 1));
+      this.note(`🚫 LAB НЕ СМОГ КУПИТЬ ${head}\nПотрачено ${Date.now() - t0} мс, причины:\n${errors.map((x) => `• ${x}`).join("\n")}\n${slug}`);
+    } catch (err) {
+      this.liveStats.failed++;
+      this.tjSet(cfg, market, side, e, "failed", `ошибка: ${(err as Error).message.slice(0, 140)}`);
+      this.note(`🚫 LAB: ошибка при покупке ${head}\n${(err as Error).message}\n${slug}`);
+    } finally {
+      this.pendingLive--;
+    }
+  }
+  // v5.6 «ЛАБ ТЕСТ»: отдельные бумажные тесты ТС со стопами / входами после дна (ничего не покупает; см. labTest.ts)
+  private testSigEntry: LabEntry | null = null;
+  private test = new LabTest({
+    fetchBids: (tokenId) => fetchBids(tokenId),
+    getBid: (tokenId) => this.quotes.get(tokenId)?.bid ?? null,
+    dataDir: path.dirname(LIVE_CFG_FILE),
+    cfgFilter: (name) => {
+      const c = TRADE_CFGS.find((x) => x.name === name);
+      const e = this.testSigEntry;
+      return !c || !c.filter || !e ? true : c.filter(e, null);
+    },
+  });
+  // v6 «ЛАБ ЛИМИТКИ»: бумажные идеи про прострелы по живому стакану (ничего не покупает; см. labLim.ts)
+  private lim = new LabLim({ fetchBook: (t) => fetchBookFull(t), dataDir: path.dirname(LIVE_CFG_FILE) });
+  limText(arg?: string): string { return this.lim.statusText(arg); }
+  limReset(): void { this.lim.reset(); }
+  testText(arg?: string): string {
+    return this.test.statusText(arg);
+  }
+  testReset(): void {
+    this.test.reset();
+  }
+  // v5.5 «Вход после дна»: слежение за сигналами ячейки fair2 (рынок|сторона) и бумажные покупки, если реальная торговля выключена
+  private dipWatch = new Map<string, { market: CryptoUpDownMarket; side: "Up" | "Down"; e: LabEntry; armed: boolean; lowBid: number | null; lowTs: number; done: boolean }>();
+  private dipPaper = new Map<string, { slug: string; coin: string; side: "Up" | "Down"; price: number; shares: number }>();
+  private dipCheck(market: CryptoUpDownMarket, side: "Up" | "Down", bid: number | null, ask: number | null, now: number): void {
+    if (this.dipWatch.size === 0 || bid === null) return;
+    const w = this.dipWatch.get(`${market.eventSlug}|${side}`);
+    if (!w || w.done || !DIP.on) return;
+    const left = (market.closeTimeMs - now) / 1000;
+    if (left < DIP.minLeft) {
+      w.done = true; // слишком поздно для покупки
+      return;
+    }
+    if (!w.armed) {
+      if (bid <= DIP.low / 100 + 1e-9) {
+        w.armed = true;
+        w.lowBid = bid;
+        w.lowTs = now;
+      }
+      return;
+    }
+    if (bid < DIP.buy / 100 - 1e-9 || ask === null) return;
+    if (ask > (DIP.buy + DIP.spread) / 100 + 1e-9) return; // спред раздут — ждём, пока ask подойдёт
+    w.done = true;
+    const e: LabEntry = { ...w.e, price: ask, bid0: bid, ts: now, sec: Math.round(left) };
+    const cfg = dipCfg();
+    const extra = `дно ${w.lowBid !== null ? w.lowBid.toFixed(2) : "—"} (через ${Math.round((w.lowTs - w.e.ts) / 1000)}с после сигнала), вернулось до ${bid.toFixed(2)}`;
+    if (this.liveEnabled && this.clob) void this.liveBuy(DIP_IDEA, market, side, e, null, cfg, extra);
+    else {
+      this.paperBuy(DIP_IDEA, market, side, e, null, cfg, extra);
+      this.dipPaper.set(`${market.eventSlug}|${side}`, { slug: market.eventSlug, coin: market.coin, side, price: ask, shares: sharesOf(cfg) });
+    }
+  }
+  // v14 «Особый вход» (как «Особые новые условия» на странице, applyEntry): сигнал по ТС, покупка — когда цена дойдёт до entryPx.
+  // Страница: P = цена входа; если P выше цены сигнала px0 — нужен подъём bid до P − spr (spr = спред сигнала, если нет данных — 0.01); если P ниже — падение bid до P − spr; если почти равна — вход сразу.
+  // Вход на странице считается ровно по P; бот платит живой ask (не выше cfg.cap) — разницу видно в сообщении «LAB БЫ КУПИЛ».
+  private enWatch = new Map<string, { cfg: TradeCfg; market: CryptoUpDownMarket; side: "Up" | "Down"; e: LabEntry; done: boolean; n1?: number; s1?: boolean; s2?: boolean }>();
+  private enBought = new Map<string, { price: number; shares: number }>(); // «ТС|рынок|сторона» → реальная (бумажная) цена и число акций
+  private enCheck(market: CryptoUpDownMarket, side: "Up" | "Down", bid: number | null, ask: number | null, now: number, sampled = false): void {
+    if (this.enWatch.size === 0 || bid === null) return;
+    for (const [k, w] of this.enWatch) {
+      if (w.done || w.market.eventSlug !== market.eventSlug || w.side !== side) continue;
+      const cfg = w.cfg;
+      const P = cfg.entryPx as number;
+      const px0 = w.e.price;
+      const spr = w.e.bid0 != null ? Math.max(0, Math.round((px0 - w.e.bid0) * 100) / 100) : 0.01; // спред сигнала, до 0.01 (как столбец spr на странице)
+      const left = (market.closeTimeMs - now) / 1000;
+      if (left <= 0) { w.done = true; continue; }
+      const rise = P > px0 + 0.0049;
+      // как на странице: если P − спред ≤ цены сигнала (g ≤ 0) — подъёма bid не требуется, вход сразу; иначе нужен подъём bid до P − спред (а при P ниже сигнала — падение bid до P − спред)
+      // v15: страница видит цену только по ленте раз в 5с (замер bid), а не по каждому тику. Поэтому «цена дошла» (подъём/падение) бот проверяет ТОЛЬКО в момент замера ленты (sampled=true),
+      // иначе он покупает на мгновенный всплеск bid, которого страница не видит (и такие сделки почти всегда проигрышные). Исключение: g ≤ 0 — вход сразу, как на странице.
+      const immediate = rise && P - spr - px0 <= 0;
+      if (!sampled && !immediate) continue;
+      const hit = rise ? (immediate || bid >= P - spr - 1e-9) : bid <= P - spr + 1e-9;
+      if (!hit) continue;
+      if (ask === null) { // v17: цена дошла, но у рынка нет цены продажи — раньше это было не видно
+        const t0 = this.tj.get(this.tjKey(cfg.name, market.eventSlug, side));
+        if (t0) { t0.nA = (t0.nA ?? 0) + 1; this.tjDirty = true; }
+        continue;
+      }
+      if (ask > cfg.cap + 1e-9) {
+        // v16: запоминаем для «лаб сделки»: цена дошла, но ask выше потолка (раньше такой пропуск не оставлял следов)
+        const tjm = this.tj.get(this.tjKey(cfg.name, market.eventSlug, side));
+        if (tjm) { if (tjm.miss === undefined) { tjm.miss = ask; tjm.missAt = now; } tjm.missN = (tjm.missN ?? 0) + 1; tjm.cap = cfg.cap; this.tjDirty = true; }
+        continue; // ask убежал выше потолка — ждём, вдруг вернётся (как «Вход после дна»)
+      }
+      if (!cfg.on || notStarted(cfg) || ended(cfg)) { w.done = true; continue; }
+      const blk = this.dayBlock(cfg);
+      if (blk !== null) { w.done = true; continue; }
+      w.done = true;
+      const e2: LabEntry = { ...w.e, price: ask, bid0: bid, ts: now, sec: Math.round(left) };
+      const extra = `особый вход: сигнал был на ${px0.toFixed(2)}, bid дошёл до ${bid.toFixed(2)} через ${Math.round((now - w.e.ts) / 1000)}с (на странице вход считается по ${P.toFixed(2)})`;
+      if (this.liveEnabled && this.clob && !cfg.paper) void this.liveBuy(w.e.idea, market, side, e2, null, cfg, extra);
+      else {
+        this.enBought.set(k, { price: ask, shares: sharesOf(cfg, ask) });
+        this.paperBuy(w.e.idea, market, side, e2, null, cfg, extra);
+      }
+    }
+  }
+  /** v17: «теневая» проверка входа раз в секунду: вход, если цена на уровне 2 замера подряд. НИЧЕГО НЕ ПОКУПАЕТ — только пишет в журнал «лаб сделки», чтобы сравнить с обычной проверкой раз в 5с. */
+  private shadowCheck(): void {
+    if (this.enWatch.size === 0) return;
+    const now = Date.now();
+    for (const w of this.enWatch.values()) {
+      try {
+        const m = w.market;
+        const left = (m.closeTimeMs - now) / 1000;
+        if (left <= -2) continue;
+        const tj = this.tj.get(this.tjKey(w.cfg.name, m.eventSlug, w.side));
+        if (!tj) continue;
+        const q = this.quotes.get(w.side === "Up" ? m.upTokenId : m.downTokenId);
+        const bid = q?.bid ?? null;
+        const ask = q?.ask ?? null;
+        tj.s1on = true;
+        if (bid !== null) { tj.mb = Math.max(tj.mb ?? 0, bid); tj.lb = bid; tj.la = ask ?? undefined; tj.lt = now; }
+        if (w.s1 || left <= 0 || bid === null) continue;
+        const cfg = w.cfg;
+        const P = cfg.entryPx as number;
+        const px0 = w.e.price;
+        const spr = w.e.bid0 != null ? Math.max(0, Math.round((px0 - w.e.bid0) * 100) / 100) : 0.01;
+        const rise = P > px0 + 0.0049;
+        const hit = rise ? (P - spr - px0 <= 0 || bid >= P - spr - 1e-9) : bid <= P - spr + 1e-9;
+        if (!hit) { w.n1 = 0; continue; }
+        if (ask === null) { tj.nA1 = (tj.nA1 ?? 0) + 1; w.n1 = 0; continue; }
+        w.n1 = (w.n1 ?? 0) + 1;
+        if (w.n1 < 2) continue;
+        if (ask > cfg.cap + 1e-9) { if (tj.s1Miss === undefined) tj.s1Miss = ask; continue; }
+        w.s1 = true; tj.s1 = ask; tj.s1At = now; this.tjDirty = true;
+      } catch { /* журнал best-effort */ }
+    }
+  }
+  /** v18: «теневой» вход на другом уровне цены (LAB_SHADOW_PX, по умолчанию 0.87): те же правила, что у обычной проверки (замер раз в 5с, покупка по ask, потолок как у ТС), но уровень выше. Ничего не покупает — пишет в журнал «лаб сделки». */
+  private shadowLevel(market: CryptoUpDownMarket, side: "Up" | "Down", bid: number | null, ask: number | null, now: number): void {
+    if (!(SHADOW_PX > 0) || this.enWatch.size === 0 || bid === null) return;
+    for (const w of this.enWatch.values()) {
+      try {
+        if (w.s2 || w.market.eventSlug !== market.eventSlug || w.side !== side) continue;
+        if ((market.closeTimeMs - now) / 1000 <= 0) continue;
+        const cfg = w.cfg;
+        const tj = this.tj.get(this.tjKey(cfg.name, market.eventSlug, side));
+        if (!tj) continue;
+        tj.s2on = true;
+        const px0 = w.e.price;
+        const spr = w.e.bid0 != null ? Math.max(0, Math.round((px0 - w.e.bid0) * 100) / 100) : 0.01;
+        const P = SHADOW_PX;
+        const rise = P > px0 + 0.0049;
+        const hit = rise ? (P - spr - px0 <= 0 || bid >= P - spr - 1e-9) : bid <= P - spr + 1e-9;
+        if (!hit || ask === null) continue;
+        if (ask > cfg.cap + 1e-9) { if (tj.s2Miss === undefined) tj.s2Miss = ask; continue; }
+        w.s2 = true; tj.s2 = ask; tj.s2At = now; this.tjDirty = true;
+      } catch { /* журнал best-effort */ }
+    }
+  }
+  dipStatusText(): string {
+    return (
+      `📉 Вход после дна [${DIP_NAME}] — ${DIP.on ? "🟢 включён" : "⏸ выключен"}\n` +
+      `ТС: Справедливая цена σ120с, edge <0, 60-120с, ask 0.80-0.85 (спред сигнала ≤2¢). Стопа нет — держим до конца.\n` +
+      `Дно: bid упал до ${DIP.low}¢ или ниже. Покупка: когда потом bid вернулся до ${DIP.buy}¢ и ask не выше ${DIP.buy + DIP.spread}¢.\n` +
+      `Размер: ${DIP.shares} акций. Не покупать, если до закрытия осталось меньше ${DIP.minLeft}с.\n` +
+      `Сейчас следим за ${[...this.dipWatch.values()].filter((w) => !w.done).length} сигналами.\n\n` +
+      `Команды:\n` +
+      `«лаб дно 75 80» — цены: дно и покупка (в центах)\n` +
+      `«лаб дно вкл» / «лаб дно выкл»\n` +
+      `«лаб дно акций 5» — сколько акций\n` +
+      `«лаб дно мин 15» — не покупать, если до конца меньше N секунд\n` +
+      `«лаб дно спред 3» — максимум ¢ над ценой покупки, который готов заплатить`
+    );
+  }
+
+  private pendingLive = 0;
+  private tradeSkipped = new Set<string>(); // «стратегия|рынок|сторона»: ячейка сработала, но дополнительное условие входа не выполнено
+
+  /** «Bid токена: вход − N с назад» — как на странице: bid сейчас минус последний bid той же стороны на момент (вход − N с), не старше 12 с в ленте. */
+  /** v5.7: «Свеча до входа: минимум монеты, bps» — как на странице: низшая точка движения монеты (в нашу сторону) от открытия окна до входа, ≤ 0, по ленте раз в 5с и текущему движению */
+  private candleStats(p: PendingMarket, market: CryptoUpDownMarket, side: "Up" | "Down", nowMs: number, pm: number | null): { clo: number | null; chi: number | null; crg: number | null } {
+    if (!p.tape || p.tape.length < 3) return { clo: null, chi: null, crg: null };
+    const openMs = market.closeTimeMs - market.windowMinutes * 60 * 1000;
+    const entryT = (nowMs - openMs) / 1000;
+    const sg = side === "Up" ? 1 : -1;
+    let lo = 0, hi = 0;
+    for (const r of p.tape) {
+      if ((r[0] as number) > entryT) continue;
+      const v = r[5];
+      if (v === null || v === undefined) continue;
+      const x = sg * (v as number);
+      if (x < lo) lo = x;
+      if (x > hi) hi = x;
+    }
+    if (pm !== null) { lo = Math.min(lo, pm * 1e4); hi = Math.max(hi, pm * 1e4); }
+    return { clo: Math.round(lo * 10) / 10, chi: Math.round(hi * 10) / 10, crg: Math.round((hi - lo) * 10) / 10 };
+  }
+
+  /** v6: «скачок вверх» (jmp) и «откат от максимума» (rdd) по ленте bid токена с начала окна до входа — как считает страница (шаг 5с, значения до 0.001, нужно ≥3 шагов). */
+  private tokenPath(p: PendingMarket, market: CryptoUpDownMarket, side: "Up" | "Down", nowMs: number): { jmp: number | null; rdd: number | null; b0: number | null; mono: number | null } {
+    const none = { jmp: null, rdd: null, b0: null, mono: null };
+    if (!p.tape || p.tape.length === 0) return none;
+    const openMs = market.closeTimeMs - market.windowMinutes * 60 * 1000;
+    const entryT = (nowMs - openMs) / 1000;
+    const col = side === "Up" ? 1 : 3;
+    let prev: number | null = null, first: number | null = null, mx = -1, maxJ = 0, maxDd = 0, steps = 0, up = 0;
+    for (const row of p.tape) {
+      if ((row[0] as number) > entryT) break;
+      const raw = row[col];
+      if (raw === null || raw === undefined) continue;
+      const b = raw as number;
+      if (first === null) first = b;
+      if (prev !== null) { steps++; if (b >= prev - 1e-9) up++; if (b - prev > maxJ) maxJ = b - prev; }
+      if (b > mx) mx = b;
+      if (mx - b > maxDd) maxDd = mx - b;
+      prev = b;
+    }
+    if (steps < 3 || first === null) return none;
+    return { jmp: Math.round(maxJ * 1000) / 1000, rdd: Math.round(maxDd * 1000) / 1000, b0: Math.round(first * 1000) / 1000, mono: Math.round((up / steps) * 100) / 100 };
+  }
+
+  private tokenBidDelta(p: PendingMarket, market: CryptoUpDownMarket, side: "Up" | "Down", bidNow: number | null, backSec: number, nowMs: number): number | null {
+    if (bidNow === null || !p.tape || p.tape.length === 0) return null;
+    const openMs = market.closeTimeMs - market.windowMinutes * 60 * 1000;
+    const entryT = (nowMs - openMs) / 1000;
+    if (entryT - backSec < -1) return null;
+    const target = entryT - backSec;
+    const col = side === "Up" ? 1 : 3;
+    const tp = p.tape;
+    let idx = -1;
+    for (let i = tp.length - 1; i >= 0; i--) {
+      if ((tp[i][0] as number) <= target) {
+        idx = i;
+        break;
+      }
+    }
+    for (let i = idx; i >= 0 && target - (tp[i][0] as number) <= 12; i--) {
+      const v = tp[i][col];
+      if (v !== null && v !== undefined) return Math.round((bidNow - v) * 1000) / 1000;
+    }
+    return null;
+  }
+
+  /** Закрывает все живые позиции рынка (их может быть несколько — по одной на стратегию). Возвращает имена стратегий, у которых была покупка. */
+  private liveSettle(slug: string, winner: "Up" | "Down"): Set<string> {
+    const bought = new Set<string>();
+    for (const [k, f] of [...this.liveFills]) {
+      if (f.slug !== slug) continue;
+      this.liveFills.delete(k);
+      bought.add(f.idea);
+      const sold = f.soldShares ?? 0;
+      const rest = Math.max(0, f.shares - sold);
+      const won = sold > 0 ? false : f.side === winner;
+      const pnl = (f.soldUsd ?? 0) - sold * f.avg + (f.side === winner ? rest * (1 - f.avg) : -rest * f.avg);
+      this.liveStats.pnl += pnl;
+      this.addDayPnl(f.idea, pnl);
+      { const tjf = this.tj.get(this.tjKey(f.idea, slug, f.side)); if (tjf) { tjf.pnl = pnl; tjf.won = f.side === winner; if (sold > 0) tjf.stop = true; this.tjDirty = true; } }
+      if (pnl >= 0) this.liveStats.wins++;
+      else this.liveStats.losses++;
+      this.note(`${pnl >= 0 ? "✅" : "❌"} LAB итог [${f.idea}] ${COIN_SHORT[f.coin] ?? f.coin} ${f.side} по ${f.avg.toFixed(3)}: ${sold > 0 ? `закрыто стопом (${sold.toFixed(1)} акций)` : won ? "победа" : "проигрыш"} ${pnl >= 0 ? "+" : "−"}$${Math.abs(pnl).toFixed(2)} (всего ${this.liveStats.pnl >= 0 ? "+" : "−"}$${Math.abs(this.liveStats.pnl).toFixed(2)}) ${slug}`);
+    }
+    return bought;
+  }
+
+  private paperSettle(p: PendingMarket, slug: string, winner: "Up" | "Down"): void {
+    const boughtNames = this.liveSettle(slug, winner);
+    try { tjSettleCards(this.tj.values(), slug, winner, TRADE_CFGS); this.tjDirty = true; } catch { /* журнал */ }
+    for (const k of [...this.groupTaken]) if (k.indexOf(`|${slug}|`) >= 0) this.groupTaken.delete(k);
+    for (const sd of ["Up", "Down"] as const) {
+      this.dipWatch.delete(`${slug}|${sd}`);
+      const dp = this.dipPaper.get(`${slug}|${sd}`);
+      if (dp) {
+        this.dipPaper.delete(`${slug}|${sd}`);
+        const won = dp.side === winner;
+        const pnl = won ? dp.shares * (1 - dp.price) : -dp.shares * dp.price;
+        const text = `${won ? "✅" : "❌"} LAB БЫ: итог [${DIP_NAME}] ${COIN_SHORT[dp.coin] ?? dp.coin} ${dp.side} по ${dp.price.toFixed(3)}: ${won ? "победа" : "проигрыш"} ${pnl >= 0 ? "+" : "−"}$${Math.abs(pnl).toFixed(2)}`;
+        console.log(text);
+        this.onPaperText?.(text);
+      }
+    }
+    for (const k of [...this.enWatch.keys()]) if (k.indexOf(`|${slug}|`) >= 0) this.enWatch.delete(k);
+    for (const e of p.entries) {
+      const cfg = cfgFor(e.idea, e.combo);
+      if (cfg === undefined) continue;
+      if (this.tradeSkipped.delete(`${cfg.name}|${slug}|${e.side}`)) continue; // условие входа не выполнено (или дневной лимит) — стратегия там не торговала
+      if (!cfg.on && !this.liveSlugs.has(`${cfg.name}|${slug}`)) continue; // стратегия выключена
+      const won = e.side === winner;
+      if (this.liveSlugs.has(`${cfg.name}|${slug}`)) {
+        // живая попытка была: если не купили — сообщаем, сколько упустили/сэкономили
+        if (!boughtNames.has(cfg.name)) {
+          const sh = sharesOf(cfg);
+          const pn = won ? sh * (1 - e.price) : -sh * e.price;
+          this.note(`ℹ️ LAB: рынок ${slug} закрыт, мы там НЕ купили; ${won ? "упущено" : "избежали"} ${pn >= 0 ? "+" : "−"}$${Math.abs(pn).toFixed(2)}`);
+        }
+        continue;
+      }
+      // v12: результат считаем только у виртуальных сделок, реально открытых в этом запуске (после перезапуска старые записи рынка не должны попадать в счётчики дня)
+      if (!this.paperBought.delete(`${cfg.name}|${slug}|${e.side}`)) continue;
+      const enb = cfg.entryPx !== undefined ? this.enBought.get(`${cfg.name}|${slug}|${e.side}`) : undefined; // v14: у «особого входа» цена/акции — реальные на момент касания, а не цена сигнала
+      this.enBought.delete(`${cfg.name}|${slug}|${e.side}`);
+      const buyPx = enb ? enb.price : e.price;
+      const shares = enb ? enb.shares : sharesOf(cfg);
+      const pnl = won ? shares * (1 - buyPx) : -shares * buyPx;
+      this.addDayPnl(cfg.name, pnl, true);
+      { const tjp = this.tj.get(this.tjKey(cfg.name, slug, e.side)); if (tjp) { tjp.pnl = pnl; tjp.won = won; this.tjDirty = true; } }
+      const text = `${won ? "✅" : "❌"} LAB БЫ: итог [${e.idea}${cfg.entryPx !== undefined ? `/${cfg.name}` : ""}] ${COIN_SHORT[e.coin] ?? e.coin} ${e.side} по ${buyPx.toFixed(3)}: ${won ? "победа" : "проигрыш"} ${pnl >= 0 ? "+" : "−"}$${Math.abs(pnl).toFixed(2)} (${slug})`;
+      console.log(text);
+      this.onPaperText?.(text);
+    }
+  }
+
+  // ───── v3.3: лента цен и карточки рынков ─────
+
+  /** Раз в 5с пишет в каждый живой рынок строку ленты: bid/ask обеих сторон, монета и биржи (bps от открытия окна). */
+  private sampleTape(): void {
+    const now = Date.now();
+    for (const m of this.activeMarkets.values()) {
+      if (m.closeTimeMs + 3000 < now) continue;
+      const openMs = m.closeTimeMs - m.windowMinutes * 60 * 1000;
+      if (now < openMs) continue;
+      const p = this.pending.get(m.eventSlug);
+      if (!p) continue;
+      const feed = PRICE_FEEDS[m.coin];
+      if (!feed) continue;
+      let op = this.openPrices.get(m.eventSlug);
+      if (op === undefined) {
+        const o = feed.getPriceAt(openMs);
+        if (o === null) continue;
+        op = o;
+        this.openPrices.set(m.eventSlug, o);
+      }
+      const nowP = feed.getLatestPrice();
+      const bps = (cur: number | null, o: number | null): number | null =>
+        cur === null || o === null || o === 0 ? null : Math.round(((cur - o) / o) * 1e6) / 100;
+      const qu = this.quotes.get(m.upTokenId);
+      const qd = this.quotes.get(m.downTokenId);
+      const r3 = (x: number | null | undefined): number | null => (x === null || x === undefined ? null : Math.round(x * 1000) / 1000);
+      const row: TapeRow = [
+        Math.round(((now - openMs) / 1000) * 10) / 10,
+        r3(qu?.bid),
+        r3(qu?.ask),
+        r3(qd?.bid),
+        r3(qd?.ask),
+        bps(nowP, op),
+        bps(binance.getLatest(m.coin), binance.getPriceAt(m.coin, openMs)),
+        bps(coinbase.getLatest(m.coin), coinbase.getPriceAt(m.coin, openMs)),
+      ];
+      // v6: прострелы — минимум и максимум bid каждого токена за время между замерами (индексы 8-11: Up мин, Up макс, Down мин, Down макс)
+      for (const [tok, q] of [[m.upTokenId, qu], [m.downTokenId, qd]] as const) {
+        const w = this.wicks.get(tok);
+        row.push(r3(w ? w.mn : q?.bid), r3(w ? w.mx : q?.bid));
+        if (q?.bid !== null && q?.bid !== undefined) this.wicks.set(tok, { mn: q.bid, mx: q.bid });
+        else this.wicks.delete(tok);
+      }
+      (p.tape ??= []).push(row);
+      // v15: проверка «особого входа» по замеру ленты — как считает страница (bid в момент замера, раз в 5с)
+      if (this.enWatch.size > 0) {
+        this.shadowLevel(m, "Up", qu?.bid ?? null, qu?.ask ?? null, now);
+        this.shadowLevel(m, "Down", qd?.bid ?? null, qd?.ask ?? null, now);
+        this.enCheck(m, "Up", qu?.bid ?? null, qu?.ask ?? null, now, true);
+        this.enCheck(m, "Down", qd?.bid ?? null, qd?.ask ?? null, now, true);
+      }
+    }
+  }
+
+  /** Записывает карточку рынка на диск: лента + все сделки идей (без «корзин»: Binance/Coinbase-корзина — фильтр на странице). */
+  private recordMarket(slug: string, p: PendingMarket, winner: "Up" | "Down"): void {
+    try {
+      const wm = p.wm ?? 5;
+      const open = p.closeTimeMs - wm * 60 * 1000;
+      const trades: RawTrade[] = [];
+      const variant = /^(modelb\d|modelbW|modelbS|modelc\d|modelk\d|fair2b0|bot\d+[bck]\d)$/;
+      for (const e of p.entries) {
+        if (variant.test(e.idea)) continue;
+        trades.push({
+          i: e.idea,
+          c: e.combo,
+          s: e.side === "Up" ? 0 : 1,
+          ts: e.ts,
+          px: e.price,
+          sec: e.sec,
+          bid0: e.bid0 ?? null,
+          z: e.z ?? null,
+          pm: e.pm ?? null,
+          sp10: e.sp10 ?? null,
+          sp30: e.sp30 ?? null,
+          bin: e.bin ?? null,
+          cb: e.cb ?? null,
+          xs: e.xs,
+          rv2: e.rv2 ?? null,
+          rv5: e.rv5 ?? null,
+          cg: e.cg ?? null,
+          cgs: e.cgs ?? null,
+          tr15: e.tr15 ?? null,
+          m15: e.m15 ?? null,
+          m60: e.m60 ?? null,
+          q5: e.q5 ?? null,
+          q15: e.q15 ?? null,
+          q60: e.q60 ?? null,
+          fe: e.fe ?? null,
+          xings: e.xings ?? null,
+          agreeN: e.agreeN ?? null,
+          c05: e.c05,
+          c10: e.c10,
+          hr: e.hr ?? null,
+          pk: e.pk ?? null,
+          bsz: e.bsz ?? null,
+          asz: e.asz ?? null,
+          bs10: e.bs10 ?? null,
+          dp10: e.dp10 ?? null,
+          bs20: e.bs20 ?? null,
+          dp20: e.dp20 ?? null,
+        });
+      }
+      for (const pos of p.temka ?? []) {
+        if (!pos.filled || pos.price <= 0) continue;
+        trades.push({
+          i: `temka:${pos.mode}`,
+          c: `${wm}м`,
+          s: pos.side === "Up" ? 0 : 1,
+          ts: pos.fillTs,
+          px: pos.price,
+          sec: Math.round((p.closeTimeMs - pos.fillTs) / 1000),
+          hits: pos.hits,
+        });
+      }
+      if (trades.length === 0 && (p.tape?.length ?? 0) < 20) return;
+      const rec: MarketRec = {
+        v: 1,
+        slug,
+        coin: p.coin,
+        wm,
+        open,
+        close: p.closeTimeMs,
+        win: winner === "Up" ? 0 : 1,
+        tape: p.tape ?? [],
+        trades,
+      };
+      appendMarketRecord(trades.length === 0 ? LAB_TAPE_DIR : LAB_DATA_DIR, rec);
+    } catch (err) {
+      console.error("[lab-data] ошибка записи карточки:", (err as Error).message);
+    }
+  }
+
+  // ───── резолв ─────
+
+  private settle(slug: string, winner: "Up" | "Down"): void {
+    const p = this.pending.get(slug);
+    if (!p) return;
+
+    this.winners.set(slug, winner);
+    if (this.winners.size > 400) {
+      const oldest = this.winners.keys().next().value;
+      if (oldest !== undefined) this.winners.delete(oldest);
+    }
+
+    // признаки, Binance, согласие профилей, просадка и стопы — по базовым входам профилей бота
+    for (const e of p.entries) {
+      if (!isBase(e.idea)) continue;
+      const wonE = e.side === winner;
+      this.aggregateBotEntry(e, wonE, wonE ? (1 - e.price) / e.price : -1);
+    }
+
+    // v3.1: кластеры проигрышей — сколько монет проиграло в одном и том же окне
+    const baseEntries = p.entries.filter((e) => isBase(e.idea));
+    if (baseEntries.length > 0) {
+      const wk = String(p.closeTimeMs);
+      const lw = this.lossWin[wk] ?? (this.lossWin[wk] = { lost: [], seen: [], rvSum: 0, rvN: 0 });
+      if (!lw.seen.includes(p.coin)) lw.seen.push(p.coin);
+      if (baseEntries.some((e) => e.side !== winner) && !lw.lost.includes(p.coin)) lw.lost.push(p.coin);
+      for (const e of baseEntries) {
+        if (e.rv2 != null && Number.isFinite(e.rv2)) {
+          lw.rvSum += e.rv2;
+          lw.rvN++;
+        }
+      }
+      const keys = Object.keys(this.lossWin);
+      if (keys.length > LOSS_WINDOWS_MAX) {
+        keys.sort((a, b) => Number(a) - Number(b));
+        for (const k of keys.slice(0, keys.length - LOSS_WINDOWS_MAX)) delete this.lossWin[k];
+      }
+    }
+
+    const earliest = new Map<string, LabEntry>(); // `${idea}|${side}` -> самый ранний вход
+    for (const e of p.entries) {
+      const won = e.side === winner;
+      const roi = won ? (1 - e.price) / e.price : -1;
+      bump(this.agg, `${e.idea}|${e.combo}|${e.coin}`, won, roi, e.price);
+
+      // калибровка «справедливой цены»: предсказанная p против фактического исхода
+      if (e.idea.startsWith("fair") && e.fp != null && e.fe != null) {
+        bump(this.fairCal, `${e.idea}|${FAIR_EDGE_LABELS[fairIdx(e.fe)]}`, won, roi, e.fp);
+      }
+
+      // журнал сделок реального бота (идеи из LIVE_VARIANTS) — для отчёта по периодам и в долларах
+      const size = LIVE_VARIANTS[e.idea];
+      if (size !== undefined) {
+        const shares = size / BOT_ENTRY_PRICE;
+        const pnl = won ? shares * (1 - e.price) : -shares * e.price;
+        this.liveLog.push({
+          ts: e.ts,
+          idea: e.idea,
+          coin: e.coin,
+          side: e.side,
+          price: e.price,
+          won,
+          pnl,
+          z: this.liveZ(p, e),
+          ratio: this.liveRatio(p, e),
+        });
+        if (this.liveLog.length > LIVE_LOG_MAX) this.liveLog.shift();
+      }
+
+      const k = `${e.idea}|${e.side}`;
+      const ex = earliest.get(k);
+      if (!ex || e.ts < ex.ts) earliest.set(k, e);
+    }
+
+    // подтверждение другими монетами — одна запись на (идея, сторона), самый ранний вход
+    for (const e of earliest.values()) {
+      const won = e.side === winner;
+      const roi = won ? (1 - e.price) / e.price : -1;
+      bump(this.conf, `${e.idea}|c05|${e.c05}`, won, roi);
+      bump(this.conf, `${e.idea}|c10|${e.c10}`, won, roi);
+    }
+
+    // «пила» — по каждому профилю бота, самый ранний вход, со своим числом пересечений
+    for (const e of earliest.values()) {
+      if (!isBase(e.idea) || e.xings === undefined) continue;
+      const won = e.side === winner;
+      const roi = won ? (1 - e.price) / e.price : -1;
+      const n = Math.min(e.xings, 3);
+      bump(this.saw, `${e.idea}|x${n}`, won, roi, e.price);
+      bump(this.saw, `all|${e.coin}|x${n}`, won, roi, e.price);
+    }
+
+    // согласие профилей бота — по каждой стороне рынка
+    const botBySide = new Map<string, LabEntry[]>();
+    for (const e of earliest.values()) {
+      if (!isBase(e.idea)) continue;
+      const list = botBySide.get(e.side) ?? [];
+      list.push(e);
+      botBySide.set(e.side, list);
+    }
+    for (const [side, list] of botBySide) {
+      const ids = list.map((e) => e.idea.slice(3)).sort();
+      const first = list.reduce((a, b) => (a.ts <= b.ts ? a : b));
+      const won = side === winner;
+      const roi = won ? (1 - first.price) / first.price : -1;
+      bump(this.agree, `n|${ids.length}`, won, roi);
+      bump(this.agree, `set|${ids.join("+")}`, won, roi);
+    }
+
+    // арбитраж
+    if (p.arb) {
+      const a = this.arbAgg[p.coin] ?? (this.arbAgg[p.coin] = newArbAgg());
+      a.total++;
+      a.minSumTotal += p.arb.minSum;
+      if (p.arb.minSum <= 0.99 + 1e-9) {
+        a.h99++;
+        a.sec99Sum += p.arb.sec99 ?? 0;
+        a.size99Sum += p.arb.size99 ?? 0;
+      }
+      if (p.arb.minSum <= 0.98 + 1e-9) a.h98++;
+      if (p.arb.minSum <= 0.97 + 1e-9) a.h97++;
+      if (p.arb.minSum <= 0.95 + 1e-9) a.h95++;
+    }
+
+    this.temkaSettle(p, winner);
+    this.recordMarket(slug, p, winner);
+    this.paperSettle(p, slug, winner);
+    this.paperStopSettle(slug, winner);
+    try {
+      this.test.onSettle(slug, winner);
+    } catch (err) {
+      console.log("[lab-test] ошибка итога:", (err as Error).message);
+    }
+    try {
+      this.lim.onSettle(slug, winner);
+    } catch (err) {
+      console.log("[lab-lim] ошибка итога:", (err as Error).message);
+    }
+
+    this.dropPending(slug);
+    if ((p.wm ?? 5) === TARGET_WINDOW_MINUTES) this.resolvedCount++;
+  }
+
+  /** z и «во сколько раз Binance прошёл от потока» для записи реального бота: берём из базового входа того же профиля на том же рынке. */
+  private liveBase(p: PendingMarket, e: LabEntry): LabEntry | undefined {
+    const m = e.idea.match(/^bot(\d+)/);
+    if (!m) return undefined;
+    return p.entries.find((x) => x.idea === `bot${m[1]}` && x.side === e.side);
+  }
+  private liveZ(p: PendingMarket, e: LabEntry): number | null {
+    const b = this.liveBase(p, e);
+    return b && b.z !== undefined ? b.z : null;
+  }
+  private liveRatio(p: PendingMarket, e: LabEntry): number | null {
+    const b = this.liveBase(p, e);
+    return b && b.bin !== null && b.bin !== undefined && b.pm !== undefined && b.pm > 0 ? b.bin / b.pm : null;
+  }
+
+  async checkResolutions(): Promise<void> {
+    const now = Date.now();
+    const toCheck: string[] = [];
+    for (const [slug, p] of this.pending) {
+      const age = now - p.closeTimeMs;
+      if (age >= RESOLVE_GIVE_UP_MS) {
+        this.dropPending(slug);
+        continue;
+      }
+      if (age >= RESOLVE_CHECK_DELAY_SEC * 1000) toCheck.push(slug);
+    }
+
+    let changed = false;
+    for (const slug of toCheck) {
+      const winner = await resolveWinner(slug);
+      if (winner === null) continue;
+      this.settle(slug, winner);
+      changed = true;
+    }
+    this.settlePairs();
+    if (changed) this.saveState();
+  }
+
+  // ───── отчёты ─────
+
+  private collect(idea: string): { combo: string; coin: string; w: number; t: number; roi: number; px: number }[] {
+    const out: { combo: string; coin: string; w: number; t: number; roi: number; px: number }[] = [];
+    const prefix = `${idea}|`;
+    for (const [key, s] of Object.entries(this.agg)) {
+      if (!key.startsWith(prefix)) continue;
+      const parts = key.split("|");
+      out.push({ combo: parts[1], coin: parts[2], w: s.w, t: s.t, roi: s.roi, px: s.px ?? 0 });
+    }
+    return out;
+  }
+
+  private topLines(list: { combo: string; w: number; t: number; roi: number }[], n: number): string[] {
+    const top = list
+      .filter((e) => e.t >= MIN_TRADES_FOR_TOP)
+      .sort((a, b) => b.w / b.t - a.w / a.t || b.t - a.t)
+      .slice(0, n);
+    if (top.length === 0) return [`  пока недостаточно данных (нужно ≥${MIN_TRADES_FOR_TOP} записей на комбинацию)`];
+    return top.map(
+      (e, i) => `  ${i + 1}. ${e.combo} — ${winPct(e.w, e.t)} (${e.w}/${e.t}), доходность ${roiLabel(e.roi, e.t)}`,
+    );
+  }
+
+  private pooled(idea: string): PooledRow[] {
+    const m = new Map<string, PooledRow>();
+    for (const s of this.collect(idea)) {
+      const cur = m.get(s.combo) ?? { combo: s.combo, w: 0, t: 0, roi: 0, px: 0 };
+      cur.w += s.w;
+      cur.t += s.t;
+      cur.roi += s.roi;
+      cur.px += s.px;
+      m.set(s.combo, cur);
+    }
+    return [...m.values()];
+  }
+
+  private buildIdeaReport(idea: string, title: string, note: string): string {
+    const stats = this.collect(idea);
+    const total = stats.reduce((a, s) => a + s.t, 0);
+    const lines: string[] = [];
+    lines.push(`<b>📊 ${title}</b>`);
+    lines.push(note);
+    lines.push(`Каждая комбинация записывает каждый сигнал (${RULES_TEXT}). Цена входа проверяется живым стаканом (REST) перед записью.`);
+    lines.push(`Записей входа по всем комбинациям (после резолва): ${total}`);
+    lines.push("");
+    lines.push("<b>── Все монеты вместе: топ-5 ──</b>");
+    lines.push(...this.topLines(this.pooled(idea), 5));
+    lines.push("");
+    for (const coin of INCLUDED_COINS) {
+      lines.push(`<b>── ${coin}: топ-5 ──</b>`);
+      lines.push(...this.topLines(stats.filter((s) => s.coin === coin), 5));
+      lines.push("");
+    }
+    lines.push("Доходность — средний результат на $1 ставки (без комиссий).");
+    return lines.join("\n");
+  }
+
+  buildMarginReport(): string {
+    return this.buildIdeaReport(
+      "margin",
+      "Идея «Запас» (z вместо порога)",
+      "z = движение монеты в сторону токена ÷ (типичное 5-мин движение × √(осталось/300)). Один параметр на все монеты. Цена токена 0.97-0.98, вход по ask.",
+    );
+  }
+
+  buildCheapReport(): string {
+    return this.buildIdeaReport(
+      "cheap",
+      "Идея «Недооценка»",
+      "Монета уже прошла порог в сторону токена, а ask токена 0.85-0.96. Формат: порог / окно / диапазон цены ask.",
+    );
+  }
+
+  buildPanicReport(): string {
+    return this.buildIdeaReport(
+      "panic",
+      "Идея «Паника без разворота»",
+      "Токен был ≥0.97, потом ask просел до 0.85-0.95, а монета всё ещё за порогом движения. Формат: порог / окно / диапазон цены ask.",
+    );
+  }
+
+  buildImpulseReport(): string {
+    return this.buildIdeaReport(
+      "impulse",
+      "Идея «Импульс последних секунд»",
+      "Монета прошла N% за последние 15 или 30с в сторону токена, при этом от открытия окна она тоже в эту сторону; ask токена 0.60-0.98. Формат: рывок за N секунд / окно.",
+    );
+  }
+
+  // ───── «Модель цены» ─────
+
+  private toModelRows(rows: PooledRow[]): ModelRow[] {
+    return rows
+      .filter((r) => r.t > 0)
+      .map((r) => {
+        const wr = r.w / r.t;
+        const avgPx = r.px / r.t;
+        const lo = wilsonLower(r.w, r.t);
+        const verdict: ModelRow["verdict"] = lo > avgPx ? "✅" : wr > avgPx ? "⚠️" : "❌";
+        return { ...r, wr, avgPx, lo, edge: wr - avgPx, roiAvg: r.roi / r.t, verdict };
+      });
+  }
+
+  private modelLine(idx: number | null, r: ModelRow): string {
+    return (
+      `  ${idx !== null ? `${idx}. ` : ""}${r.combo} → ${r.w}/${r.t} (${winPct(r.w, r.t)}), ` +
+      `надёжно ${(r.lo * 100).toFixed(0)}%, цена ${r.avgPx.toFixed(2)}, запас ${signedPct(r.edge)}, ` +
+      `прибыль ${roiLabel(r.roi, r.t)} ${r.verdict}`
+    );
+  }
+
+  buildModelReport(): string {
+    const all = this.pooled("model");
+    const total = all.reduce((a, s) => a + s.t, 0);
+    const allRows = this.toModelRows(all);
+    const rows = allRows.filter((r) => r.t >= MODEL_MIN_TRADES);
+
+    const lines: string[] = [];
+    lines.push("<b>📊 Модель цены</b>");
+    lines.push(`Рынков обработано: ${this.resolvedCount} | Записей входа: ${total}`);
+    lines.push(`Цена входа = живой ask (проверяется REST перед записью). Правила: ${RULES_TEXT}. Держим до резолва.`);
+    lines.push("");
+    lines.push("Как читать:");
+    lines.push(" • Сила — во сколько раз монета прошла больше обычного для оставшегося времени (1 = обычное, 3+ = очень сильно)");
+    lines.push(" • Цена — средняя цена токена на входе");
+    lines.push(" • Запас — реальный винрейт минус цена. Плюс = выгодно");
+    lines.push(" • Надёжно — осторожная оценка винрейта с поправкой на малую выборку");
+    lines.push(" • ✅ надёжно выше цены (выгодно даже по осторожной оценке); ⚠️ винрейт выше цены, но данных мало, может быть удача; ❌ невыгодно");
+    lines.push(" • Один рынок может попасть в несколько комбинаций по мере того, как идёт время и меняется цена");
+    lines.push(' • Та же сетка с фильтрами бирж: "лаб модель бинанс"');
+    lines.push("");
+
+    lines.push(`<b>── Все ячейки (${allRows.length}), даже с 1 сделкой; по порядку: сила / время / цена ──</b>`);
+    lines.push("Разбор каждой ячейки (чем победы отличаются от поражений, путь цены после входа): «лаб страница».");
+    if (allRows.length === 0) lines.push("  пока нет данных");
+    else [...allRows].sort((x, y) => x.combo.localeCompare(y.combo, "ru", { numeric: true })).forEach((r) => lines.push(this.modelLine(null, r)));
+    lines.push("");
+
+    lines.push(`<b>── По монетам: лучшая комбинация (минимум ${MODEL_MIN_COIN} записей) ──</b>`);
+    const stats = this.collect("model");
+    for (const coin of INCLUDED_COINS) {
+      const coinRows = this.toModelRows(stats.filter((s) => s.coin === coin)).filter((r) => r.t >= MODEL_MIN_COIN);
+      const top = coinRows.sort((a, b) => b.roiAvg - a.roiAvg || b.t - a.t)[0];
+      lines.push(top ? `  ${COIN_SHORT[coin]}:${this.modelLine(null, top).slice(1)}` : `  ${COIN_SHORT[coin]}: пока мало данных`);
+    }
+    lines.push("");
+
+    lines.push("<b>── Сравнение с тем, что бот уже делает ──</b>");
+    let bw = 0;
+    let bt = 0;
+    let br = 0;
+    for (const s of this.collect("bot6")) {
+      bw += s.w;
+      bt += s.t;
+      br += s.roi;
+    }
+    lines.push(
+      bt > 0
+        ? `  Профиль 6 «Запас» (цена 0.97-0.98): ${bw}/${bt} (${winPct(bw, bt)}), прибыль ${roiLabel(br, bt)}`
+        : "  Профиль 6 «Запас» (цена 0.97-0.98): пока нет данных",
+    );
+    const good = rows.filter((r) => r.verdict === "✅");
+    if (good.length === 0) {
+      lines.push("  Модель, комбинации ✅: пока нет — нужно больше данных");
+    } else {
+      let gw = 0;
+      let gt = 0;
+      let gr = 0;
+      let outside = 0;
+      for (const r of good) {
+        gw += r.w;
+        gt += r.t;
+        gr += r.roi;
+        const upper = parseFloat((r.combo.split(" / ")[2] ?? "").split("-")[1] ?? "1");
+        if (upper <= 0.97 + 1e-9) outside += r.t;
+      }
+      lines.push(`  Модель, только ✅: ${good.length} комбинаций, ${gw}/${gt} (${winPct(gw, gt)}), прибыль ${roiLabel(gr, gt)}`);
+      lines.push(`  из них записей с ценой ниже 0.97 (то, чего бот сейчас не берёт): ${outside}`);
+      lines.push(`  Частота ✅-записей: ${((100 * gt) / Math.max(this.resolvedCount, 1)).toFixed(1)} на 100 рынков`);
+    }
+    lines.push("");
+
+    const group = (title: string, idx: number, order: string[]): void => {
+      lines.push(`<b>── ${title} ──</b>`);
+      let any = false;
+      for (const label of order) {
+        let w = 0;
+        let t = 0;
+        let roi = 0;
+        let px = 0;
+        for (const r of allRows) {
+          if (r.combo.split(" / ")[idx] !== label) continue;
+          w += r.w;
+          t += r.t;
+          roi += r.roi;
+          px += r.px;
+        }
+        if (t === 0) continue;
+        any = true;
+        lines.push(
+          `  ${label}: ${w}/${t} (${winPct(w, t)}), цена ${(px / t).toFixed(2)}, запас ${signedPct(w / t - px / t)}, прибыль ${roiLabel(roi, t)}`,
+        );
+      }
+      if (!any) lines.push("  пока нет данных");
+      lines.push("");
+    };
+    group("Срез по цене токена", 2, MODEL_PRICE_BANDS.map(priceLabel));
+    group("Срез по времени до закрытия", 1, MODEL_SEC_BANDS.map(secLabel));
+    group("Срез по силе движения", 0, MODEL_Z_BANDS.map(zLabel));
+
+    lines.push("Прибыль — средний результат на $1 ставки (без комиссий).");
+    return lines.join("\n");
+  }
+
+  /** v3.1 / A: Binance-против (и Coinbase, и обе биржи) на всей сетке модели + «доза-эффект». */
+  buildModelBinReport(): string {
+    // индексируем один раз: идея -> сводные строки по комбинациям
+    const cache = new Map<string, PooledRow[]>();
+    const rowsOf = (idea: string): PooledRow[] => {
+      let r = cache.get(idea);
+      if (!r) {
+        r = this.pooled(idea);
+        cache.set(idea, r);
+      }
+      return r;
+    };
+    const sumLabels = (idea: string, idx: number, labels: string[] | null): { w: number; t: number; roi: number; px: number } => {
+      let w = 0;
+      let t = 0;
+      let roi = 0;
+      let px = 0;
+      for (const r of rowsOf(idea)) {
+        if (labels !== null && !labels.includes(r.combo.split(" / ")[idx] ?? "")) continue;
+        w += r.w;
+        t += r.t;
+        roi += r.roi;
+        px += r.px;
+      }
+      return { w, t, roi, px };
+    };
+    const line = (label: string, s: { w: number; t: number; roi: number; px: number }): string => {
+      if (s.t === 0) return `  ${label}: пока нет данных`;
+      const avg = s.px / s.t;
+      const lo = wilsonLower(s.w, s.t);
+      const verdict = lo > avg ? "✅" : s.w / s.t > avg ? "⚠️" : "❌";
+      return `  ${label}: ${s.w}/${s.t} (${winPct(s.w, s.t)}), надёжно ${(lo * 100).toFixed(0)}%, цена ${avg.toFixed(2)}, запас ${signedPct(s.w / s.t - avg)}, прибыль ${roiLabel(s.roi, s.t)} ${verdict}${s.t < 30 ? " (мало данных)" : ""}`;
+    };
+
+    const lines: string[] = [];
+    lines.push("<b>📊 Модель цены + фильтр бирж (вся сетка)</b>");
+    lines.push(
+      "Те же ячейки модели (сила × секунды × цена), но запись делается отдельно по состоянию бирж в момент входа. Binance-против = Binance уже за ценой открытия окна, хотя поток бота в нашу сторону. «Чуть против» = Binance в диапазоне 0…−0.25 от движения потока, «сильно против» = ниже −0.25. Фильтр — условие входа с ожиданием, как в боте. Счёт с момента обновления до v3.1.",
+    );
+    lines.push(`Опрос Binance: удачно ${binance.okCount}, ошибок ${binance.failCount}. Coinbase: удачно ${coinbase.okCount}, ошибок ${coinbase.failCount}.`);
+    lines.push("");
+
+    lines.push("<b>── Итого по всей сетке ──</b>");
+    lines.push(line("без фильтра", sumLabels("model", 0, null)));
+    lines.push(line("Binance против (все)", sumLabels("modelb0", 0, null)));
+    lines.push(line("   из них чуть против (0…−0.25)", sumLabels("modelbW", 0, null)));
+    lines.push(line("   из них сильно против (< −0.25)", sumLabels("modelbS", 0, null)));
+    for (let i = 1; i < BIN_LABELS.length; i++) lines.push(line(BIN_LABELS[i], sumLabels(`modelb${i}`, 0, null)));
+    lines.push("");
+
+    // Лесенка и доза-эффект
+    lines.push("<b>── Проверка гипотез ──</b>");
+    const ladder = [0, 1, 2, 3, 4].map((i) => ({ i, s: sumLabels(`modelb${i}`, 0, null) }));
+    const ok = ladder.filter((x) => x.s.t >= 20);
+    if (ok.length < 3) {
+      lines.push("  лесенка по корзинам Binance: мало данных (нужно ≥3 корзины с 20+ записями)");
+    } else {
+      let mono = true;
+      for (let k = 1; k < ok.length; k++) if (ok[k].s.w / ok[k].s.t > ok[k - 1].s.w / ok[k - 1].s.t + 0.005) mono = false;
+      lines.push(
+        `  лесенка винрейта «против → >120%»: ${ok.map((x) => `${RATIO_SHORT[x.i]} ${winPct(x.s.w, x.s.t)}`).join(" → ")} ${mono ? "✅ гладкая (падает вниз)" : "— не монотонная"}`,
+      );
+    }
+    const wk = sumLabels("modelbW", 0, null);
+    const st = sumLabels("modelbS", 0, null);
+    if (wk.t < 30 || st.t < 30) {
+      lines.push(`  доза-эффект: мало данных (чуть против ${wk.t}, сильно против ${st.t}; нужно ≥30 в каждой)`);
+    } else {
+      const wrW = wk.w / wk.t;
+      const wrS = st.w / st.t;
+      const better = wrS > wrW && st.roi / st.t > wk.roi / wk.t;
+      lines.push(
+        `  доза-эффект: чуть против ${winPct(wk.w, wk.t)} (${wk.t}), сильно против ${winPct(st.w, st.t)} (${st.t}) → ${better ? "✅ «сильно» лучше — идея живая" : "❌ «сильно» не лучше — доказательства нет"}`,
+      );
+    }
+    const base = sumLabels("model", 0, null);
+    const b0 = sumLabels("modelb0", 0, null);
+    if (base.t > 0 && b0.t > 0) {
+      lines.push(
+        `  по всей сетке: без фильтра запас ${signedPct(base.w / base.t - base.px / base.t)}, с Binance против ${signedPct(b0.w / b0.t - b0.px / b0.t)}`,
+      );
+    }
+    lines.push("");
+
+    // Срез по цене токена: именно здесь проверяется гипотеза «на дешёвых ценах 0.85-0.93 эффект жирнее»
+    lines.push("<b>── Срез по цене токена: без фильтра | Binance против | сильно против | Binance >120% ──</b>");
+    for (const band of MODEL_PRICE_BANDS) {
+      const lb = priceLabel(band);
+      const a = sumLabels("model", 2, [lb]);
+      const b = sumLabels("modelb0", 2, [lb]);
+      const c = sumLabels("modelbS", 2, [lb]);
+      const d = sumLabels("modelb4", 2, [lb]);
+      if (a.t === 0 && b.t === 0) continue;
+      const cell = (s: { w: number; t: number; roi: number; px: number }): string =>
+        s.t === 0 ? "—" : `${s.w}/${s.t} ${winPct(s.w, s.t)}, запас ${signedPct(s.w / s.t - s.px / s.t)}, приб. ${roiLabel(s.roi, s.t)}`;
+      lines.push(`  ${lb}: ${cell(a)} | ${cell(b)} | ${cell(c)} | ${cell(d)}`);
+    }
+    lines.push("");
+    const cheapLabels = ["0.85-0.90", "0.90-0.93"];
+    lines.push("<b>── Дешёвые цены 0.85-0.93 (там эффект должен быть жирнее) ──</b>");
+    lines.push(line("без фильтра", sumLabels("model", 2, cheapLabels)));
+    lines.push(line("Binance против", sumLabels("modelb0", 2, cheapLabels)));
+    lines.push(line("   чуть против", sumLabels("modelbW", 2, cheapLabels)));
+    lines.push(line("   сильно против", sumLabels("modelbS", 2, cheapLabels)));
+    lines.push(line("Coinbase против", sumLabels("modelc0", 2, cheapLabels)));
+    lines.push(line("обе биржи против", sumLabels("modelk2", 2, cheapLabels)));
+    lines.push("");
+    lines.push("<b>── Коридор бота 0.93-0.96 (для сравнения) ──</b>");
+    lines.push(line("без фильтра", sumLabels("model", 2, ["0.93-0.96"])));
+    lines.push(line("Binance против", sumLabels("modelb0", 2, ["0.93-0.96"])));
+    lines.push(line("   сильно против", sumLabels("modelbS", 2, ["0.93-0.96"])));
+    lines.push("");
+
+    lines.push("<b>── Coinbase и две биржи сразу (вся сетка) ──</b>");
+    for (let i = 0; i < CB_LABELS.length; i++) lines.push(line(CB_LABELS[i], sumLabels(`modelc${i}`, 0, null)));
+    for (let i = K_LABELS.length - 1; i >= 0; i--) lines.push(line(K_LABELS[i], sumLabels(`modelk${i}`, 0, null)));
+    lines.push("");
+
+    lines.push(`<b>── Лучшие 10 ячеек при Binance против (минимум ${MODEL_MIN_COIN} записей) ──</b>`);
+    const bestB = this.toModelRows(rowsOf("modelb0"))
+      .filter((r) => r.t >= MODEL_MIN_COIN)
+      .sort((a, b) => b.roiAvg - a.roiAvg || b.t - a.t)
+      .slice(0, 10);
+    if (bestB.length === 0) lines.push("  пока недостаточно данных");
+    else bestB.forEach((r, i) => lines.push(this.modelLine(i + 1, r)));
+    lines.push("");
+
+    lines.push("<b>── По монетам: Binance против, вся сетка ──</b>");
+    const byCoinB = this.collect("modelb0");
+    const byCoinBase = this.collect("model");
+    for (const coin of INCLUDED_COINS) {
+      const agg = (list: { coin: string; w: number; t: number; roi: number; px: number }[]) =>
+        list.filter((r) => r.coin === coin).reduce((a, r) => ({ w: a.w + r.w, t: a.t + r.t, roi: a.roi + r.roi, px: a.px + r.px }), { w: 0, t: 0, roi: 0, px: 0 });
+      lines.push(line(`${COIN_SHORT[coin]} против`, agg(byCoinB)));
+      lines.push(line(`${COIN_SHORT[coin]} без фильтра`, agg(byCoinBase)));
+    }
+    lines.push("");
+    lines.push("Прибыль — средний результат на $1 ставки (без комиссий). Одна и та же ситуация может попасть в несколько ячеек подряд, поэтому доверяй устойчивым срезам, а не отдельным ячейкам.");
+    return lines.join("\n");
+  }
+
+  // ───── v3.1 / D: «Справедливая цена» ─────
+
+  buildFairReport(): string {
+    const lines: string[] = [];
+    lines.push("<b>📊 Справедливая цена: p = Φ(d / (σ·√t))</b>");
+    lines.push(
+      "d — расстояние монеты от цены открытия в нашу сторону (в долях цены), t — секунд до закрытия, σ — реальная секундная волатильность из тиков фида за последние 60 или 120 секунд (не ниже 30% от обычной, чтобы «тихий» фид не давал фальшивую уверенность). edge = p − ask. Пишутся все входы в диапазоне ask 0.60-0.99, до 240с до закрытия, при движении в нашу сторону; корзины edge: <0 (контроль), 0-2%, 2-4%, 4-6%, 6%+.",
+    );
+    lines.push("Провал идеи: винрейт не растёт вместе с корзинами edge. Цена в строке — средний ask входа, «модель p» — что обещала модель, «запас» — факт минус цена.");
+    lines.push("");
+
+    const bucketStat = (idea: string, rows: PooledRow[], i: number) => {
+      let w = 0;
+      let t = 0;
+      let roi = 0;
+      let px = 0;
+      for (const r of rows) {
+        if (r.combo.split(" / ")[0] !== FAIR_EDGE_LABELS[i]) continue;
+        w += r.w;
+        t += r.t;
+        roi += r.roi;
+        px += r.px;
+      }
+      const cal = this.fairCal[`${idea}|${FAIR_EDGE_LABELS[i]}`];
+      const avgP = cal && cal.t > 0 ? (cal.px ?? 0) / cal.t : null;
+      return { w, t, roi, px, avgP };
+    };
+    const fmt = (label: string, s: { w: number; t: number; roi: number; px: number; avgP?: number | null }): string => {
+      if (s.t === 0) return `  ${label}: пока нет данных`;
+      const avg = s.px / s.t;
+      const lo = wilsonLower(s.w, s.t);
+      const verdict = lo > avg ? "✅" : s.w / s.t > avg ? "⚠️" : "❌";
+      return `  ${label}: ${s.w}/${s.t} (${winPct(s.w, s.t)}), цена ${avg.toFixed(3)}${s.avgP != null ? `, модель p ${(s.avgP * 100).toFixed(1)}%` : ""}, запас ${signedPct(s.w / s.t - avg)}, надёжно ${(lo * 100).toFixed(0)}%, прибыль ${roiLabel(s.roi, s.t)} ${verdict}${s.t < 30 ? " (мало данных)" : ""}`;
+    };
+
+    for (const fv of FAIR_VARIANTS) {
+      const rows = this.pooled(fv.idea);
+      const total = rows.reduce((a, r) => a + r.t, 0);
+      lines.push(`<b>══ ${fv.idea}: ${fv.label} (записей ${total}) ══</b>`);
+      const stats = FAIR_SHORT.map((_, i) => bucketStat(fv.idea, rows, i));
+      stats.forEach((s, i) => lines.push(fmt(`edge ${FAIR_SHORT[i]}`, s)));
+
+      const ok = stats.map((s, i) => ({ s, i })).filter((x) => x.s.t >= 20);
+      if (ok.length < 3) {
+        lines.push("  растёт ли винрейт с корзинами: мало данных (нужно ≥3 корзины с 20+ записями)");
+      } else {
+        let monoW = true;
+        let monoR = true;
+        for (let k = 1; k < ok.length; k++) {
+          if (ok[k].s.w / ok[k].s.t < ok[k - 1].s.w / ok[k - 1].s.t - 0.005) monoW = false;
+          if (ok[k].s.roi / ok[k].s.t < ok[k - 1].s.roi / ok[k - 1].s.t - 0.005) monoR = false;
+        }
+        lines.push(
+          `  растёт ли винрейт с корзинами: ${ok.map((x) => winPct(x.s.w, x.s.t)).join(" → ")} ${monoW ? "✅ растёт" : "❌ не растёт — по критерию идея мертва"}; прибыль: ${ok.map((x) => roiLabel(x.s.roi, x.s.t)).join(" → ")} ${monoR ? "✅" : "—"}`,
+        );
+        lines.push("  (замечание: у высоких edge цена ниже, поэтому сравнивай не только винрейт, но и «запас» и прибыль)");
+      }
+
+      const cum = (from: number) =>
+        stats.slice(from).reduce((a, s) => ({ w: a.w + s.w, t: a.t + s.t, roi: a.roi + s.roi, px: a.px + s.px }), { w: 0, t: 0, roi: 0, px: 0 });
+      lines.push(fmt("правило «брать при edge ≥ 2%»", cum(2)));
+      lines.push(fmt("правило «брать при edge ≥ 4%»", cum(3)));
+
+      // по монетам при edge ≥ 4%
+      const hi = [FAIR_EDGE_LABELS[3], FAIR_EDGE_LABELS[4]];
+      const byCoin = this.collect(fv.idea).filter((r) => hi.includes(r.combo.split(" / ")[0]));
+      const parts: string[] = [];
+      for (const coin of INCLUDED_COINS) {
+        const x = byCoin.filter((r) => r.coin === coin).reduce((a, r) => ({ w: a.w + r.w, t: a.t + r.t, roi: a.roi + r.roi }), { w: 0, t: 0, roi: 0 });
+        if (x.t > 0) parts.push(`${COIN_SHORT[coin]} ${x.w}/${x.t} ${winPct(x.w, x.t)} (${roiLabel(x.roi, x.t)})`);
+      }
+      lines.push(`  при edge ≥ 4% по монетам: ${parts.length > 0 ? parts.join(" | ") : "пока нет данных"}`);
+
+      // по секундам при edge ≥ 4%
+      const secParts: string[] = [];
+      for (const sb of MODEL_SEC_BANDS) {
+        let w = 0;
+        let t = 0;
+        let roi = 0;
+        for (const r of rows) {
+          const c = r.combo.split(" / ");
+          if (!hi.includes(c[0]) || c[1] !== secLabel(sb)) continue;
+          w += r.w;
+          t += r.t;
+          roi += r.roi;
+        }
+        if (t > 0) secParts.push(`${secLabel(sb)} ${w}/${t} ${winPct(w, t)} (${roiLabel(roi, t)})`);
+      }
+      lines.push(`  при edge ≥ 4% по времени: ${secParts.length > 0 ? secParts.join(" | ") : "пока нет данных"}`);
+      lines.push("");
+    }
+
+    // Сочетание с Binance-против
+    lines.push("<b>══ fair2 + Binance против ══</b>");
+    const rb = this.pooled("fair2b0");
+    const rbTotal = rb.reduce((a, r) => a + r.t, 0);
+    if (rbTotal === 0) {
+      lines.push("  пока нет данных");
+    } else {
+      const st2 = FAIR_SHORT.map((_, i) => bucketStat("fair2b0", rb, i));
+      st2.forEach((s, i) => lines.push(fmt(`edge ${FAIR_SHORT[i]}`, s)));
+      const base2 = FAIR_SHORT.map((_, i) => bucketStat("fair2", this.pooled("fair2"), i));
+      const cumB = (arr: { w: number; t: number; roi: number; px: number }[], from: number) =>
+        arr.slice(from).reduce((a, s) => ({ w: a.w + s.w, t: a.t + s.t, roi: a.roi + s.roi, px: a.px + s.px }), { w: 0, t: 0, roi: 0, px: 0 });
+      lines.push(fmt("edge ≥ 4%, Binance против", cumB(st2, 3)));
+      lines.push(fmt("edge ≥ 4%, без фильтра (для сравнения)", cumB(base2, 3)));
+    }
+    lines.push("");
+
+    lines.push("<b>══ Сравнение с z-моделью ══</b>");
+    const m = this.sumIdea("model");
+    lines.push(m.t > 0 ? `  «Модель цены» (сетка z): ${m.w}/${m.t} (${winPct(m.w, m.t)}), прибыль ${roiLabel(m.roi, m.t)}` : "  «Модель цены»: пока нет данных");
+    lines.push("");
+    lines.push("Прибыль — средний результат на $1 ставки (без комиссий). Одна ситуация может попасть в несколько корзин по мере того, как идёт время.");
+    return lines.join("\n");
+  }
+
+  // ───── v3.1: отчёты по признакам (режим, заражение, траектория) ─────
+
+  /** Строки по набору признаков: для всех профилей вместе и для каждого профиля, плюс правила «что если не входить». */
+  private featReportLines(defNames: string[]): string[] {
+    const lines: string[] = [];
+    for (const name of defNames) {
+      const def = FEATURE_DEFS.find((d) => d.name === name);
+      if (!def) continue;
+      lines.push(`<b>══ ${def.name} ══</b>`);
+      const prefixes = ["all", ...BOT_PROFILES.map((p) => `bot${p.id}`)];
+      for (const prefix of prefixes) {
+        const buckets: Stat[] = def.labels.map((l) => this.featProf[`${prefix}|${def.name}|${l}`] ?? { w: 0, t: 0, roi: 0 });
+        const tot = buckets.reduce((a, s) => ({ w: a.w + s.w, t: a.t + s.t, roi: a.roi + s.roi }), { w: 0, t: 0, roi: 0 });
+        if (tot.t === 0) {
+          if (prefix === "all") lines.push("  пока нет данных");
+          continue;
+        }
+        if (prefix !== "all" && tot.t < 20) continue;
+        lines.push(
+          `<b>── ${prefix === "all" ? "Все профили вместе" : `Профиль ${prefix.slice(3)}`} (входов ${tot.t}, ${winPct(tot.w, tot.t)}, прибыль ${roiLabel(tot.roi, tot.t)}) ──</b>`,
+        );
+        def.labels.forEach((l, i) => {
+          const s = buckets[i];
+          if (s.t === 0) return;
+          lines.push(`  ${l}: ${s.w}/${s.t} (${winPct(s.w, s.t)}), прибыль ${roiLabel(s.roi, s.t)}${s.t < 10 ? " (мало данных)" : ""}`);
+        });
+        for (const rule of FEAT_RULES[name] ?? []) {
+          const ln = cutLine(buckets, rule.remove, rule.label);
+          if (ln) lines.push(ln);
+        }
+      }
+      lines.push("");
+    }
+    return lines;
+  }
+
+  /** v3.1 / C: режим волатильности, часы суток и кластеры одновременных проигрышей. */
+  buildRegimeReport(): string {
+    const lines: string[] = [];
+    lines.push("<b>📊 Режим волатильности и плохие периоды</b>");
+    lines.push(
+      "Идея: бывают периоды, когда сильные движения откатываются, и тогда проигрывают сразу все профили (один плохой час может стереть недели). Проверяем, определяются ли такие периоды признаком «текущая волатильность сильно выше обычной». Признак = реализованная σ монеты за последние 2 / 5 минут (из тиков фида) ÷ обычная секундная σ (та же, что в z). 1.0 = обычный режим. Пишется к каждому базовому входу профилей бота (накапливается с момента обновления до v3.1).",
+    );
+    lines.push("");
+    lines.push(...this.featReportLines([F_REGIME2, F_REGIME5]));
+
+    lines.push("<b>══ Одновременные проигрыши в одном окне ══</b>");
+    const wins = Object.entries(this.lossWin)
+      .map(([k, v]) => ({ close: Number(k), ...v }))
+      .filter((x) => x.seen.length >= 2)
+      .sort((a, b) => a.close - b.close);
+    if (wins.length === 0) {
+      lines.push("  пока нет данных (нужны окна, где входы были минимум у двух монет)");
+    } else {
+      const hist = [0, 0, 0, 0];
+      const rvBy: { s: number; n: number }[] = [0, 1, 2, 3].map(() => ({ s: 0, n: 0 }));
+      for (const x of wins) {
+        const k = Math.min(x.lost.length, 3);
+        hist[k]++;
+        if (x.rvN > 0) {
+          rvBy[k].s += x.rvSum / x.rvN;
+          rvBy[k].n++;
+        }
+      }
+      const names = ["ни одна монета не проиграла", "проиграла 1 монета", "проиграли 2 монеты", "проиграли 3+ монет"];
+      lines.push(`  окон, где входы были у 2+ монет: ${wins.length}`);
+      hist.forEach((n, i) => {
+        lines.push(`  ${names[i]}: ${n}${rvBy[i].n > 0 ? ` (средняя σ2м/обычная на входах: ${(rvBy[i].s / rvBy[i].n).toFixed(2)})` : ""}`);
+      });
+      lines.push("  (если в окнах «проиграли 2-3+ монет» режим заметно выше, чем в окнах «ни одна», плохие периоды определяются волатильностью)");
+      const bad = wins.filter((x) => x.lost.length >= 2).slice(-10).reverse();
+      if (bad.length > 0) {
+        lines.push("  Последние окна с 2+ проигрышами:");
+        for (const x of bad) {
+          const t = new Date(x.close).toISOString().slice(5, 16).replace("T", " ");
+          lines.push(
+            `    ${t} UTC: проиграли ${x.lost.map((c) => COIN_SHORT[c] ?? c).join(", ")} из ${x.seen.map((c) => COIN_SHORT[c] ?? c).join(", ")}${x.rvN > 0 ? `, σ2м/обычная ${(x.rvSum / x.rvN).toFixed(2)}` : ""}`,
+          );
+        }
+      }
+    }
+    lines.push("");
+
+    lines.push("<b>══ Час суток UTC (все профили вместе) ══</b>");
+    let anyH = false;
+    HOUR_LABELS.forEach((h) => {
+      const s = this.featAgg[`${F_HOUR}|${h}`];
+      if (!s || s.t < 5) return;
+      anyH = true;
+      lines.push(`  ${h}:00 → ${s.w}/${s.t} (${winPct(s.w, s.t)}), прибыль ${roiLabel(s.roi, s.t)}${s.t >= 8 && s.roi / s.t < -0.1 ? " ⚠️ плохой час" : ""}`);
+    });
+    if (!anyH) lines.push("  пока недостаточно данных (нужно ≥5 входов в час)");
+    lines.push("");
+    lines.push("Новости парсер не видит: если плохие окна не объясняются ни волатильностью, ни часом, сверь их время (список выше) с календарём событий вручную.");
+    lines.push("Прибыль — средний результат на $1 ставки (без комиссий). «Все профили вместе» считает одну и ту же ситуацию несколько раз (по числу согласных профилей).");
+    return lines.join("\n");
+  }
+
+  /** v3.1 / E */
+  buildContagionReport(): string {
+    const lines: string[] = [];
+    lines.push("<b>📊 Заражение между монетами</b>");
+    lines.push(
+      `Монеты ходят вместе. Для каждого входа считаем, у скольких соседних монет в том же окне токен нашей стороны уже сыпется: строго = был ≥${CONTAGION_PEAK.toFixed(2)}, а сейчас <${CONTAGION_DROP_TO.toFixed(2)}; мягко = был ≥${CONTAGION_SOFT_PEAK.toFixed(2)} и упал на ${CONTAGION_SOFT_DROP.toFixed(2)}+. Провал идеи: если винрейт при «1+» не хуже, чем при «0».`,
+    );
+    lines.push("");
+    lines.push(...this.featReportLines([F_CONTAGION, F_CONTAGION_SOFT]));
+    lines.push("Прибыль — средний результат на $1 ставки (без комиссий).");
+    return lines.join("\n");
+  }
+
+  /** v3.1 / F */
+  buildTrajectoryReport(): string {
+    const lines: string[] = [];
+    lines.push("<b>📊 Траектория токена перед входом</b>");
+    lines.push(
+      `Токен попадает в коридор сверху (падал с 0.99) или снизу (рос с 0.85) — это разные события. Считаем ask сейчас − ask ${TRAJ_LOOKBACK_SEC}с назад (по истории котировок парсера). Гипотеза: «падает» хуже; если окажется наоборот — это тоже находка.`,
+    );
+    lines.push("");
+    lines.push(...this.featReportLines([F_TRAJ]));
+    lines.push("Прибыль — средний результат на $1 ставки (без комиссий).");
+    return lines.join("\n");
+  }
+
+  // ───── «Пила» ─────
+
+  buildSawReport(): string {
+    const lines: string[] = [];
+    lines.push("<b>📊 Фильтр «Пила»</b>");
+    lines.push(
+      `Пересечение = монета перешла через цену открытия окна (была выше — стала ниже, или наоборот). Считаем за последние ${SAW_LOOKBACK_SEC / 60} мин до входа, замер каждые ${SAW_STEP_SEC}с (очень быстрые пересечения можно пропустить, число — нижняя оценка).`,
+    );
+    lines.push("Берётся самый ранний базовый вход профиля (без фильтра Binance) на каждую сторону рынка. Держим до резолва, цена входа = живой ask.");
+    lines.push("");
+
+    const get = (key: string): Stat => this.saw[key] ?? { w: 0, t: 0, roi: 0 };
+
+    const filterLines = (buckets: Stat[]): string[] => {
+      const out: string[] = [];
+      const tot = buckets.reduce((a, s) => ({ w: a.w + s.w, t: a.t + s.t, roi: a.roi + s.roi }), { w: 0, t: 0, roi: 0 });
+      if (tot.t === 0) return out;
+      const baseRoi = tot.roi / tot.t;
+      for (const cut of [1, 2, 3]) {
+        let kw = 0;
+        let kt = 0;
+        let kr = 0;
+        let cw = 0;
+        let ct = 0;
+        for (let n = 0; n < buckets.length; n++) {
+          const s = buckets[n];
+          if (n < cut) {
+            kw += s.w;
+            kt += s.t;
+            kr += s.roi;
+          } else {
+            cw += s.w;
+            ct += s.t;
+          }
+        }
+        if (ct === 0) {
+          out.push(`  не входить при ${cut}+ пересечениях: ничего не отсекает`);
+          continue;
+        }
+        const helps = kt > 0 && kr / kt > baseRoi && ct - cw > cw;
+        out.push(
+          `  не входить при ${cut}+: остаётся ${kw}/${kt} (${winPct(kw, kt)}), прибыль ${roiLabel(kr, kt)}; ` +
+            `отсекли ${ct} (побед ${cw}, проигрышей ${ct - cw}) ${helps ? "✅ помогает" : "— не помогает"}`,
+        );
+      }
+      return out;
+    };
+
+    for (const prof of BOT_PROFILES) {
+      const buckets = SAW_BUCKETS.map((n) => get(`bot${prof.id}|x${n}`));
+      const tot = buckets.reduce((a, s) => ({ w: a.w + s.w, t: a.t + s.t, roi: a.roi + s.roi }), { w: 0, t: 0, roi: 0 });
+      lines.push(`<b>── Профиль ${prof.id}${prof.id === 6 ? " «Запас»" : prof.id === 7 ? " «Модель»" : ""} (всего ${tot.t} входов, ${winPct(tot.w, tot.t)}, прибыль ${roiLabel(tot.roi, tot.t)}) ──</b>`);
+      if (tot.t === 0) {
+        lines.push("  пока нет данных");
+        lines.push("");
+        continue;
+      }
+      SAW_BUCKETS.forEach((n, i) => {
+        const s = buckets[i];
+        lines.push(
+          `  пересечений ${sawLabel(n)}: ${s.w}/${s.t} (${winPct(s.w, s.t)}), прибыль ${roiLabel(s.roi, s.t)}${s.t > 0 && s.t < 10 ? " (мало данных)" : ""}`,
+        );
+      });
+      lines.push(...filterLines(buckets));
+      lines.push("");
+    }
+
+    const sumBuckets: Stat[] = SAW_BUCKETS.map((n) => {
+      const acc: Stat = { w: 0, t: 0, roi: 0 };
+      for (const prof of BOT_PROFILES) {
+        const s = get(`bot${prof.id}|x${n}`);
+        acc.w += s.w;
+        acc.t += s.t;
+        acc.roi += s.roi;
+      }
+      return acc;
+    });
+    lines.push("<b>── Все профили вместе ──</b>");
+    lines.push("(одна и та же ситуация может учитываться в нескольких профилях сразу)");
+    if (sumBuckets.every((s) => s.t === 0)) {
+      lines.push("  пока нет данных");
+    } else {
+      SAW_BUCKETS.forEach((n, i) => {
+        const s = sumBuckets[i];
+        lines.push(`  пересечений ${sawLabel(n)}: ${s.w}/${s.t} (${winPct(s.w, s.t)}), прибыль ${roiLabel(s.roi, s.t)}`);
+      });
+      lines.push(...filterLines(sumBuckets));
+    }
+    lines.push("");
+
+    lines.push("<b>── По монетам (все профили вместе) ──</b>");
+    for (const coin of INCLUDED_COINS) {
+      const parts: string[] = [];
+      for (const n of SAW_BUCKETS) {
+        const s = get(`all|${coin}|x${n}`);
+        if (s.t === 0) continue;
+        parts.push(`${sawLabel(n)}: ${s.w}/${s.t} ${winPct(s.w, s.t)}`);
+      }
+      lines.push(`  ${COIN_SHORT[coin]}: ${parts.length > 0 ? parts.join(" | ") : "пока нет данных"}`);
+    }
+    lines.push("");
+    lines.push("Прибыль — средний результат на $1 ставки (без комиссий). «Помогает» = после отсечения прибыль выше, и отсекли больше проигрышей, чем побед.");
+    return lines.join("\n");
+  }
+
+  // ───── «Пара BTC+ETH»: отчёт ─────
+
+  private parsePk(pk: string): { wB: number; mB: number; wE: number; mE: number; bi: number } {
+    const [a, b, c, d, e] = pk.split(":");
+    return { wB: Number(a), mB: Number(b), wE: Number(c), mE: Number(d), bi: Number(e) };
+  }
+
+  private pairLabel(pk: string): string {
+    const k = this.parsePk(pk);
+    const band = PAIR_BANDS[k.bi];
+    return `BTC ${k.wB}с/${pctLabel(k.mB)} + ETH ${k.wE}с/${pctLabel(k.mE)}, цена ${band[0].toFixed(2)}-${band[1].toFixed(2)}`;
+  }
+
+  buildPairReport(): string {
+    const sg = (key: string): Stat => this.pairAgg[key] ?? { w: 0, t: 0, roi: 0, px: 0 };
+    const pks = new Set<string>();
+    for (const key of Object.keys(this.pairAgg)) {
+      if (key.startsWith("_sit")) continue;
+      pks.add(key.split("|")[0]);
+    }
+
+    interface PairRow {
+      pk: string;
+      t: number;
+      both: number;
+      bothLost: number;
+      oneLost: number;
+      b: Stat;
+      e: Stat;
+      roi: number;
+      roiAvg: number;
+      avgPx: number;
+      lo: number;
+      verdict: "✅" | "⚠️" | "❌";
+      soloB?: Stat;
+      soloE?: Stat;
+    }
+
+    const rows: PairRow[] = [];
+    for (const pk of pks) {
+      const pr = sg(`${pk}|pair`);
+      if (pr.t === 0) continue;
+      const b = sg(`${pk}|btc`);
+      const e = sg(`${pk}|eth`);
+      const bl = sg(`${pk}|bothlost`);
+      const legsT = b.t + e.t;
+      const legsW = b.w + e.w;
+      const avgPx = legsT > 0 ? ((b.px ?? 0) + (e.px ?? 0)) / legsT : 0;
+      const lo = wilsonLower(legsW, legsT);
+      const k = this.parsePk(pk);
+      const verdict: PairRow["verdict"] = lo > avgPx ? "✅" : legsT > 0 && legsW / legsT > avgPx ? "⚠️" : "❌";
+      rows.push({
+        pk,
+        t: pr.t,
+        both: pr.w,
+        bothLost: bl.w,
+        oneLost: pr.t - pr.w - bl.w,
+        b,
+        e,
+        roi: pr.roi,
+        roiAvg: pr.roi / pr.t,
+        avgPx,
+        lo,
+        verdict,
+        soloB: this.agg[`psolo|${k.wB}:${k.mB}:${k.bi}|${PAIR_COINS[0]}`],
+        soloE: this.agg[`psolo|${k.wE}:${k.mE}:${k.bi}|${PAIR_COINS[1]}`],
+      });
+    }
+
+    const rowLines = (i: number, r: PairRow): string[] => {
+      const out: string[] = [`  ${i}. ${this.pairLabel(r.pk)}`];
+      out.push(
+        `     пар: ${r.t} | обе выиграли: ${r.both} (${winPct(r.both, r.t)}) | одна проиграла: ${r.oneLost} | обе проиграли: ${r.bothLost}`,
+      );
+      out.push(
+        `     BTC: ${r.b.w}/${r.b.t} (${winPct(r.b.w, r.b.t)}), ETH: ${r.e.w}/${r.e.t} (${winPct(r.e.w, r.e.t)}) | надёжно ${(r.lo * 100).toFixed(0)}%, цена ${r.avgPx.toFixed(2)} | прибыль на $1 с ноги: ${roiLabel(r.roi, r.t)} ${r.verdict}`,
+      );
+      if (r.soloB && r.soloE) {
+        out.push(
+          `     те же триггеры по одиночке: BTC ${r.soloB.w}/${r.soloB.t} (${winPct(r.soloB.w, r.soloB.t)}), ETH ${r.soloE.w}/${r.soloE.t} (${winPct(r.soloE.w, r.soloE.t)})`,
+        );
+      }
+      return out;
+    };
+
+    const lines: string[] = [];
+    lines.push("<b>📊 Пара BTC + ETH</b>");
+    lines.push(`Пар ждёт резолва: ${this.pairs.length} | Комбинаций с данными: ${rows.length}`);
+    const sitPair = sg("_sit|pair");
+    const sitB = sg("_sit|btc");
+    const sitE = sg("_sit|eth");
+    if (sitPair.t > 0) {
+      const eitherWon = sitB.w + sitE.w - sitPair.w;
+      const bothLostN = sitPair.t - eitherWon;
+      const oneLostN = sitPair.t - sitPair.w - bothLostN;
+      lines.push(
+        `<b>Настоящих ситуаций (без дублей): ${sitPair.t}</b> — обе выиграли ${sitPair.w} (${winPct(sitPair.w, sitPair.t)}), одна проиграла ${oneLostN}, обе проиграли ${bothLostN}. BTC ${sitB.w}/${sitB.t}, ETH ${sitE.w}/${sitE.t}.`,
+      );
+    } else {
+      lines.push("Настоящих ситуаций (без дублей): счёт только начался, пока 0");
+    }
+    lines.push(
+      "Покупаем оба токена, когда у обеих монет одновременно сработал свой триггер (окно + % движения), обе идут в одну сторону, цены токенов в коридоре. Цены по живому стакану, держим до резолва.",
+    );
+    lines.push("");
+    lines.push("Как читать:");
+    lines.push(" • Название комбинации: окно/процент для BTC + окно/процент для ETH, коридор цены токенов");
+    lines.push(" • Обе выиграли / одна проиграла / обе проиграли — исходы пары");
+    lines.push(" • Надёжно — осторожная оценка винрейта ног с поправкой на малую выборку");
+    lines.push(" • ✅ надёжно выше цены; ⚠️ винрейт выше цены, но данных мало; ❌ невыгодно");
+    lines.push(" • «По одиночке» — та же монета с тем же триггером без условия на вторую монету");
+    lines.push(" • Одна и та же пара может попасть в несколько комбинаций сразу");
+    lines.push("");
+
+    const ok = rows.filter((r) => r.t >= PAIR_MIN_TRADES);
+
+    lines.push(`<b>── Лучшие 10 комбинаций (минимум ${PAIR_MIN_TRADES} пар) ──</b>`);
+    const best = [...ok].sort((a, b) => b.roiAvg - a.roiAvg || b.t - a.t).slice(0, 10);
+    if (best.length === 0) lines.push(`  пока недостаточно данных (нужно ≥${PAIR_MIN_TRADES} пар на комбинацию)`);
+    else best.forEach((r, i) => lines.push(...rowLines(i + 1, r)));
+    lines.push("");
+
+    lines.push("<b>── Ловушки: худшие 5 ──</b>");
+    const worst = ok.filter((r) => r.roiAvg < 0).sort((a, b) => a.roiAvg - b.roiAvg || b.t - a.t).slice(0, 5);
+    if (worst.length === 0) lines.push("  пока нет убыточных комбинаций с достаточной выборкой");
+    else worst.forEach((r, i) => lines.push(...rowLines(i + 1, r)));
+    lines.push("");
+
+    lines.push("<b>── Помогает ли условие «оба сразу» ──</b>");
+    let pw = 0;
+    let pt = 0;
+    let sw = 0;
+    let st = 0;
+    for (const r of ok) {
+      if (!r.soloB || !r.soloE) continue;
+      pw += r.b.w + r.e.w;
+      pt += r.b.t + r.e.t;
+      sw += r.soloB.w + r.soloE.w;
+      st += r.soloB.t + r.soloE.t;
+    }
+    if (pt === 0 || st === 0) {
+      lines.push("  пока недостаточно данных");
+    } else {
+      lines.push(`  ноги внутри пар: ${pw}/${pt} (${winPct(pw, pt)})`);
+      lines.push(`  те же триггеры по одиночке: ${sw}/${st} (${winPct(sw, st)})`);
+      lines.push(`  входов в парах меньше в ${(st / pt).toFixed(1)} раза — столько сделок теряем ради фильтра`);
+    }
+    lines.push("(считается по комбинациям с достаточной выборкой, комбинации перекрываются — цифры ориентировочные)");
+    lines.push("");
+
+    const group = (title: string, keyOf: (pk: string) => string, order: string[]): void => {
+      lines.push(`<b>── ${title} ──</b>`);
+      let any = false;
+      for (const label of order) {
+        let t = 0;
+        let both = 0;
+        let lw = 0;
+        let lt = 0;
+        let roi = 0;
+        for (const r of rows) {
+          if (keyOf(r.pk) !== label) continue;
+          t += r.t;
+          both += r.both;
+          lw += r.b.w + r.e.w;
+          lt += r.b.t + r.e.t;
+          roi += r.roi;
+        }
+        if (t === 0) continue;
+        any = true;
+        lines.push(
+          `  ${label}: пар ${t}, обе выиграли ${both} (${winPct(both, t)}), ноги ${lw}/${lt} (${winPct(lw, lt)}), прибыль ${roiLabel(roi, t)}`,
+        );
+      }
+      if (!any) lines.push("  пока нет данных");
+      lines.push("");
+    };
+    const bandLabel = (bi: number): string => `${PAIR_BANDS[bi][0].toFixed(2)}-${PAIR_BANDS[bi][1].toFixed(2)}`;
+    group("Срез по цене токенов", (pk) => bandLabel(this.parsePk(pk).bi), PAIR_BANDS.map((_, i) => bandLabel(i)));
+    group("Срез по окну BTC", (pk) => `${this.parsePk(pk).wB}с`, PAIR_WINDOWS.map((w) => `${w}с`));
+    group("Срез по окну ETH", (pk) => `${this.parsePk(pk).wE}с`, PAIR_WINDOWS.map((w) => `${w}с`));
+    group("Срез по движению BTC", (pk) => pctLabel(this.parsePk(pk).mB), PAIR_MOVES.map((m) => pctLabel(m)));
+    group("Срез по движению ETH", (pk) => pctLabel(this.parsePk(pk).mE), PAIR_MOVES.map((m) => pctLabel(m)));
+
+    lines.push("Прибыль — средний результат на $1 ставки с каждой ноги (без комиссий).");
+    return lines.join("\n");
+  }
+
+  // ───── v3.2 «Темка»: отчёт ─────
+
+  private tget(mode: string, idx: string | number, coin: string, side: string, tf = 5): TStat | undefined {
+    return this.temkaAgg[`${temkaKeyMode(mode, tf)}|${idx}|${coin}|${side}`];
+  }
+
+  /** Знак «надёжно»: ✅ если нижняя граница 95% интервала средней прибыли выше нуля, ❌ если верхняя ниже нуля. */
+  private tFlag(s: TStat): string {
+    if (s.f < TEMKA_MIN_FILLS) return "";
+    const mean = s.roiT / s.f;
+    const se = Math.sqrt(Math.max(0, s.roiT2 / s.f - mean * mean) / s.f);
+    return mean - 1.96 * se > 0 ? "✅" : mean + 1.96 * se < 0 ? "❌" : "";
+  }
+
+  private temkaLine(label: string, mode: string, coin: string, side: string, tf: number): string {
+    const h = this.tget(mode, "h", coin, side, tf);
+    if (!h || h.n === 0) return `  ${label}: пока нет данных`;
+    const isCt = mode.startsWith("ct");
+    if (h.f === 0) return `  ${label}: ордеров ${h.n}, ни один не исполнился`;
+    const parts: string[] = [];
+    TEMKA_TP_DELTAS.forEach((d, i) => {
+      const s = this.tget(mode, i, coin, side, tf);
+      if (!s || s.f === 0) return;
+      parts.push(`+${Math.round(d * 100)}¢ ${winPct(s.hit, s.f)} → ${roiLabel(s.roiT, s.f)}${this.tFlag(s)}`);
+    });
+    let head: string;
+    if (isCt) {
+      // у контртренда «ордер» создаётся только по сигналу: для частоты сравниваем с числом рынков (ордеров «по рынку»)
+      const mk = this.tget("m", "h", coin, side, tf);
+      head = `сработал ${h.f} раз${mk && mk.n > 0 ? ` на ${mk.n} рынков (${winPct(h.f, mk.n)})` : ""}, цена ${(h.px / h.f).toFixed(3)}, без TP ${winPct(h.w, h.f)} → ${roiLabel(h.roiH, h.f)}${h.f < 10 ? " (мало данных)" : ""}`;
+    } else {
+      head = `вошли ${h.f}/${h.n} (${winPct(h.f, h.n)}), цена ${(h.px / h.f).toFixed(3)}, без TP ${winPct(h.w, h.f)} → ${roiLabel(h.roiH, h.f)}${h.f < 10 ? " (мало данных)" : ""}`;
+    }
+    return `  ${label}: ${head} | TP: ${parts.join(" | ")}`;
+  }
+
+  buildTemkaReport(tf = 5): string {
+    const modes = TEMKA_MODES_BY_TF[tf] ?? TEMKA_MODES_BY_TF[5];
+    const lines: string[] = [];
+    const modeLabel = (id: string): string => modes.find((m) => m.id === id)?.label ?? id;
+    const waits = TEMKA_LIMIT_WAITS[tf] ?? TEMKA_LIMIT_WAITS[5];
+    lines.push(`<b>📊 Темка (${tf}-минутки): покупка в начале окна, продажа по тейк-профиту</b>`);
+    lines.push(
+      `В первые ${TEMKA_OPEN_MAX_SEC}с каждого ${tf}-минутного окна «покупаем» и Up, и Down: либо по рынку по живому ask, либо лимиткой на уровнях ${TEMKA_LIMIT_LEVELS.map((l) => l.toFixed(2)).join(" / ")} (лимитка ждёт ${waits.join(" или ")}с от открытия окна, пока ask не опустится до уровня; цена входа = уровень). Сразу ставим «продажу» на +${TEMKA_TP_DELTAS.map((d) => Math.round(d * 100)).join(" / +")} центов от входа (при входе 0.50 это ${TEMKA_TP_DELTAS.map((d) => (0.5 + d).toFixed(2)).join(" / ")}). Не достигли цели до закрытия окна — держим до официального резолва.`,
+    );
+    lines.push(
+      `«Контртренд»: через ${TEMKA_CT_MIN_ELAPSED_SEC}с после открытия (и не позже чем за ${TEMKA_CT_MIN_SEC_TO_CLOSE}с до закрытия), если монета за ${TEMKA_CT_LOOKBACK_SEC}с резко ушла ПРОТИВ стороны (≥ ${TEMKA_CT_ZS.join(" или ")}σ) и токен этой стороны стоит не дороже ${TEMKA_CT_LEVELS.map((l) => l.toFixed(2)).join(" / ")}, покупаем его ради отскока. Один вход на сторону и режим.`,
+    );
+    lines.push(
+      `Исполнение считается только по живому стакану (REST) с объёмом от ${TEMKA_MIN_SIZE} акций на лучшем уровне: покупка — когда ask не выше уровня, продажа — когда bid не ниже цели (по цене цели, то есть без везения). Рынки, замеченные позже ${TEMKA_OPEN_MAX_SEC}с после открытия, пропускаются. Комиссии не учтены (у входов по рынку они могут быть, у лимиток обычно нет — проверь тарифы на этих рынках). Очередь в стакане не учтена, поэтому исполнение лимиток оптимистично.`,
+    );
+    lines.push(
+      "Как читать строку: «вошли» — сколько ордеров исполнилось; «без TP» — винрейт и прибыль, если просто держать до резолва; «+3¢ 64% → +2.1%» — цель +3 цента достигнута в 64% входов, итоговая прибыль на $1 с учётом тех, кто не дошёл и ушёл на резолв. ✅ — прибыль значимо выше нуля (95%), ❌ — значимо ниже.",
+    );
+    const mAll = this.tget("m", "h", "*", "*", tf);
+    lines.push(`Рынков ${tf}м с входом по рынку: ${mAll ? mAll.n / 2 : 0}. ${tf === 5 ? "Команда для 15-минуток: «лаб темка 15»." : "Команда для 5-минуток: «лаб темка»."}`);
+    lines.push("");
+
+    lines.push("<b>══ Общая статистика (все монеты, Up и Down вместе) ══</b>");
+    for (const m of modes) lines.push(this.temkaLine(m.label, m.id, "*", "*", tf));
+    lines.push("");
+
+    const allCombos: { mode: string; i: number; s: TStat; mean: number }[] = [];
+    for (const m of modes) {
+      TEMKA_TP_DELTAS.forEach((_, i) => {
+        const s = this.tget(m.id, i, "*", "*", tf);
+        if (s && s.f >= TEMKA_MIN_FILLS) allCombos.push({ mode: m.id, i, s, mean: s.roiT / s.f });
+      });
+    }
+    lines.push(`<b>══ Лучшие 10 комбинаций вход + цель (минимум ${TEMKA_MIN_FILLS} входов) ══</b>`);
+    if (allCombos.length === 0) {
+      lines.push(`  пока недостаточно данных (нужно ≥${TEMKA_MIN_FILLS} входов на комбинацию)`);
+    } else {
+      allCombos
+        .sort((a, b) => b.mean - a.mean)
+        .slice(0, 10)
+        .forEach((c, k) => {
+          const h = this.tget(c.mode, "h", "*", "*", tf) as TStat;
+          lines.push(
+            `  ${k + 1}. ${modeLabel(c.mode)} → цель +${Math.round(TEMKA_TP_DELTAS[c.i] * 100)}¢: вошли ${c.s.f}, цель достигнута ${winPct(c.s.hit, c.s.f)}${c.s.hit > 0 ? ` (в среднем за ${(c.s.hitSec / c.s.hit).toFixed(0)}с)` : ""}, прибыль ${roiLabel(c.s.roiT, c.s.f)} ${this.tFlag(c.s)} | без TP ${roiLabel(c.s.roiH, c.s.f)}, цена входа ${(h.px / Math.max(h.f, 1)).toFixed(3)}`,
+          );
+        });
+      const worst = [...allCombos].sort((a, b) => a.mean - b.mean).slice(0, 3).filter((c) => c.mean < 0);
+      if (worst.length > 0) {
+        lines.push("  Худшие:");
+        for (const c of worst) {
+          lines.push(`     ${modeLabel(c.mode)} → +${Math.round(TEMKA_TP_DELTAS[c.i] * 100)}¢: вошли ${c.s.f}, цель ${winPct(c.s.hit, c.s.f)}, прибыль ${roiLabel(c.s.roiT, c.s.f)} ${this.tFlag(c.s)}`);
+        }
+      }
+    }
+    lines.push("");
+
+    lines.push("<b>══ Up против Down (все монеты) ══</b>");
+    for (const m of modes) {
+      lines.push(this.temkaLine(`${m.label} — Up`, m.id, "*", "Up", tf));
+      lines.push(this.temkaLine(`${m.label} — Down`, m.id, "*", "Down", tf));
+    }
+    const diffs: { mode: string; i: number; z: number; pu: number; pd: number; fu: number; fd: number }[] = [];
+    for (const m of modes) {
+      TEMKA_TP_DELTAS.forEach((_, i) => {
+        const u = this.tget(m.id, i, "*", "Up", tf);
+        const d = this.tget(m.id, i, "*", "Down", tf);
+        if (!u || !d || u.f < TEMKA_MIN_FILLS || d.f < TEMKA_MIN_FILLS) return;
+        const pu = u.hit / u.f;
+        const pd = d.hit / d.f;
+        const pp = (u.hit + d.hit) / (u.f + d.f);
+        const se = Math.sqrt(pp * (1 - pp) * (1 / u.f + 1 / d.f));
+        if (se <= 0) return;
+        diffs.push({ mode: m.id, i, z: (pu - pd) / se, pu, pd, fu: u.f, fd: d.f });
+      });
+    }
+    lines.push("  Есть ли закономерность по стороне (разница в доле достигнутых целей, |z| ≥ 2):");
+    const sig = diffs.filter((x) => Math.abs(x.z) >= 2).sort((a, b) => Math.abs(b.z) - Math.abs(a.z)).slice(0, 8);
+    if (diffs.length === 0) {
+      lines.push("     пока мало данных (нужно ≥30 входов и по Up, и по Down)");
+    } else if (sig.length === 0) {
+      lines.push(`     нет: из ${diffs.length} сравнений значимой разницы между Up и Down нет`);
+    } else {
+      for (const x of sig) {
+        lines.push(
+          `     ${modeLabel(x.mode)}, цель +${Math.round(TEMKA_TP_DELTAS[x.i] * 100)}¢: Up ${winPct(Math.round(x.pu * x.fu), x.fu)} (${x.fu}) против Down ${winPct(Math.round(x.pd * x.fd), x.fd)} (${x.fd}), z=${x.z.toFixed(1)}`,
+        );
+      }
+      lines.push(`     (из ${diffs.length} сравнений около ${Math.max(1, Math.round(diffs.length * 0.05))} значимых ожидается чисто случайно, поэтому верь только устойчивой картине по многим соседним строкам)`);
+    }
+    lines.push("");
+
+    lines.push("<b>══ По монетам (Up и Down вместе) ══</b>");
+    for (const coin of INCLUDED_COINS) {
+      const h0 = this.tget("m", "h", coin, "*", tf);
+      lines.push(`<b>── ${coin}${h0 ? ` (рынков с входом по рынку: ${h0.n / 2})` : ""} ──</b>`);
+      for (const m of modes) lines.push(this.temkaLine(m.label, m.id, coin, "*", tf));
+      const cc: { mode: string; i: number; s: TStat; mean: number }[] = [];
+      for (const m of modes) {
+        TEMKA_TP_DELTAS.forEach((_, i) => {
+          const s = this.tget(m.id, i, coin, "*", tf);
+          if (s && s.f >= TEMKA_MIN_FILLS_COIN) cc.push({ mode: m.id, i, s, mean: s.roiT / s.f });
+        });
+      }
+      const best = cc.sort((a, b) => b.mean - a.mean)[0];
+      lines.push(
+        best
+          ? `  Лучшая комбинация: ${modeLabel(best.mode)} → +${Math.round(TEMKA_TP_DELTAS[best.i] * 100)}¢: вошли ${best.s.f}, цель ${winPct(best.s.hit, best.s.f)}, прибыль ${roiLabel(best.s.roiT, best.s.f)}`
+          : `  Лучшая комбинация: пока мало данных (нужно ≥${TEMKA_MIN_FILLS_COIN} входов)`,
+      );
+      lines.push("");
+    }
+
+    lines.push("Идеи для следующих проверок: стоп-лосс и выход по времени, вход по направлению монеты (после движения), вход не только в начале окна.");
+    return lines.join("\n");
+  }
+
+  buildArbReport(): string {
+    const lines: string[] = [];
+    lines.push("<b>📊 Идея «Арбитраж Up+Down»</b>");
+    lines.push(
+      "Раз в 5 секунд берём живой стакан обеих сторон (REST) и считаем сумму лучших ask: ≤ 0.99 / 0.98 / 0.97 / 0.95. Короткие окна между замерами можем пропустить, поэтому частота — нижняя оценка. Количество акций — по лучшему уровню стакана.",
+    );
+    lines.push("");
+
+    const all = newArbAgg();
+    const rowFor = (label: string, a: ArbAgg): string[] => {
+      if (a.total === 0) return [`<b>── ${label} ──</b>`, "  пока нет данных", ""];
+      const pct = (n: number) => `${n} (${((100 * n) / a.total).toFixed(1)}%)`;
+      const sec = a.h99 > 0 ? `, в среднем за ${(a.sec99Sum / a.h99).toFixed(0)}с до закрытия` : "";
+      const size = a.h99 > 0 ? `, доступно в среднем ${(a.size99Sum / a.h99).toFixed(0)} акций` : "";
+      return [
+        `<b>── ${label} ──</b>`,
+        `  рынков: ${a.total}, средняя минимальная сумма: ${(a.minSumTotal / a.total).toFixed(3)}`,
+        `  сумма ≤ 0.99: ${pct(a.h99)}${sec}${size}`,
+        `  сумма ≤ 0.98: ${pct(a.h98)}`,
+        `  сумма ≤ 0.97: ${pct(a.h97)}`,
+        `  сумма ≤ 0.95: ${pct(a.h95)}`,
+        "",
+      ];
+    };
+
+    for (const coin of INCLUDED_COINS) {
+      const a = this.arbAgg[coin];
+      if (a) {
+        all.total += a.total;
+        all.minSumTotal += a.minSumTotal;
+        all.h99 += a.h99;
+        all.h98 += a.h98;
+        all.h97 += a.h97;
+        all.h95 += a.h95;
+        all.sec99Sum += a.sec99Sum;
+        all.size99Sum += a.size99Sum;
+      }
+    }
+    lines.push(...rowFor("Все монеты", all));
+    for (const coin of INCLUDED_COINS) {
+      lines.push(...rowFor(coin, this.arbAgg[coin] ?? newArbAgg()));
+    }
+    return lines.join("\n");
+  }
+
+  private ideaLabel(idea: string): string {
+    switch (idea) {
+      case "margin":
+        return "Запас";
+      case "cheap":
+        return "Недооценка";
+      case "panic":
+        return "Паника без разворота";
+      case "impulse":
+        return "Импульс";
+      case "model":
+        return "Модель цены";
+      default:
+        return isBase(idea) ? `Профиль ${idea.slice(3)} (бот)` : idea;
+    }
+  }
+
+  buildConfirmReport(): string {
+    const lines: string[] = [];
+    lines.push("<b>📊 Подтверждение другими монетами</b>");
+    lines.push(
+      "Сколько ДРУГИХ монет (из 4) в момент входа идут в ту же сторону не менее чем на 0.05% / 0.10% от открытия окна. Формат: подтвердили монет: выигрыш/всего, винрейт. Одна запись на ситуацию (самый ранний вход идеи).",
+    );
+    lines.push("");
+
+    const ideas = ["margin", "cheap", "panic", "impulse", "model", "bot1", "bot2", "bot3", "bot4", "bot5", "bot6", "bot7"];
+    for (const idea of ideas) {
+      lines.push(`<b>── ${this.ideaLabel(idea)} ──</b>`);
+      let any = false;
+      for (const [lvl, label] of [
+        ["c05", "порог 0.05%"],
+        ["c10", "порог 0.10%"],
+      ] as const) {
+        const parts: string[] = [];
+        for (let n = 0; n <= 4; n++) {
+          const s = this.conf[`${idea}|${lvl}|${n}`];
+          if (!s || s.t === 0) continue;
+          parts.push(`${n}: ${s.w}/${s.t} ${winPct(s.w, s.t)}`);
+        }
+        if (parts.length > 0) {
+          any = true;
+          lines.push(`  ${label} → ${parts.join(" | ")}`);
+        }
+      }
+      if (!any) lines.push("  пока нет данных");
+      lines.push("");
+    }
+    return lines.join("\n");
+  }
+
+  buildProfilesReport(): string {
+    const lines: string[] = [];
+    lines.push("<b>📊 Профили бота и согласие профилей</b>");
+    lines.push(
+      `Моделирование ${BOT_PROFILES.length} профилей бота (без фильтра бирж): ${RULES_TEXT}, вход по живому ask, потолок покупки как в боте, держим до резолва.`,
+    );
+    lines.push("");
+    lines.push("<b>── Каждый профиль отдельно (выигрыш/всего, винрейт, доходность на $1) ──</b>");
+    for (const prof of BOT_PROFILES) {
+      const idea = `bot${prof.id}`;
+      const stats = this.collect(idea);
+      const parts: string[] = [];
+      let tw = 0;
+      let tt = 0;
+      let tr = 0;
+      for (const coin of INCLUDED_COINS) {
+        const s = stats.find((x) => x.coin === coin);
+        if (!s) continue;
+        tw += s.w;
+        tt += s.t;
+        tr += s.roi;
+        parts.push(`${COIN_SHORT[coin]} ${s.w}/${s.t} ${winPct(s.w, s.t)}`);
+      }
+      lines.push(`  Профиль ${prof.id}: всего ${tw}/${tt} ${winPct(tw, tt)}, доходность ${roiLabel(tr, tt)}`);
+      if (parts.length > 0) lines.push(`     ${parts.join(" | ")}`);
+    }
+    lines.push("");
+
+    lines.push("<b>── Согласие: сколько профилей дали сигнал на одну сторону рынка ──</b>");
+    lines.push("(считаются сигналы за весь рынок до закрытия, то есть задним числом: в бот это перенести нельзя; для момента входа есть «лаб согласие»)");
+    let anyN = false;
+    for (let n = 1; n <= BOT_PROFILES.length; n++) {
+      const s = this.agree[`n|${n}`];
+      if (!s || s.t === 0) continue;
+      anyN = true;
+      lines.push(`  профилей: ${n} → ${s.w}/${s.t} ${winPct(s.w, s.t)}, доходность ${roiLabel(s.roi, s.t)}`);
+    }
+    if (!anyN) lines.push("  пока нет данных");
+    lines.push("");
+
+    lines.push("<b>── Конкретные сочетания профилей (минимум 5 случаев) ──</b>");
+    const sets = Object.entries(this.agree)
+      .filter(([k, s]) => k.startsWith("set|") && s.t >= 5)
+      .sort((a, b) => b[1].t - a[1].t)
+      .slice(0, 12);
+    if (sets.length === 0) {
+      lines.push("  пока недостаточно данных");
+    } else {
+      for (const [k, s] of sets) {
+        lines.push(`  профили ${k.slice(4)} → ${s.w}/${s.t} ${winPct(s.w, s.t)}, доходность ${roiLabel(s.roi, s.t)}`);
+      }
+    }
+    return lines.join("\n");
+  }
+
+  buildSummaryReport(): string {
+    const lines: string[] = [];
+    lines.push("<b>🧪 LAB: сводка</b>");
+    lines.push(
+      `Рынков обработано: ${this.resolvedCount} (увидено всего: ${this.marketsSeenCount}), ждут резолва: ${this.pending.size}. Правила подсчёта: ${RULES_TEXT}.`,
+    );
+    lines.push("");
+
+    lines.push("<b>── Реальный бот (подробно: «лаб бот») ──</b>");
+    for (const idea of Object.keys(LIVE_VARIANTS)) {
+      const s = this.sumIdea(idea);
+      lines.push(`  ${idea}: ${s.w}/${s.t} ${winPct(s.w, s.t)}, прибыль на $1 ${roiLabel(s.roi, s.t)}`);
+    }
+    lines.push("");
+
+    const ideas: [string, string][] = [
+      ["margin", "Запас"],
+      ["cheap", "Недооценка"],
+      ["panic", "Паника без разворота"],
+      ["impulse", "Импульс"],
+    ];
+    for (const [idea, label] of ideas) {
+      lines.push(`<b>── ${label}: топ-3 (все монеты вместе) ──</b>`);
+      lines.push(...this.topLines(this.pooled(idea), 3));
+      lines.push("");
+    }
+
+    const modelRows = this.toModelRows(this.pooled("model")).filter((r) => r.t >= MODEL_MIN_TRADES);
+    const modelGood = modelRows.filter((r) => r.verdict === "✅").length;
+    const modelMaybe = modelRows.filter((r) => r.verdict === "⚠️").length;
+    lines.push("<b>── Модель цены ──</b>");
+    lines.push(
+      modelRows.length > 0
+        ? `  комбинаций с ≥${MODEL_MIN_TRADES} записями: ${modelRows.length}, из них ✅ ${modelGood}, ⚠️ ${modelMaybe}  (подробно: "лаб модель")`
+        : `  пока недостаточно данных (нужно ≥${MODEL_MIN_TRADES} записей на комбинацию)`,
+    );
+    lines.push("");
+
+    {
+      lines.push("<b>── Темка (подробно: «лаб темка» и «лаб темка 15») ──</b>");
+      for (const tf of TEMKA_TIMEFRAMES) {
+        const th = this.tget("m", "h", "*", "*", tf);
+        const t3 = this.tget("m", 1, "*", "*", tf);
+        lines.push(
+          th && th.f > 0 && t3 && t3.f > 0
+            ? `  ${tf}м, вход по рынку на открытии: ${th.f} входов, цель +3¢ достигнута в ${winPct(t3.hit, t3.f)}, прибыль на $1 ${roiLabel(t3.roiT, t3.f)} (без TP ${roiLabel(th.roiH, th.f)})`
+            : `  ${tf}м: пока нет данных`,
+        );
+      }
+      lines.push("");
+    }
+    lines.push("<b>── Новое в v3.1 (по всей сетке, подробно в отдельных командах) ──</b>");
+    const v31: [string, string][] = [
+      ["model", "Модель без фильтра"],
+      ["modelb0", "Модель + Binance против"],
+      ["modelbS", "   сильно против"],
+      ["modelc0", "Модель + Coinbase против"],
+      ["modelk2", "Модель + обе биржи против"],
+      ["fair1", "Справедливая цена σ60 (все корзины)"],
+      ["fair2", "Справедливая цена σ120 (все корзины)"],
+    ];
+    for (const [idea, label] of v31) {
+      const s = this.sumIdea(idea);
+      lines.push(`  ${label}: ${s.t > 0 ? `${s.w}/${s.t} ${winPct(s.w, s.t)}, прибыль на $1 ${roiLabel(s.roi, s.t)}` : "пока нет данных"}`);
+    }
+    lines.push('  ("лаб модель бинанс", "лаб биржи", "лаб справедливая", "лаб режим", "лаб зараза", "лаб траектория")');
+    lines.push("");
+
+    let pairCombos = 0;
+    let pairGood = 0;
+    for (const key of Object.keys(this.pairAgg)) {
+      if (!key.endsWith("|pair") || key.startsWith("_sit")) continue;
+      const s = this.pairAgg[key];
+      if (s.t < PAIR_MIN_TRADES) continue;
+      pairCombos++;
+      const pk = key.split("|")[0];
+      const b = this.pairAgg[`${pk}|btc`];
+      const e = this.pairAgg[`${pk}|eth`];
+      if (!b || !e) continue;
+      const lt = b.t + e.t;
+      const avgPx = ((b.px ?? 0) + (e.px ?? 0)) / Math.max(lt, 1);
+      if (wilsonLower(b.w + e.w, lt) > avgPx) pairGood++;
+    }
+    lines.push("<b>── Пара BTC+ETH ──</b>");
+    lines.push(
+      pairCombos > 0
+        ? `  комбинаций с ≥${PAIR_MIN_TRADES} парами: ${pairCombos}, из них ✅ ${pairGood}  (подробно: "лаб пара")`
+        : `  пока недостаточно данных (нужно ≥${PAIR_MIN_TRADES} пар на комбинацию)`,
+    );
+    lines.push("");
+
+    const arbAll = Object.values(this.arbAgg).reduce(
+      (acc, a) => ({ total: acc.total + a.total, h99: acc.h99 + a.h99 }),
+      { total: 0, h99: 0 },
+    );
+    lines.push("<b>── Арбитраж (живые стаканы) ──</b>");
+    lines.push(
+      arbAll.total > 0
+        ? `  сумма ask ≤ 0.99 была на ${arbAll.h99} из ${arbAll.total} рынков (${((100 * arbAll.h99) / arbAll.total).toFixed(1)}%)`
+        : "  пока нет данных",
+    );
+    lines.push("");
+
+    lines.push("<b>── Профили бота (моделирование, без фильтра бирж) ──</b>");
+    for (const prof of BOT_PROFILES) {
+      let tw = 0;
+      let tt = 0;
+      let tr = 0;
+      for (const s of this.collect(`bot${prof.id}`)) {
+        tw += s.w;
+        tt += s.t;
+        tr += s.roi;
+      }
+      lines.push(`  Профиль ${prof.id}: ${tw}/${tt} ${winPct(tw, tt)}, доходность ${roiLabel(tr, tt)}`);
+    }
+    lines.push("");
+
+    lines.push("<b>── Честность цен ──</b>");
+    lines.push(
+      this.staleSampled > 0
+        ? `  замеров цены в памяти против живого стакана: ${this.staleSampled}, ask отличался на 0.02 и больше: ${this.staleShifted} (${((100 * this.staleShifted) / this.staleSampled).toFixed(1)}%)`
+        : "  замеров пока нет",
+    );
+    const verifyTotal = this.verifyConfirmed + this.verifyRejected;
+    lines.push(
+      verifyTotal > 0
+        ? `  проверок входов живым стаканом: ${verifyTotal}, подтвердились: ${this.verifyConfirmed}, отклонены: ${this.verifyRejected}`
+        : "  проверок входов пока нет",
+    );
+    lines.push(`  опрос бирж: Binance ${binance.okCount}/${binance.okCount + binance.failCount}, Coinbase ${coinbase.okCount}/${coinbase.okCount + coinbase.failCount} удачных`);
+    lines.push("");
+    lines.push('Все команды: "лаб помощь"');
+    return lines.join("\n");
+  }
+
+  buildHelp(): string {
+    return [
+      "<b>🧪 LAB v3.6 — команды</b>",
+      "лаб — сводка по всем идеям",
+      "лаб бот — как торговал бы реальный бот (итог, 24 часа, 7 дней, в долларах)",
+      "лаб бинанс — профили бота с фильтром Binance по корзинам (каждая корзина — отдельный бот)",
+      "лаб биржи — то же для Coinbase и «две биржи сразу» (обе против / одна / ни одной)",
+      "лаб профили — профили бота и согласие профилей",
+      "лаб модель — «Модель цены» (где выгодно покупать вне 0.97-0.98)",
+      "лаб модель бинанс — вся сетка модели с Binance против: лесенка, доза-эффект (чуть/сильно против), дешёвые цены, Coinbase, две биржи",
+      "лаб темка — 5-минутки: покупка в начале окна (по рынку, лимитками 0.50-0.35, контртренд) и продажа по +2…+10 центов; общая стата, Up/Down, по монетам",
+      "лаб темка 15 — то же для 15-минуток",
+      "лаб справедливая — p = Φ(d/(σ√t)), корзины edge = p − ask, растёт ли винрейт",
+      "лаб режим — режим волатильности, часы суток, кластеры одновременных проигрышей",
+      "лаб зараза — просевшие токены у соседних монет",
+      "лаб траектория — токен падает или растёт перед входом",
+      "лаб запас — идея «Запас» (z вместо порога)",
+      "лаб дешево — «Недооценка» (токен дешевле 0.96)",
+      "лаб паника — «Паника без разворота»",
+      "лаб импульс — «Импульс последних секунд»",
+      "лаб арб — «Арбитраж Up+Down»",
+      "лаб монеты — подтверждение другими монетами",
+      "лаб пила — фильтр «Пила» (пересечения цены открытия)",
+      "лаб пара — «Пара BTC+ETH» (покупка обеих, когда сработали оба триггера)",
+      "лаб лоси — вскрытие проигрышей: чем они отличаются от побед",
+      "лаб согласие — винрейт в зависимости от числа профилей с сигналом",
+      "лаб стоп — стоп-лосс: насколько проседает цена после входа",
+      "лаб биржи все — Binance, Coinbase, Bybit, OKX, Kraken, Bitget: каждая отдельно по корзинам и вместе (сколько бирж против / подтверждают); можно «лаб биржи все 3» (дней)",
+      "лаб страница — страница-разбор файлом: все идеи и ячейки, чем победы отличаются от поражений (без периода — всё время; можно: «лаб страница 24ч», «3д», «7д», «30д», «15», «btc»)",
+      "лаб объем — ставки торговых стратегий LAB; «лаб объем bot7b0 6», «лаб объем fair2 5», «лаб объем все 5»",
+      "лаб лимитки — бумажная проверка идей про прострелы по живому стакану: «лаб лимитки», «лаб лимитки C01», «лаб лимитки сброс»",
+      "лаб сделки — журнал сделок для сверки со страницей: во сколько купили, что не купили (цена убежала / ошибка биржи), что не дошло до цены; «лаб сделки e1», «лаб сделки e1 12ч», «лаб сделки все» (с пропусками по фильтрам)",
+      "лаб бэкап — копия данных и настроек в Telegram прямо сейчас (когда нет тома Railway; сама делается каждые 3 часа). Перед деплоем: «лаб бэкап»",
+      "лаб минимум — бесплатно: какой минимальный размер ордера объявляет биржа",
+      "лаб проба — проверка покупки меньше 5 акций (РЕАЛЬНЫЕ ~$1, спросит подтверждение); «лаб проба да sol» — то же на конкретной монете (btc/eth/sol/xrp/doge)",
+      "лаб после [дней] — что происходит с токенами после закрытия окна до резолва (замер, без покупок)",
+      "лаб тест — бумажные тесты ТС со стопами/входами после дна (без покупок): «лаб тест», «лаб тест T01», «лаб тест сброс»",
+      "лаб дно — вход после дна (fair2): цены дна и покупки, вкл/выкл: «лаб дно 75 80»",
+      "лаб бумага — ТС без реальных денег: «лаб бумага t05 вкл», «лаб бумага t05 выкл»",
+      "лаб тс — стратегии LAB: список, «лаб тс выкл fair2», «лаб тс вкл cb4»",
+      "лаб акций — покупать всегда N акций: «лаб акций cb4 5» (выкл — обратно в $)",
+      "лаб лимит — дневная цель/стоп: «лаб лимит cb4 цель 20», «лаб лимит cb4 убыток 15», «лаб лимит все выкл»",
+      "лаб торговля — состояние реальной торговли LAB; «лаб торговля выкл» — аварийно выключить, «лаб торговля вкл» — включить",
+      "лаб помощь — этот список",
+    ].join("\n");
+  }
+
+  start(): void {
+    this.loadState();
+    this.tjLoad();
+    setInterval(() => this.tjSave(), 30 * 1000);
+    this.postWatch.start();
+    htfTracker.load();
+    htfTracker.sample();
+    setInterval(() => htfTracker.sample(), HTF_STEP_MS);
+    setInterval(() => htfTracker.save(), 5 * 60 * 1000);
+    this.refreshMarkets();
+    setInterval(() => this.refreshMarkets(), MARKET_REFRESH_MS);
+    setInterval(() => this.checkResolutions(), 30 * 1000);
+    setInterval(() => this.sampleArb(), ARB_SAMPLE_MS);
+    setInterval(() => this.sampleTape(), TAPE_MS);
+    setInterval(() => this.shadowCheck(), 1000); // v17: теневая проверка входа раз в секунду (только журнал)
+    void compressOldDays(LAB_DATA_DIR);
+    void compressOldDays(LAB_TAPE_DIR);
+    setInterval(() => void compressOldDays(LAB_DATA_DIR), 60 * 60 * 1000);
+    setInterval(() => void compressOldDays(LAB_TAPE_DIR), 60 * 60 * 1000);
+    setInterval(() => this.saveState(), AUTOSAVE_INTERVAL_MS);
+    setInterval(() => {
+      console.log(
+        `--- статус: апдейтов ${this.updateCount}, рынков обработано ${this.resolvedCount}, ждут резолва ${this.pending.size}, проверок входов ${this.verifyConfirmed + this.verifyRejected}, Binance ${binance.okCount}/${binance.failCount}, Coinbase ${coinbase.okCount}/${coinbase.failCount}, ${EXTRA_EXCHANGES.map((x) => `${x.label} ${(x.feed as any).okCount}/${(x.feed as any).failCount}`).join(", ")} ---`,
+      );
+    }, 60 * 1000);
+  }
+}
+
+// ─────────────────────────── Telegram ───────────────────────────
+
+const TELEGRAM_MAX_CHUNK = 3500;
+
+function splitReportIntoChunks(report: string, maxLen: number = TELEGRAM_MAX_CHUNK): string[] {
+  const lines = report.split("\n");
+  const chunks: string[] = [];
+  let current = "";
+  for (const line of lines) {
+    const candidate = current ? `${current}\n${line}` : line;
+    if (candidate.length > maxLen && current) {
+      chunks.push(current);
+      current = line;
+    } else {
+      current = candidate;
+    }
+  }
+  if (current) chunks.push(current);
+  return chunks.length > 0 ? chunks : [""];
+}
+
+/** Telegram (parse_mode HTML) не принимает «голые» < > &: оставляем только теги <b>, <i>, <u>, <s>, <code>, <pre>, остальное экранируем. */
+function escapeTelegramHtml(text: string): string {
+  const parts = text.split(/(<\/?(?:b|i|u|s|code|pre)>)/);
+  return parts
+    .map((part, i) => (i % 2 === 1 ? part : part.replace(/&(?!(?:amp|lt|gt|quot);)/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")))
+    .join("");
+}
+
+async function sendReportToTelegram(
+  telegram: ReturnType<typeof createTelegramNotifier>,
+  report: string,
+): Promise<void> {
+  const chunks = splitReportIntoChunks(report);
+  for (let i = 0; i < chunks.length; i++) {
+    const text = escapeTelegramHtml(i === 0 ? chunks[i] : `<b>...продолжение (${i + 1}/${chunks.length})</b>\n\n${chunks[i]}`);
+    try {
+      await telegram?.send(text);
+    } catch (err) {
+      console.error(`[sendReport] ошибка отправки части ${i + 1}/${chunks.length}:`, (err as Error).message);
+    }
+  }
+}
+
+function normalizeCmd(raw: string): string {
+  return raw.toLowerCase().replace(/ё/g, "е").replace(/@\w+/g, "").replace(/\s+/g, " ").trim();
+}
+
+// ───── v3.3: страница-разбор ─────
+
+async function sendDocumentToTelegram(botToken: string, chatId: string, filename: string, content: string, caption: string): Promise<boolean> {
+  try {
+    const form = new FormData();
+    form.append("chat_id", chatId);
+    form.append("caption", caption.slice(0, 1000));
+    form.append("document", new Blob([content], { type: "text/html" }), filename);
+    const resp = await fetch(`https://api.telegram.org/bot${botToken}/sendDocument`, { method: "POST", body: form });
+    if (!resp.ok) {
+      console.error("[page] Telegram отказал:", resp.status, (await resp.text()).slice(0, 300));
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("[page] ошибка отправки файла:", (err as Error).message);
+    return false;
+  }
+}
+
+// ───── v15: резервная копия в Telegram (когда нет постоянного диска Railway) ─────
+// Бот раз в LAB_TG_BACKUP_HOURS (3 ч) сжимает данные за последние LAB_TG_KEEP_DAYS (7) дней, режет на куски по 19 МБ (бот может скачать из Telegram не больше 20 МБ)
+// и шлёт в чат; последнее сообщение со списком кусков закрепляется. После перезапуска (чистый диск) бот находит закреплённое сообщение, скачивает куски и разворачивает данные.
+// Настройки торговли (lab-live-config.json) — отдельный маленький файл, отправляется сразу после каждого изменения. Выключить: LAB_TG_BACKUP=off. По умолчанию включено, только если нет тома (LAB_DATA_PATH / RAILWAY_VOLUME_MOUNT_PATH).
+const TGB_ENABLED = (() => {
+  const v = (process.env.LAB_TG_BACKUP ?? "auto").toLowerCase();
+  if (v === "off" || v === "0" || v === "выкл") return false;
+  if (v === "on" || v === "1" || v === "вкл") return true;
+  return !process.env.LAB_DATA_PATH && !process.env.RAILWAY_VOLUME_MOUNT_PATH;
+})();
+const TGB_KEEP_DAYS = Math.max(1, Math.floor(Number(process.env.LAB_TG_KEEP_DAYS ?? "7")) || 7);
+const TGB_HOURS = Math.max(0.25, Number(process.env.LAB_TG_BACKUP_HOURS ?? "3") || 3);
+const TGB_PART = 19 * 1024 * 1024;
+const TGB_MAX_PARTS = 12;
+const TGB_TAG = "LABBACKUP1 ";
+const TGB_DIRS = ["lab-data", "lab-tape", "lab-post"];
+interface TgbRef { i: string; m: number } // file_id и номер сообщения
+interface TgbManifest { t: number; s: TgbRef | null; p: TgbRef[]; d: number; b: number }
+const tgb: { token: string; chat: string; man: TgbManifest | null; manMsg: number | null; busy: boolean; setHash: string; setTimer: NodeJS.Timeout | null } = {
+  token: "", chat: "", man: null, manMsg: null, busy: false, setHash: "", setTimer: null,
+};
+let tgbOn = false;
+
+async function tgbApi(method: string, body: Record<string, unknown>): Promise<any> {
+  const r = await fetch(`https://api.telegram.org/bot${tgb.token}/${method}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  const j = (await r.json().catch(() => null)) as any;
+  if (!r.ok || !j?.ok) throw new Error(`${method}: ${j?.description ?? r.status}`);
+  return j.result;
+}
+async function tgbSendDoc(filename: string, buf: Buffer, caption: string): Promise<TgbRef> {
+  const form = new FormData();
+  form.append("chat_id", tgb.chat);
+  form.append("disable_notification", "true");
+  form.append("caption", caption.slice(0, 900));
+  form.append("document", new Blob([new Uint8Array(buf)], { type: "application/octet-stream" }), filename);
+  const r = await fetch(`https://api.telegram.org/bot${tgb.token}/sendDocument`, { method: "POST", body: form });
+  const j = (await r.json().catch(() => null)) as any;
+  if (!r.ok || !j?.ok) throw new Error(`sendDocument: ${j?.description ?? r.status}`);
+  return { i: j.result.document.file_id as string, m: j.result.message_id as number };
+}
+async function tgbDelete(ids: (number | null | undefined)[]): Promise<void> {
+  for (const m of ids) {
+    if (m === null || m === undefined) continue;
+    try { await tgbApi("deleteMessage", { chat_id: tgb.chat, message_id: m }); } catch { /* старше 48 ч или уже удалено — не страшно */ }
+  }
+}
+async function tgbDownload(fileId: string): Promise<Buffer> {
+  const f = await tgbApi("getFile", { file_id: fileId });
+  const r = await fetch(`https://api.telegram.org/file/bot${tgb.token}/${f.file_path}`);
+  if (!r.ok) throw new Error(`скачивание: ${r.status}`);
+  return Buffer.from(await r.arrayBuffer());
+}
+function tgbRun(cmd: string, args: string[], stdin?: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const p = spawn(cmd, args, { stdio: ["pipe", "ignore", "pipe"] });
+    let err = "";
+    p.stderr.on("data", (d) => { err += String(d); });
+    p.on("error", reject);
+    p.on("close", (code) => (code === 0 ? resolve() : reject(new Error(`${cmd} код ${code}: ${err.slice(0, 200)}`))));
+    p.stdin.on("error", () => { /* закрылся раньше */ });
+    p.stdin.end(stdin ?? "");
+  });
+}
+/** Какие файлы класть в архив: корневые lab-*.json и research-lab-state.json (кроме настроек торговли — они отдельно) + файлы папок данных за последние N дней. */
+function tgbFiles(keepDays: number): { names: string[]; bytes: number } {
+  const names: string[] = [];
+  let bytes = 0;
+  const cutoffDay = new Date(Date.now() - keepDays * 86400_000).toISOString().slice(0, 10);
+  const cutoffMs = Date.now() - keepDays * 86400_000;
+  const add = (rel: string, st: fs.Stats) => { names.push(rel); bytes += st.size; };
+  for (const n of fs.readdirSync(STORAGE_DIR)) {
+    if (n === "lab-live-config.json") continue;
+    if (!(/^lab-.*\.json$/.test(n) || n === "research-lab-state.json")) continue;
+    try { const st = fs.statSync(path.join(STORAGE_DIR, n)); if (st.isFile()) add(n, st); } catch { /* пропуск */ }
+  }
+  const walk = (rel: string) => {
+    let list: string[] = [];
+    try { list = fs.readdirSync(path.join(STORAGE_DIR, rel)); } catch { return; }
+    for (const n of list) {
+      const r2 = `${rel}/${n}`;
+      let st: fs.Stats;
+      try { st = fs.statSync(path.join(STORAGE_DIR, r2)); } catch { continue; }
+      if (st.isDirectory()) { walk(r2); continue; }
+      const dm = n.match(/(\d{4}-\d{2}-\d{2})/);
+      if (dm ? dm[1] >= cutoffDay : st.mtimeMs >= cutoffMs) add(r2, st);
+    }
+  };
+  for (const d of TGB_DIRS) walk(d);
+  return { names, bytes };
+}
+function tgbManText(m: TgbManifest): string { return TGB_TAG + JSON.stringify(m); }
+async function tgbPostManifest(m: TgbManifest): Promise<number> {
+  const sent = await tgbApi("sendMessage", { chat_id: tgb.chat, text: tgbManText(m), disable_notification: true });
+  try { await tgbApi("pinChatMessage", { chat_id: tgb.chat, message_id: sent.message_id, disable_notification: true }); }
+  catch (e) { console.log("[tg-backup] не удалось закрепить сообщение:", (e as Error).message); throw new Error("не удалось закрепить сообщение со списком (в группе боту нужно право закреплять сообщения)"); }
+  return sent.message_id as number;
+}
+
+/** Полная копия: настройки + данные за N дней. Возвращает текст для чата. */
+async function tgbBackup(why: string): Promise<string> {
+  if (!tgbOn) return "Копия в Telegram выключена (есть постоянный диск или LAB_TG_BACKUP=off).";
+  if (tgb.busy) return "Копия уже делается — подожди пару минут.";
+  tgb.busy = true;
+  const tmp = path.join(os.tmpdir(), `lab-bk-${Date.now()}.tar.gz`);
+  const uploaded: TgbRef[] = [];
+  try {
+    let keep = TGB_KEEP_DAYS, size = 0, names: string[] = [];
+    for (;;) {
+      const f = tgbFiles(keep);
+      names = f.names;
+      if (names.length === 0) return "Копия: пока нет файлов данных.";
+      await tgbRun("tar", ["czf", tmp, "-C", STORAGE_DIR, "-T", "-"], names.join("\n"));
+      size = fs.statSync(tmp).size;
+      if (size <= TGB_PART * TGB_MAX_PARTS || keep <= 1) break;
+      keep--; // слишком много — берём на день меньше
+    }
+    if (size > TGB_PART * TGB_MAX_PARTS) return `Копия не отправлена: даже за 1 день архив ${(size / 1048576).toFixed(0)} МБ — больше лимита.`;
+    const fd = fs.openSync(tmp, "r");
+    const parts: TgbRef[] = [];
+    try {
+      const n = Math.ceil(size / TGB_PART);
+      for (let k = 0; k < n; k++) {
+        const len = Math.min(TGB_PART, size - k * TGB_PART);
+        const buf = Buffer.alloc(len);
+        fs.readSync(fd, buf, 0, len, k * TGB_PART);
+        const ref = await tgbSendDoc(`lab-backup-${k + 1}-of-${n}.bin`, buf, `LAB копия: часть ${k + 1}/${n} (${why})`);
+        uploaded.push(ref);
+        parts.push(ref);
+      }
+    } finally { fs.closeSync(fd); }
+    let settings: TgbRef | null = null;
+    try {
+      const sb = fs.readFileSync(LIVE_CFG_FILE);
+      settings = await tgbSendDoc("lab-live-config.json", sb, "LAB копия: настройки торговли");
+      uploaded.push(settings);
+      tgb.setHash = sb.toString("utf8");
+    } catch { /* файла настроек ещё нет */ }
+    const man: TgbManifest = { t: Date.now(), s: settings, p: parts, d: keep, b: size };
+    const manMsg = await tgbPostManifest(man);
+    const old = tgb.man, oldMan = tgb.manMsg;
+    tgb.man = man;
+    tgb.manMsg = manMsg;
+    if (old) await tgbDelete([oldMan, old.s?.m, ...old.p.map((x) => x.m)]);
+    return `💾 Копия в Telegram готова (${why}): ${names.length} файлов за ${keep} дн., ${(size / 1048576).toFixed(1)} МБ, частей: ${parts.length}${settings ? ", настройки отдельно" : ""}. Закреплено сообщение со списком.`;
+  } catch (e) {
+    await tgbDelete(uploaded.map((x) => x.m));
+    console.log("[tg-backup] ошибка:", (e as Error).message);
+    return `⚠️ Копия в Telegram не удалась: ${(e as Error).message}`;
+  } finally {
+    tgb.busy = false;
+    try { fs.unlinkSync(tmp); } catch { /* нет файла */ }
+  }
+}
+
+/** Только настройки (после «лаб объем», «лаб тс», «лаб лимит» и т.п.): маленький файл + новое закреплённое сообщение. */
+function tgbSettingsSoon(): void {
+  if (!tgbOn) return;
+  if (tgb.setTimer) clearTimeout(tgb.setTimer);
+  tgb.setTimer = setTimeout(() => { tgb.setTimer = null; void tgbSettingsNow(); }, 30_000);
+}
+async function tgbSettingsNow(): Promise<void> {
+  if (!tgbOn) return;
+  if (tgb.busy) { tgb.setTimer = setTimeout(() => { tgb.setTimer = null; void tgbSettingsNow(); }, 20_000); return; }
+  tgb.busy = true;
+  let ref: TgbRef | null = null;
+  try {
+    const sb = fs.readFileSync(LIVE_CFG_FILE);
+    if (sb.toString("utf8") === tgb.setHash) return;
+    ref = await tgbSendDoc("lab-live-config.json", sb, "LAB копия: настройки торговли");
+    const man: TgbManifest = { t: Date.now(), s: ref, p: tgb.man?.p ?? [], d: tgb.man?.d ?? 0, b: tgb.man?.b ?? 0 };
+    const manMsg = await tgbPostManifest(man);
+    const old = tgb.man, oldMan = tgb.manMsg;
+    tgb.man = man;
+    tgb.manMsg = manMsg;
+    tgb.setHash = sb.toString("utf8");
+    await tgbDelete([oldMan, old?.s?.m]);
+  } catch (e) {
+    if (ref) await tgbDelete([ref.m]);
+    console.log("[tg-backup] настройки не отправились:", (e as Error).message);
+  } finally { tgb.busy = false; }
+}
+
+/** При старте на чистом диске: достать закреплённое сообщение, скачать куски и развернуть. Возвращает текст для чата или null. */
+async function tgbRestore(): Promise<string | null> {
+  if (!tgbOn) return null;
+  if (fs.existsSync(STATE_FILE) || fs.existsSync(LIVE_CFG_FILE) || fs.existsSync(path.join(STORAGE_DIR, "lab-data"))) return null; // диск не пустой — ничего не трогаем
+  try {
+    const chat = await tgbApi("getChat", { chat_id: tgb.chat });
+    const pm = chat?.pinned_message;
+    const text: string = pm?.text ?? "";
+    if (!text.startsWith(TGB_TAG)) return null;
+    const man = JSON.parse(text.slice(TGB_TAG.length)) as TgbManifest;
+    const tmp = path.join(os.tmpdir(), `lab-restore-${Date.now()}.tar.gz`);
+    let n = 0;
+    if (man.p.length > 0) {
+      const bufs: Buffer[] = [];
+      for (const ref of man.p) bufs.push(await tgbDownload(ref.i));
+      fs.writeFileSync(tmp, Buffer.concat(bufs));
+      fs.mkdirSync(STORAGE_DIR, { recursive: true });
+      await tgbRun("tar", ["xzf", tmp, "-C", STORAGE_DIR]);
+      try { fs.unlinkSync(tmp); } catch { /* нет файла */ }
+      n = man.p.length;
+    }
+    let setTxt = "настроек в копии не было";
+    if (man.s) {
+      const sb = await tgbDownload(man.s.i);
+      fs.writeFileSync(LIVE_CFG_FILE, sb);
+      tgb.setHash = sb.toString("utf8");
+      setTxt = "настройки торговли восстановлены";
+    }
+    tgb.man = man;
+    tgb.manMsg = pm.message_id as number;
+    return `♻️ Диск был пустой — восстановил данные из копии в Telegram (от ${new Date(man.t).toISOString().replace("T", " ").slice(0, 16)} UTC): частей ${n}, ${(man.b / 1048576).toFixed(1)} МБ, ${setTxt}.`;
+  } catch (e) {
+    console.log("[tg-backup] восстановление не удалось:", (e as Error).message);
+    return `⚠️ Диск пустой, но восстановить из Telegram не вышло: ${(e as Error).message}`;
+  }
+}
+function tgbInit(token: string | undefined, chat: string | undefined): void {
+  if (!TGB_ENABLED || !token || !chat) return;
+  tgb.token = token;
+  tgb.chat = chat;
+  tgbOn = true;
+}
+function tgbStart(): void {
+  if (!tgbOn) return;
+  setTimeout(() => void tgbBackup("по расписанию").then((t) => console.log("[tg-backup]", t)), 10 * 60 * 1000);
+  setInterval(() => void tgbBackup("по расписанию").then((t) => console.log("[tg-backup]", t)), TGB_HOURS * 3600 * 1000);
+}
+
+// ───── v16: журнал сделок («лаб сделки») ─────
+// По каждому сигналу ТС с торговлей хранится «карточка»: что было с сигналом (купили / цена убежала / ошибка биржи / цена не дошла / пропущено) и чем кончился рынок.
+// Нужен, чтобы сверять бота со страницей по строкам. Ничего не меняет в торговле: только записи. Файл lab-trades-log.json (попадает и в копию Telegram).
+type TjSt = "skip" | "watch" | "nohit" | "miss" | "paper" | "virtual" | "bought" | "failed" | "limit";
+interface Tj {
+  k: string; cfg: string; coin: string; side: "Up" | "Down"; slug: string; close: number;
+  sig: number; sigPx: number; want?: number; cap?: number;
+  st: TjSt; why?: string;
+  at?: number; px?: number; sh?: number; usd?: number; // покупка (реальная или бумажная)
+  miss?: number; missAt?: number; missN?: number; // цена дошла, но ask был выше потолка (первый случай)
+  won?: boolean; pnl?: number; wp?: number; stop?: boolean; // итог рынка; pnl — по купленному, wp — «что было бы» по непокупленному
+  // v17: «теневая» проверка раз в секунду (вход после 2 замеров подряд), без покупки — только для сравнения
+  s1on?: boolean; s1?: number; s1At?: number; s1p?: number; s1Miss?: number; nA1?: number; // s1 — по какой цене она бы купила, s1p — итог
+  s2on?: boolean; s2?: number; s2At?: number; s2p?: number; s2Miss?: number; // v18: «если бы вход был по LAB_SHADOW_PX (0.87)»: s2 — цена, по которой купила бы, s2p — итог
+  nA?: number; mb?: number; lb?: number; la?: number; lt?: number; // nA — сколько замеров «цена дошла, но нет цены продажи»; mb — макс. bid; lb/la/lt — последний замер
+  created: number;
+}
+const SHADOW_PX = Number(process.env.LAB_SHADOW_PX ?? "0.87"); // v18: теневой уровень входа для сравнения (0 — выключить)
+const TJ_FILE = path.resolve(path.dirname(LIVE_CFG_FILE), "lab-trades-log.json");
+const TJ_KEEP_MS = 72 * 3600_000;
+const TJ_MAX = 4000;
+const TJ_TZ = Number(process.env.LAB_TZ_HOURS ?? "7"); // часовой пояс для времени в «лаб сделки» (по умолчанию Бангкок, UTC+7)
+
+function tjTime(ms: number): string {
+  return new Date(ms + TJ_TZ * 3600_000).toISOString().slice(11, 19);
+}
+const tjMoney = (x: number): string => `${x >= 0 ? "+" : "−"}$${Math.abs(x).toFixed(2)}`;
+
+/** Что стало с рынком для карточек этого рынка: исход, «что было бы», окончание слежения. */
+function tjSettleCards(cards: Iterable<Tj>, slug: string, winner: "Up" | "Down", cfgs: TradeCfg[]): void {
+  for (const c of cards) {
+    if (c.slug !== slug) continue;
+    c.won = c.side === winner;
+    if (c.st === "watch") c.st = c.miss !== undefined ? "miss" : "nohit";
+    const cfg = cfgs.find((x) => x.name === c.cfg);
+    if (cfg && c.s2 !== undefined) { const sh2 = sharesOf(cfg, c.s2); c.s2p = c.won ? sh2 * (1 - c.s2) : -sh2 * c.s2; }
+    if (cfg && c.s1 !== undefined) { const sh1 = sharesOf(cfg, c.s1); c.s1p = c.won ? sh1 * (1 - c.s1) : -sh1 * c.s1; }
+    if (c.st === "bought" || c.st === "paper") continue;
+    if (!cfg) continue;
+    const px = c.want ?? c.sigPx;
+    const sh = sharesOf(cfg, px);
+    c.wp = c.won ? sh * (1 - px) : -sh * px;
+  }
+}
+
+/** Текст «лаб сделки»: строки по времени (как на странице: время покупки / момент, когда цена дошла) + сводка. */
+function tjFormat(cards: Tj[], opts: { cfg: string | null; hours: number; all: boolean; now: number }): string[] {
+  const from = opts.now - opts.hours * 3600_000;
+  let list = cards.filter((c) => c.sig >= from && (opts.cfg === null || c.cfg.toLowerCase() === opts.cfg));
+  const hidden = list.filter((c) => c.st === "skip").length;
+  if (!opts.all) list = list.filter((c) => c.st !== "skip");
+  const when = (c: Tj): number => c.at ?? c.missAt ?? c.sig;
+  list.sort((a, b) => when(a) - when(b));
+  const per = new Map<string, Tj[]>();
+  for (const c of list) { if (!per.has(c.cfg)) per.set(c.cfg, []); per.get(c.cfg)!.push(c); }
+  const head: string[] = [];
+  head.push(`📒 LAB сделки за ${opts.hours >= 48 ? `${Math.round(opts.hours / 24)} дн.` : `${opts.hours} ч`}${opts.cfg ? ` · ТС ${opts.cfg}` : ""} (время: UTC${TJ_TZ >= 0 ? "+" : ""}${TJ_TZ})`);
+  if (list.length === 0) { head.push(hidden > 0 ? `Сделок нет (скрыто ${hidden} сигналов без покупки: фильтр/выкл/лимит — «лаб сделки все»).` : "Сделок за этот период нет."); return [head.join("\n")]; }
+  for (const [name, cs] of per) {
+    const bought = cs.filter((c) => c.st === "bought" || c.st === "paper");
+    const settled = bought.filter((c) => c.pnl !== undefined);
+    const w = settled.filter((c) => (c.pnl as number) >= 0).length;
+    const pnl = settled.reduce((a, c) => a + (c.pnl as number), 0);
+    const pend = bought.length - settled.length;
+    const px = bought.length ? bought.reduce((a, c) => a + (c.px ?? 0), 0) / bought.length : null;
+    const missed = cs.filter((c) => c.st === "miss" || c.st === "failed" || c.st === "limit");
+    const mw = missed.filter((c) => c.won === true).reduce((a, c) => a + (c.wp ?? 0), 0); // упущено
+    const ml = missed.filter((c) => c.won === false).reduce((a, c) => a + (c.wp ?? 0), 0); // избежали (отрицательное)
+    const nohit = cs.filter((c) => c.st === "nohit").length;
+    const other = cs.filter((c) => c.st === "virtual" || c.st === "skip").length;
+    head.push(
+      `\n▸ ${name}: сигналов ${cs.length}\n` +
+        `  купили ${bought.length}${px !== null ? ` (ср. цена ${px.toFixed(3)})` : ""}: ${w} побед / ${settled.length - w} проигр., итог ${tjMoney(pnl)}${pend ? `, ещё идёт ${pend}` : ""}\n` +
+        `  не купили из-за цены/ошибки: ${missed.length} (упущено ${tjMoney(mw)}, избежали ${tjMoney(ml)}); цена не дошла: ${nohit}${other ? `; прочее: ${other}` : ""}`,
+    );
+    const nNoAsk = cs.filter((c) => (c.st === "nohit" || c.st === "watch") && (c.nA ?? 0) > 0).length;
+    if (nNoAsk > 0) head.push(`  ⚠️ из «цена не дошла» у ${nNoAsk} цена на деле дошла, но у рынка не было цены продажи (ask)`);
+    if (SHADOW_PX > 0 && cs.some((c) => c.s2on)) {
+      const base = cs.filter((c) => c.s2on); // сигналы, за которыми теневой уровень реально следил
+      const isB = (c: Tj): boolean => c.st === "bought" || c.st === "paper";
+      const bBought = base.filter((c) => isB(c) && c.pnl !== undefined);
+      const bSum = bBought.reduce((a, c) => a + (c.pnl as number), 0), bL = bBought.filter((c) => (c.pnl as number) < 0).length;
+      const s2 = base.filter((c) => c.s2 !== undefined && c.s2p !== undefined);
+      const s2Sum = s2.reduce((a, c) => a + (c.s2p as number), 0), s2L = s2.filter((c) => (c.s2p as number) < 0).length;
+      const skipped = bBought.filter((c) => c.s2 === undefined); // бот купил, а на 0.87 не вошла бы
+      const skL = skipped.filter((c) => (c.pnl as number) < 0), skW = skipped.length - skL.length;
+      const skSum = skipped.reduce((a, c) => a + (c.pnl as number), 0);
+      const extra = s2.filter((c) => !isB(c)); // бот не купил, а на 0.87 купила бы
+      const exSum2 = extra.reduce((a, c) => a + (c.s2p as number), 0);
+      const both2 = s2.filter((c) => isB(c) && c.pnl !== undefined);
+      const bothBot = both2.reduce((a, c) => a + (c.pnl as number), 0), bothSh = both2.reduce((a, c) => a + (c.s2p as number), 0);
+      const avgB = bBought.length ? bBought.reduce((a, c) => a + (c.px ?? 0), 0) / bBought.length : 0;
+      const avgS = s2.length ? s2.reduce((a, c) => a + (c.s2 as number), 0) / s2.length : 0;
+      head.push(
+        `  🔬 Если бы вход был по ${SHADOW_PX} (та же проверка раз в 5с, без покупки):\n` +
+          `     бот сейчас: ${bBought.length} сделок, проигр. ${bL}, итог ${tjMoney(bSum)}, ср. цена ${avgB.toFixed(3)}\n` +
+          `     вход по ${SHADOW_PX}: ${s2.length} сделок, проигр. ${s2L}, итог ${tjMoney(s2Sum)}, ср. цена ${avgS.toFixed(3)}\n` +
+          `     не вошла бы туда, где бот купил: ${skipped.length} (побед ${skW}, проигр. ${skL.length}; бот на них ${tjMoney(skSum)})\n` +
+          `     вошла бы там, где бот не купил: ${extra.length} (${tjMoney(exSum2)})\n` +
+          `     на общих ${both2.length} сделках: бот ${tjMoney(bothBot)}, вход по ${SHADOW_PX} ${tjMoney(bothSh)}`,
+      );
+    }
+    if (cs.some((c) => c.s1on)) {
+      const shS = cs.filter((c) => c.s1 !== undefined && c.s1p !== undefined);
+      const isBot = (c: Tj): boolean => c.st === "bought" || c.st === "paper";
+      const extra = shS.filter((c) => !isBot(c)); // бот не купил, а проверка раз в секунду купила бы
+      const exW = extra.filter((c) => (c.s1p as number) >= 0);
+      const exSum = extra.reduce((a, c) => a + (c.s1p as number), 0);
+      const lostBy = cs.filter((c) => isBot(c) && c.pnl !== undefined && c.s1on && c.s1 === undefined); // бот купил, проверка раз в секунду не купила бы
+      const lbSum = lostBy.reduce((a, c) => a + (c.pnl as number), 0);
+      const both = shS.filter((c) => isBot(c) && c.pnl !== undefined);
+      const diff = both.reduce((a, c) => a + ((c.s1p as number) - (c.pnl as number)), 0);
+      head.push(
+        `  🔬 Проверка раз в секунду (2 замера подряд, без покупки): купила бы ${shS.length}, итог ${tjMoney(shS.reduce((a, c) => a + (c.s1p as number), 0))}
+` +
+          `     вернула бы пропущенное ботом: ${extra.length} (${exW.length} побед / ${extra.length - exW.length} проигр., ${tjMoney(exSum)})
+` +
+          `     не взяла бы то, что бот купил: ${lostBy.length} (бот на них ${tjMoney(lbSum)})
+` +
+          `     там, где купили обе: ${both.length}, разница цены входа в её пользу/против ${tjMoney(diff)}`,
+      );
+    }
+  }
+  if (hidden > 0 && !opts.all) head.push(`\n(скрыто ${hidden} сигналов без покупки: фильтр/выкл/лимит — «лаб сделки все»)`);
+  const lines: string[] = [];
+  for (const c of list) {
+    const t = tjTime(when(c));
+    const base = `${t} ${c.coin} ${c.side}${opts.cfg ? "" : ` [${c.cfg}]`}`;
+    const outcome = (c.won === undefined ? "⏳ рынок идёт" : c.won ? "рынок выиграл" : "рынок проиграл");
+    const wasTxt = c.wp !== undefined ? (c.won ? `упущено ${tjMoney(c.wp)}` : `избежали ${tjMoney(c.wp)}`) : outcome;
+    let s: string;
+    if (c.st === "bought" || c.st === "paper") {
+      const res = c.pnl === undefined ? "⏳ идёт" : `${c.pnl >= 0 ? "✅" : "❌"} ${tjMoney(c.pnl)}${c.stop ? " (стоп)" : ""}`;
+      const slip = c.want !== undefined && c.px !== undefined ? ` (на странице ${c.want.toFixed(2)})` : "";
+      s = `${base} · ${c.st === "paper" ? "📝" : "💰"} купили по ${(c.px ?? 0).toFixed(3)}${slip}, ${(c.sh ?? 0).toFixed(2)} акц. → ${res} · сигнал ${tjTime(c.sig)} @${c.sigPx.toFixed(2)}`;
+    } else if (c.st === "miss") {
+      s = `${base} · 🚫 цена дошла до ${(c.want ?? 0).toFixed(2)}, но ask ${(c.miss ?? 0).toFixed(2)} выше потолка ${(c.cap ?? 0).toFixed(2)} → ${wasTxt}`;
+    } else if (c.st === "failed") {
+      s = `${base} · 🚫 не вышло: ${c.why ?? "ошибка"} → ${wasTxt}`;
+    } else if (c.st === "limit") {
+      s = `${base} · ⛔ ${c.why ?? "лимит"} → ${wasTxt}`;
+    } else if (c.st === "nohit") {
+      if ((c.nA ?? 0) > 0) s = `${base} · ⚠️ цена дошла до ${(c.want ?? 0).toFixed(2)}, но у рынка не было цены продажи (ask), замеров ${c.nA} · ${outcome}`;
+      else {
+        const lastTxt = c.lb !== undefined && c.lt !== undefined ? `, последний замер bid ${c.lb.toFixed(2)}${c.la !== undefined ? `/ask ${c.la.toFixed(2)}` : "/ask нет"} за ${Math.max(0, Math.round((c.close - c.lt) / 1000))}с до конца` : "";
+        s = `${base} · ⚪ цена не дошла до ${(c.want ?? 0).toFixed(2)} (сигнал @${c.sigPx.toFixed(2)}${c.mb !== undefined ? `, макс. bid ${c.mb.toFixed(2)}` : ""}${lastTxt}) · ${outcome}`;
+      }
+    } else if (c.st === "watch") {
+      s = `${base} · 👀 ждём цену ${(c.want ?? 0).toFixed(2)} (сигнал @${c.sigPx.toFixed(2)})`;
+    } else {
+      s = `${base} · ➖ ${c.why ?? "не торговали"} → ${wasTxt}`;
+    }
+    if (c.s1 !== undefined) s += ` · 🔬 раз в сек: купила бы по ${c.s1.toFixed(3)}${c.s1At !== undefined ? ` в ${tjTime(c.s1At)}` : ""}${c.s1p !== undefined ? ` → ${tjMoney(c.s1p)}` : ""}`;
+    if (c.s2on) s += c.s2 !== undefined ? ` · 🔬${SHADOW_PX}: купила бы по ${c.s2.toFixed(3)} в ${tjTime(c.s2At as number)}${c.s2p !== undefined ? ` → ${tjMoney(c.s2p)}` : ""}` : ` · 🔬${SHADOW_PX}: не вошла${c.s2Miss !== undefined ? ` (ask ${c.s2Miss.toFixed(2)} выше потолка)` : ""}`;
+    lines.push(s);
+  }
+  // режем на сообщения до ~3500 символов
+  const out: string[] = [];
+  let cur = head.join("\n");
+  for (const ln of lines) {
+    if (cur.length + ln.length + 1 > 3500) { out.push(cur); cur = ""; }
+    cur += (cur ? "\n" : "") + ln;
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+
+const PAGE_COIN_WORDS: Record<string, string> = {
+  btc: "Bitcoin", биткоин: "Bitcoin", eth: "Ethereum", эфир: "Ethereum", sol: "Solana", солана: "Solana",
+  xrp: "XRP", doge: "Dogecoin", дож: "Dogecoin",
+};
+
+/** v4.6: разбор аргументов страницы (общий для Telegram-команды и ссылки). */
+function parsePageArgs(args: string[]): { days: number | null; label: string; wm?: number; coin?: string } {
+  let days: number | null = null;
+  let label = "всё время";
+  let wm: number | undefined;
+  let coin: string | undefined;
+  for (const a of args) {
+    let m: RegExpMatchArray | null;
+    if (a === "все" || a === "всё" || a === "all") {
+      days = null;
+      label = "всё время";
+    } else if ((m = a.match(/^(\d+)(д|дн|d)$/))) {
+      days = Number(m[1]);
+      label = `${days} дн.`;
+    } else if ((m = a.match(/^(\d+)(ч|h)$/))) {
+      days = Number(m[1]) / 24;
+      label = `${m[1]} ч`;
+    } else if ((m = a.match(/^(5|15)(м|m)?$/))) {
+      wm = Number(m[1]);
+    } else if (PAGE_COIN_WORDS[a]) {
+      coin = PAGE_COIN_WORDS[a];
+    }
+  }
+  return { days, label, wm, coin };
+}
+
+// v4.6: ссылка на страницу без лимита 50 МБ. Включается переменной LAB_PAGE_TOKEN (любой длинный секретный текст)
+// + публичный домен сервиса в Railway (Settings → Networking → Generate Domain). Адрес: https://<домен>/page/<токен>?p=all
+const PAGE_TOKEN = process.env.LAB_PAGE_TOKEN ?? "";
+const pageCache = new Map<string, { at: number; html: string }>();
+const pageJobs = new Map<string, { at: number; done: boolean; err: string | null }>();
+function pageLinkBase(): string | null {
+  const dom = process.env.RAILWAY_PUBLIC_DOMAIN ?? process.env.LAB_PAGE_DOMAIN;
+  if (!PAGE_TOKEN || !dom) return null;
+  return `https://${dom}/page/${PAGE_TOKEN}`;
+}
+function pageLinkWhy(): string {
+  const miss: string[] = [];
+  if (!PAGE_TOKEN) miss.push("нет переменной LAB_PAGE_TOKEN (Variables)");
+  if (!(process.env.RAILWAY_PUBLIC_DOMAIN ?? process.env.LAB_PAGE_DOMAIN)) miss.push("нет домена (Settings → Networking → Generate Domain; либо вручную переменная LAB_PAGE_DOMAIN = адрес без https://)");
+  return miss.join("; ");
+}
+function startPageServer(): void {
+  if (!PAGE_TOKEN) {
+    console.log("[page] ссылка выключена: нет LAB_PAGE_TOKEN");
+    return;
+  }
+  const port = Number(process.env.PORT ?? "8080") || 8080; // если Railway не задал PORT — слушаем 8080 (в Networking укажи этот порт)
+  const srv = http.createServer((req, res) => {
+    void (async () => {
+      try {
+        const url = new URL(req.url ?? "/", "http://x");
+        const parts = url.pathname.split("/").filter(Boolean);
+        if (parts[0] === "ping") {
+          res.end("ok");
+          return;
+        }
+        if (parts[0] !== "page" || parts[1] !== PAGE_TOKEN) {
+          res.statusCode = 404;
+          res.end("not found");
+          return;
+        }
+        // v13: скачать ВСЁ, что лежит на диске (volume): /page/<токен>/backup — архив .tar.gz; ?part=small — только настройки и счётчики (маленькие .json в корне)
+        if (parts[2] === "backup") {
+          const dir = path.resolve(STORAGE_DIR);
+          const small = url.searchParams.get("part") === "small";
+          const day = new Date().toISOString().slice(0, 10);
+          let files: string[] = ["."];
+          if (small) files = fs.readdirSync(dir).filter((f) => f.endsWith(".json") && fs.statSync(path.join(dir, f)).isFile());
+          if (files.length === 0) {
+            res.statusCode = 404;
+            res.end("нет файлов");
+            return;
+          }
+          res.setHeader("Content-Type", "application/gzip");
+          res.setHeader("Content-Disposition", `attachment; filename="lab-backup${small ? "-small" : ""}-${day}.tar.gz"`);
+          const tar = spawn("tar", ["czf", "-", "-C", dir, ...files]);
+          tar.stdout.pipe(res);
+          tar.stderr.on("data", (d) => console.log("[backup] tar:", String(d).slice(0, 200)));
+          tar.on("error", (e) => {
+            console.log("[backup] не запустился tar:", e.message);
+            if (!res.headersSent) res.statusCode = 500;
+            res.end();
+          });
+          req.on("close", () => tar.kill());
+          return;
+        }
+        const p = (url.searchParams.get("p") ?? "all").toLowerCase();
+        const args = p.split(",").filter(Boolean);
+        const co = url.searchParams.get("coin");
+        if (co) args.push(co.toLowerCase());
+        const wmq = url.searchParams.get("wm");
+        if (wmq) args.push(wmq);
+        const key = args.join(" ");
+        const hit = pageCache.get(key);
+        let html: string | null = null;
+        if (hit && Date.now() - hit.at < 5 * 60_000 && url.searchParams.get("fresh") !== "1") html = hit.html;
+        else {
+          // сборка идёт в фоне: сразу отвечаем «собираю», страница сама обновляется, пока не будет готово
+          let job = pageJobs.get(key);
+          if (!job || (job.done && url.searchParams.get("fresh") === "1" && Date.now() - job.at > 20_000)) {
+            const a = parsePageArgs(args);
+            const sinceMs = a.days === null ? 0 : Date.now() - a.days * DAY_MS;
+            const j: { at: number; done: boolean; err: string | null } = { at: Date.now(), done: false, err: null };
+            pageJobs.set(key, j);
+            job = j;
+            void (async () => {
+              try {
+                const r = await buildPage(LAB_DATA_DIR, { sinceMs, periodLabel: a.label, coin: a.coin, wm: a.wm }, 1_500_000_000);
+                pageCache.clear();
+                pageCache.set(key, { at: Date.now(), html: r.html });
+              } catch (e) {
+                j.err = (e as Error).message;
+              } finally {
+                j.done = true;
+              }
+            })();
+          }
+          const cur = pageCache.get(key);
+          if (cur) html = cur.html;
+          else {
+            const q = new URL(req.url ?? "/", "http://x");
+            q.searchParams.delete("fresh");
+            res.statusCode = 200;
+            res.setHeader("Content-Type", "text/html; charset=utf-8");
+            res.setHeader("Cache-Control", "no-store");
+            res.end(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${job.err ? "" : `<meta http-equiv="refresh" content="6;url=${q.pathname}${q.search}">`}<body style="font-family:sans-serif;background:#111;color:#eee;padding:30px">${job.err ? `<h3>Ошибка сборки</h3><p>${job.err.replace(/</g, "&lt;")}</p>` : `<h3>⏳ Собираю страницу…</h3><p>Прошло ${Math.round((Date.now() - job.at) / 1000)} с. Страница обновится сама, обычно до 1–2 минут.</p>`}</body>`);
+            return;
+          }
+        }
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        res.setHeader("Cache-Control", "no-store");
+        res.setHeader("X-Robots-Tag", "noindex");
+        res.end(html ?? "");
+      } catch (err) {
+        res.statusCode = 500;
+        res.end("error: " + (err as Error).message);
+      }
+    })();
+  });
+  srv.listen(port, () => console.log(`[page] ссылка на страницу включена (порт ${port}, домен ${process.env.RAILWAY_PUBLIC_DOMAIN ?? process.env.LAB_PAGE_DOMAIN ?? "не задан"})`));
+  srv.on("error", (e) => console.log("[page] сервер ссылки не запустился:", (e as Error).message));
+}
+
+/** «лаб страница [24ч|3д|7д|30д|все] [5|15] [btc|eth|sol|xrp|doge]» */
+async function handlePageCommand(
+  botToken: string,
+  chatId: string,
+  telegram: ReturnType<typeof createTelegramNotifier>,
+  text: string,
+): Promise<void> {
+  const args = text.replace(/^(лаб страница|\/lab_page)/, "").trim().split(" ").filter(Boolean);
+  const { days, label, wm, coin } = parsePageArgs(args);
+  // v4.9: если настроена ссылка — шлём её вместо файла (без лимита 50 МБ и без выборки). Файл по-прежнему можно: «лаб страница файл»
+  const linkBase = pageLinkBase();
+  if (!linkBase && !args.includes("файл")) await telegram?.send(`ℹ️ Ссылка не настроена: ${pageLinkWhy()}. Пока шлю файлом.`);
+  if (linkBase && !args.includes("файл")) {
+    const per = args.filter((x) => x !== "файл").join(",") || "all";
+    await telegram?.send(`🔗 Страница-разбор, ВСЕ данные без лимита:\n${linkBase}?p=${encodeURIComponent(per)}&fresh=1\n(открывается через ~минуту, пока собирается; ссылка секретная). Файлом: «лаб страница файл».`);
+    return;
+  }
+  await telegram?.send("⏳ Собираю страницу-разбор… (на большом периоде это может занять до минуты)");
+  const t0 = Date.now();
+  try {
+    const sinceMs = days === null ? 0 : Date.now() - days * DAY_MS;
+    const { html, data } = await buildPage(LAB_DATA_DIR, { sinceMs, periodLabel: label, coin, wm });
+    const meta = data.meta as { markets: number; trades: number; rowsEmbedded: number; sampled: boolean };
+    if (meta.trades === 0) {
+      await telegram?.send("Пока нет записанных сделок за этот период. Данные для страницы копятся с запуска версии v3.3 — подожди, пока рынки отрезолвятся.");
+      return;
+    }
+    const name = `lab-${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}.html`;
+    const cap = `LAB: страница-разбор (${label}${wm ? `, ${wm}м` : ""}${coin ? `, ${COIN_SHORT[coin]}` : ""}). Рынков ${meta.markets}, сделок ${meta.trades}${meta.sampled ? `, в странице выборка ${meta.rowsEmbedded}` : ""}. Открой файл в браузере.`;
+    const link = pageLinkBase();
+    let ok = Buffer.byteLength(html) <= 49_000_000 && (await sendDocumentToTelegram(botToken, chatId, name, html, cap));
+    // v4.6: не влезло — пересобираем с меньшим числом строк (меньший лимит), пока Telegram не примет
+    for (const lim of [38, 28, 20]) {
+      if (ok) break;
+      await telegram?.send(`Файл не влез в 50 МБ, пробую сделать меньше (до ${lim} МБ, часть строк будет выборкой)…`);
+      const html2 = await shrinkPage(data, lim * 1024 * 1024);
+      const m2 = data.meta as { markets: number; trades: number; rowsEmbedded: number; sampled: boolean };
+      ok = await sendDocumentToTelegram(botToken, chatId, name, html2, `LAB: страница-разбор (${label}), выборка: ${m2.rowsEmbedded} из ${m2.trades} сделок. Полная версия без лимита — по ссылке («лаб ссылка»).`);
+    }
+    if (!ok) await telegram?.send("Не удалось отправить файл. Попробуй короче период: «лаб страница 24ч» или по монете." + (link ? `\nПолная страница по ссылке: ${link}?p=all` : ""));
+    else {
+      console.log(`[page] готово за ${((Date.now() - t0) / 1000).toFixed(1)}с, ${(html.length / 1048576).toFixed(1)} МБ`);
+      if (link && Buffer.byteLength(html) > 30_000_000) await telegram?.send(`Страница уже большая. Без лимита и без скачивания: ${link}?p=all`);
+    }
+  } catch (err) {
+    console.error("[page] ошибка сборки:", (err as Error).message);
+    await telegram?.send(`Ошибка сборки страницы: ${(err as Error).message}`);
+  }
+}
+
+const COMMANDS: Record<string, string[]> = {
+  summary: ["лаб", "/lab"],
+  temka: ["лаб темка", "лаб темка 5", "/lab_temka"],
+  temka15: ["лаб темка 15", "/lab_temka15"],
+  live: ["лаб бот", "/lab_bot"],
+  margin: ["лаб запас", "/lab_margin"],
+  cheap: ["лаб дешево", "/lab_cheap"],
+  panic: ["лаб паника", "/lab_panic"],
+  impulse: ["лаб импульс", "/lab_impulse"],
+  arb: ["лаб арб", "/lab_arb"],
+  confirm: ["лаб монеты", "/lab_coins"],
+  profiles: ["лаб профили", "/lab_profiles"],
+  model: ["лаб модель", "/lab_model"],
+  modelbin: ["лаб модель бинанс", "/lab_modelbin"],
+  saw: ["лаб пила", "/lab_saw"],
+  pair: ["лаб пара", "/lab_pair"],
+  binance: ["лаб бинанс", "/lab_binance"],
+  exchanges: ["лаб биржи", "/lab_exchanges"],
+  fair: ["лаб справедливая", "лаб фер", "/lab_fair"],
+  regime: ["лаб режим", "/lab_regime"],
+  contagion: ["лаб зараза", "/lab_contagion"],
+  trajectory: ["лаб траектория", "/lab_traj"],
+  losses: ["лаб лоси", "/lab_losses"],
+  agree: ["лаб согласие", "/lab_agree"],
+  stop: ["лаб стоп", "/lab_stop"],
+  help: ["лаб помощь", "/lab_help"],
+};
+
+async function pollTelegramCommands(
+  botToken: string,
+  chatId: string,
+  telegram: ReturnType<typeof createTelegramNotifier>,
+  lab: ResearchLab,
+): Promise<void> {
+  let offset = 0;
+  const apiUrl = `https://api.telegram.org/bot${botToken}/getUpdates`;
+
+  for (;;) {
+    try {
+      const resp = await fetch(`${apiUrl}?offset=${offset}&timeout=25`);
+      if (!resp.ok) {
+        await new Promise((r) => setTimeout(r, 5000));
+        continue;
+      }
+      const data = await resp.json();
+      for (const update of data.result ?? []) {
+        offset = update.update_id + 1;
+        const msg = update.message;
+        if (!msg?.text || String(msg.chat?.id) !== String(chatId)) continue;
+        const text = normalizeCmd(msg.text);
+
+        if (text === "лаб тест" || text.startsWith("лаб тест ")) {
+          const arg = text.replace(/^лаб тест/, "").trim();
+          if (arg === "сброс") {
+            lab.testReset();
+            await telegram?.send(escapeTelegramHtml("🧪 ЛАБ ТЕСТ: данные сброшены, считаем заново."));
+          } else await telegram?.send(escapeTelegramHtml(lab.testText(arg || undefined)));
+          continue;
+        }
+
+        if (text === "лаб лимитки" || text.startsWith("лаб лимитки ")) {
+          const arg = text.replace(/^лаб лимитки/, "").trim();
+          if (arg === "сброс") { lab.limReset(); await telegram?.send("🪤 Бумажные лимитки сброшены."); }
+          else await telegram?.send(escapeTelegramHtml(lab.limText(arg || undefined)));
+          continue;
+        }
+
+        if (text === "лаб бэкап" || text === "лаб бекап" || text === "лаб копия") {
+          await telegram?.send("⏳ Делаю копию данных в Telegram… (может занять минуту-две)");
+          await telegram?.send(escapeTelegramHtml(await tgbBackup("вручную")));
+          continue;
+        }
+
+        if (text === "лаб сделки" || text.startsWith("лаб сделки ")) {
+          const arg = text.replace(/^лаб сделки/, "").trim();
+          for (const part of lab.tradesText(arg)) await telegram?.send(escapeTelegramHtml(part));
+          continue;
+        }
+
+        if (text === "лаб минимум") {
+          await telegram?.send(escapeTelegramHtml(await lab.minInfoText()));
+          continue;
+        }
+
+        if (text === "лаб проба" || text.startsWith("лаб проба ")) {
+          const m = text.match(/^лаб проба да(?:\s+([\d.,]+))?(?:\s+([a-zа-я]+))?$/);
+          const cw = m && m[2] ? PAGE_COIN_WORDS[m[2]] : undefined; // v14: монета после «да» (btc / eth / sol / xrp / doge)
+          if (m && m[2] && !cw) { await telegram?.send(escapeTelegramHtml(`Не знаю монету «${m[2]}». Пиши: btc, eth, sol, xrp или doge.`)); continue; }
+          await telegram?.send(escapeTelegramHtml(await lab.probeSmallText(!!m, m && m[1] ? Number(m[1].replace(",", ".")) : null, cw ?? null)));
+          continue;
+        }
+
+        if (text === "лаб после" || text.startsWith("лаб после ")) {
+          const n = parseInt(text.replace(/^лаб после/, "").trim(), 10);
+          await telegram?.send(escapeTelegramHtml(lab.postText(Number.isFinite(n) && n > 0 ? n : 3)));
+          continue;
+        }
+
+        if (text === "лаб стоп") {
+          await telegram?.send(escapeTelegramHtml(lab.paperStopText()));
+          continue;
+        }
+
+        if (text === "лаб ссылка" || text.startsWith("лаб ссылка ")) {
+          const base = pageLinkBase();
+          const per = text.replace(/^лаб ссылка/, "").trim().split(" ").filter(Boolean).join(",") || "all";
+          if (base) await telegram?.send(`🔗 Страница-разбор без лимита размера (собирается минуту, потом открывается сразу):\n${base}?p=${encodeURIComponent(per)}\nПериод: p=24ч, 3д, 7д, 30д, all; монета: &coin=btc; окно: &wm=5. Ссылка секретная — никому не давай.`);
+          else await telegram?.send(`Ссылка не настроена: ${pageLinkWhy()}. После настройки сервис перезапустится сам; потом напиши «лаб ссылка».`);
+          continue;
+        }
+
+        if (text === "лаб страница" || text.startsWith("лаб страница ") || text === "/lab_page" || text.startsWith("/lab_page ")) {
+          console.log(`[telegram] команда: "${msg.text}" → страница`);
+          void handlePageCommand(botToken, chatId, telegram, text);
+          continue;
+        }
+
+        if (text === "лаб объем" || text.startsWith("лаб объем ") || text === "/lab_size" || text.startsWith("/lab_size ")) {
+          const args = text.replace(/^(лаб объем|\/lab_size)/, "").trim().split(" ").filter(Boolean);
+          const list = () => TRADE_CFGS.map((c) => `• ${c.on ? "" : "⏸ "}${c.name}: ${stakeTxt(c)}${c.shares ? ` (в долларах $${c.size}, не используется)` : ""} (минимум $${minStakeOf(c).toFixed(2)}, максимум $${MAX_STAKE}) — ${c.label}`).join("\n");
+          if (args.length === 0) {
+            await telegram?.send(escapeTelegramHtml(`Ставки LAB:\n${list()}\n\nИзменить: «лаб объем bot7b0 6», «лаб объем fair2 5», «лаб объем все 5». Действует на новые покупки.`));
+          } else {
+            const val = Number((args[1] ?? "").replace(",", "."));
+            const targets = pickCfgs(args[0]);
+            if (targets.length === 0) await telegram?.send(escapeTelegramHtml(`Не знаю стратегию «${args[0]}». Доступны: ${TRADE_CFGS.map((c) => c.name).join(", ")}, все.`));
+            else if (!Number.isFinite(val) || val <= 0) await telegram?.send(escapeTelegramHtml(`Укажи сумму числом, например: лаб объем ${targets[0].name} 6`));
+            else {
+              const bad = targets.filter((c) => val < minStakeOf(c) || val > MAX_STAKE);
+              if (bad.length > 0) await telegram?.send(escapeTelegramHtml(`Не меняю: ${bad.map((c) => `${c.name} допускает $${minStakeOf(c).toFixed(2)}–$${MAX_STAKE}`).join("; ")} (у биржи минимум $1 на покупку, у нас с запасом $1.05; максимум можно поднять переменной LAB_MAX_STAKE). Если у стратегии задано число акций, доллары не используются — меняй командой «лаб акций ...».`));
+              else {
+                for (const c of targets) c.size = val;
+                saveLiveCfg();
+                await telegram?.send(escapeTelegramHtml(`✅ Ставка изменена на $${val}: ${targets.map((c) => c.name).join(", ")}. Действует на новые покупки.\n${list()}`));
+              }
+            }
+          }
+          continue;
+        }
+
+        if (text === "лаб торговля" || text.startsWith("лаб торговля ") || text === "/lab_trade") {
+          const arg = text.replace(/^(лаб торговля|\/lab_trade)/, "").trim();
+          if (arg === "выкл" || arg === "стоп") {
+            lab.liveEnabled = false;
+            await telegram?.send("⏸ LAB: реальная торговля ВЫКЛЮЧЕНА. Новые сигналы только пишутся «как бы купил». Уже купленные позиции остаются до резолва.");
+          } else if (arg === "вкл") {
+            if (!lab.hasClob()) await telegram?.send("LAB: нет подключения к бирже (задай LAB_TRADE=on и ключи в переменных парсера и перезапусти).");
+            else {
+              lab.liveEnabled = true;
+              await telegram?.send("🟢 LAB: реальная торговля ВКЛЮЧЕНА.");
+            }
+          } else {
+            await telegram?.send(escapeTelegramHtml(lab.liveStatusText() + '\nУправление: "лаб торговля вкл" / "лаб торговля выкл"'));
+          }
+          continue;
+        }
+
+        // v5.5: «вход после дна» — цены дна и покупки, вкл/выкл
+        if (text === "лаб дно" || text.startsWith("лаб дно ") || text === "/lab_dip" || text.startsWith("/lab_dip ")) {
+          const args = text.replace(/^(лаб дно|\/lab_dip)/, "").trim().split(/\s+/).filter(Boolean);
+          const num = (x: string | undefined): number => Number((x ?? "").replace(",", "."));
+          if (args.length === 0) await telegram?.send(escapeTelegramHtml(lab.dipStatusText()));
+          else if (args[0] === "вкл" || args[0] === "выкл") {
+            DIP.on = args[0] === "вкл";
+            saveLiveCfg();
+            await telegram?.send(escapeTelegramHtml(`${DIP.on ? "🟢 Вход после дна включён" : "⏸ Вход после дна выключен"}. Уже купленные позиции доигрываются.\n${lab.dipStatusText()}`));
+          } else if (args[0] === "акций") {
+            const n = num(args[1]);
+            if (!Number.isFinite(n) || n < MIN_SHARES || n > MAX_SHARES) await telegram?.send(escapeTelegramHtml(`Акций от ${MIN_SHARES} до ${MAX_SHARES}. Пример: лаб дно акций 5`));
+            else { DIP.shares = n; saveLiveCfg(); await telegram?.send(escapeTelegramHtml(`✅ Вход после дна: ${n} акций.`)); }
+          } else if (args[0] === "мин") {
+            const n = num(args[1]);
+            if (!Number.isFinite(n) || n < 3 || n > 120) await telegram?.send(escapeTelegramHtml("Секунд от 3 до 120. Пример: лаб дно мин 15"));
+            else { DIP.minLeft = n; saveLiveCfg(); await telegram?.send(escapeTelegramHtml(`✅ Не покупаю, если до закрытия осталось меньше ${n}с.`)); }
+          } else if (args[0] === "спред") {
+            const n = num(args[1]);
+            if (!Number.isFinite(n) || n < 0 || n > 10) await telegram?.send(escapeTelegramHtml("Центов от 0 до 10. Пример: лаб дно спред 3"));
+            else { DIP.spread = n; saveLiveCfg(); await telegram?.send(escapeTelegramHtml(`✅ Покупаю, если ask не выше ${DIP.buy + n}¢ (цена покупки ${DIP.buy}¢ + ${n}¢).`)); }
+          } else {
+            const lo = num(args[0]);
+            const by = num(args[1]);
+            if (!Number.isFinite(lo) || !Number.isFinite(by) || lo < 1 || by > 98 || lo >= by) await telegram?.send(escapeTelegramHtml("Два числа в центах: дно и покупка, дно меньше покупки (1-98). Пример: лаб дно 75 80"));
+            else {
+              DIP.low = lo;
+              DIP.buy = by;
+              saveLiveCfg();
+              await telegram?.send(escapeTelegramHtml(`✅ Вход после дна: дно ≤${lo}¢, покупка, когда bid вернулся до ${by}¢ (ask не выше ${by + DIP.spread}¢). Новые цены действуют сразу, в том числе для уже отслеживаемых сигналов.`));
+            }
+          }
+          continue;
+        }
+
+        // v4.0: управление стратегиями — вкл/выкл, ставка в акциях, дневные лимиты
+        if (text === "лаб бумага" || text.startsWith("лаб бумага ")) {
+          const args = text.replace(/^лаб бумага/, "").trim().split(" ").filter(Boolean);
+          const act = args.find((a) => a === "вкл" || a === "выкл");
+          const nm = args.find((a) => a !== "вкл" && a !== "выкл");
+          if (!act || !nm) await telegram?.send(escapeTelegramHtml(`Бумажный режим: ТС считает виртуальные сделки, реальных денег не тратит (чтобы проверить новую ТС на настоящих днях).\nВключить: «лаб бумага t05 вкл» (или имя группы / «все»). Выключить: «лаб бумага t05 выкл».\nСейчас на бумаге: ${TRADE_CFGS.filter((c) => c.paper).map((c) => c.name).join(", ") || "никого"}.`));
+          else {
+            const targets = pickCfgs(nm);
+            if (targets.length === 0) await telegram?.send(escapeTelegramHtml(`Не знаю стратегию «${nm}». Доступны: ${TRADE_CFGS.map((c) => c.name).join(", ")}, все.`));
+            else {
+              for (const c of targets) c.paper = act === "вкл";
+              saveLiveCfg();
+              await telegram?.send(escapeTelegramHtml(`✅ ${act === "вкл" ? "На бумагу (реальных денег нет)" : "Снова реальная торговля"}: ${targets.map((c) => c.name).join(", ")}.`));
+            }
+          }
+          continue;
+        }
+
+        if (text === "лаб тс" || text.startsWith("лаб тс ") || text === "/lab_ts" || text.startsWith("/lab_ts ")) {
+          const args = text.replace(/^(лаб тс|\/lab_ts)/, "").trim().split(" ").filter(Boolean);
+          const act = args.find((a) => a === "вкл" || a === "выкл");
+          const nm = args.find((a) => a !== "вкл" && a !== "выкл");
+          const names = TRADE_CFGS.map((c) => c.name).join(", ");
+          if (!act) {
+            await telegram?.send(escapeTelegramHtml(`Стратегии LAB:\n${lab.dayLimitsText()}\n\nВыключить: «лаб тс выкл fair2». Включить: «лаб тс вкл cb4». Все сразу: «лаб тс выкл все». Выключенная не торгует, но статистика по ней пишется.`));
+          } else {
+            const targets = pickCfgs(nm ?? "");
+            if (!nm || targets.length === 0) await telegram?.send(escapeTelegramHtml(`Назови стратегию: ${names} или «все». Пример: лаб тс ${act} ${TRADE_CFGS[0].name}`));
+            else {
+              for (const c of targets) c.on = act === "вкл";
+              saveLiveCfg();
+              await telegram?.send(escapeTelegramHtml(`${act === "вкл" ? "🟢 Включено" : "⏸ Выключено"}: ${targets.map((c) => c.name).join(", ")}. Уже открытые позиции доигрываются, новых покупок у выключенных нет.\n${lab.dayLimitsText()}`));
+            }
+          }
+          continue;
+        }
+
+        if (text === "лаб акций" || text.startsWith("лаб акций ") || text === "/lab_shares" || text.startsWith("/lab_shares ")) {
+          const args = text.replace(/^(лаб акций|\/lab_shares)/, "").trim().split(" ").filter(Boolean);
+          const list = () => TRADE_CFGS.map((c) => `• ${c.name}: ${stakeTxt(c)}`).join("\n");
+          if (args.length < 2) {
+            await telegram?.send(escapeTelegramHtml(`Ставки:\n${list()}\n\nПокупать всегда N акций: «лаб акций cb4 5» (минимум ${MIN_SHARES}, максимум ${MAX_SHARES}). Вернуться к ставке в долларах: «лаб акций cb4 выкл».`));
+          } else {
+            const targets = pickCfgs(args[0]);
+            const off = args[1] === "выкл";
+            const val = Number(args[1].replace(",", "."));
+            if (targets.length === 0) await telegram?.send(escapeTelegramHtml(`Не знаю стратегию «${args[0]}». Доступны: ${TRADE_CFGS.map((c) => c.name).join(", ")}, все.`));
+            else if (!off && (!Number.isFinite(val) || val < MIN_SHARES || val > MAX_SHARES)) await telegram?.send(escapeTelegramHtml(`Число акций от ${MIN_SHARES} до ${MAX_SHARES}, например: лаб акций ${targets[0].name} 5`));
+            else {
+              for (const c of targets) c.shares = off ? undefined : val;
+              saveLiveCfg();
+              await telegram?.send(escapeTelegramHtml(`✅ ${targets.map((c) => c.name).join(", ")}: ${off ? "ставка снова в долларах" : `теперь всегда ${val} акций`}. Действует на новые покупки.\n${list()}`));
+            }
+          }
+          continue;
+        }
+
+        if (text === "лаб лимит" || text.startsWith("лаб лимит ") || text === "/lab_limit" || text.startsWith("/lab_limit ")) {
+          const args = text.replace(/^(лаб лимит|\/lab_limit)/, "").trim().split(" ").filter(Boolean);
+          const help = `Дневные лимиты (по закрытым сделкам стратегии, день по UTC, считается отдельно по каждой):\n${lab.dayLimitsText()}\n\nЦель по прибыли: «лаб лимит cb4 цель 20» — набрала +$20 за день, до 00:00 UTC не покупает.\nСтоп по убытку: «лаб лимит cb4 убыток 15».\nСнять: «лаб лимит cb4 выкл» (оба) или «лаб лимит cb4 цель выкл». Вместо cb4 можно «все».`;
+          if (args.length < 2) await telegram?.send(escapeTelegramHtml(help));
+          else {
+            const targets = pickCfgs(args[0]);
+            const what = args[1];
+            const rawV = args[2];
+            if (targets.length === 0) await telegram?.send(escapeTelegramHtml(`Не знаю стратегию «${args[0]}». Доступны: ${TRADE_CFGS.map((c) => c.name).join(", ")}, все.`));
+            else if (what === "выкл") {
+              for (const c of targets) {
+                c.goalP = 0;
+                c.goalL = 0;
+              }
+              saveLiveCfg();
+              await telegram?.send(escapeTelegramHtml(`✅ Дневные лимиты сняты: ${targets.map((c) => c.name).join(", ")}.\n${lab.dayLimitsText()}`));
+            } else if (what === "цель" || what === "убыток") {
+              const off = rawV === "выкл" || rawV === "0";
+              const v = Number((rawV ?? "").replace(",", "."));
+              if (!off && (!Number.isFinite(v) || v <= 0 || v > 100000)) await telegram?.send(escapeTelegramHtml(`Укажи сумму в $ числом, например: лаб лимит ${targets[0].name} ${what} ${what === "цель" ? 20 : 15}`));
+              else {
+                for (const c of targets) {
+                  if (what === "цель") c.goalP = off ? 0 : v;
+                  else c.goalL = off ? 0 : v;
+                }
+                saveLiveCfg();
+                await telegram?.send(escapeTelegramHtml(`✅ ${what === "цель" ? "Дневная цель" : "Дневной стоп"} ${off ? "снят" : `$${v}`}: ${targets.map((c) => c.name).join(", ")}. Действует с новых покупок; сегодняшний итог уже учтён.\n${lab.dayLimitsText()}`));
+              }
+            } else await telegram?.send(escapeTelegramHtml(help));
+          }
+          continue;
+        }
+
+        if (text === "лаб биржи все" || text.startsWith("лаб биржи все ") || text === "/lab_allex") {
+          console.log(`[telegram] команда: "${msg.text}" → все биржи`);
+          const arg = text.replace(/^(лаб биржи все|\/lab_allex)/, "").trim();
+          const dm = arg.match(/^(\d+)(д|ч)?$/);
+          const days = arg === "все" ? null : dm ? (dm[2] === "ч" ? Number(dm[1]) / 24 : Number(dm[1])) : 7;
+          void (async () => {
+            try {
+              const rep = await buildExchangeSummary(LAB_DATA_DIR, days === null ? 0 : Date.now() - days * DAY_MS, days === null ? "всё время" : `${arg || "7"}${dm && dm[2] === "ч" ? " ч" : " дн."}`);
+              await sendReportToTelegram(telegram, rep);
+            } catch (err) {
+              await telegram?.send(`Ошибка отчёта по биржам: ${(err as Error).message}`);
+            }
+          })();
+          continue;
+        }
+
+        const cmd = Object.keys(COMMANDS).find((k) => COMMANDS[k].includes(text));
+        if (!cmd) continue;
+        console.log(`[telegram] команда: "${msg.text}" → ${cmd}`);
+
+        let report: string;
+        switch (cmd) {
+          case "summary":
+            report = lab.buildSummaryReport();
+            break;
+          case "live":
+            report = lab.buildLiveReport();
+            break;
+          case "margin":
+            report = lab.buildMarginReport();
+            break;
+          case "cheap":
+            report = lab.buildCheapReport();
+            break;
+          case "panic":
+            report = lab.buildPanicReport();
+            break;
+          case "impulse":
+            report = lab.buildImpulseReport();
+            break;
+          case "arb":
+            report = lab.buildArbReport();
+            break;
+          case "confirm":
+            report = lab.buildConfirmReport();
+            break;
+          case "profiles":
+            report = lab.buildProfilesReport();
+            break;
+          case "model":
+            report = lab.buildModelReport();
+            break;
+          case "modelbin":
+            report = lab.buildModelBinReport();
+            break;
+          case "saw":
+            report = lab.buildSawReport();
+            break;
+          case "pair":
+            report = lab.buildPairReport();
+            break;
+          case "binance":
+            report = lab.buildBinanceReport();
+            break;
+          case "exchanges":
+            report = lab.buildExchangesReport();
+            break;
+          case "temka":
+            report = lab.buildTemkaReport(5);
+            break;
+          case "temka15":
+            report = lab.buildTemkaReport(15);
+            break;
+          case "fair":
+            report = lab.buildFairReport();
+            break;
+          case "regime":
+            report = lab.buildRegimeReport();
+            break;
+          case "contagion":
+            report = lab.buildContagionReport();
+            break;
+          case "trajectory":
+            report = lab.buildTrajectoryReport();
+            break;
+          case "losses":
+            report = lab.buildLossReport();
+            break;
+          case "agree":
+            report = lab.buildAgreeReport();
+            break;
+          case "stop":
+            report = lab.buildStopReport();
+            break;
+          default:
+            report = lab.buildHelp();
+        }
+        await sendReportToTelegram(telegram, report);
+      }
+    } catch (err) {
+      console.error("[telegram poll] ошибка:", (err as Error).message);
+      await new Promise((r) => setTimeout(r, 5000));
+    }
+  }
+}
+
+// ─────────────────────────── Запуск ───────────────────────────
+
+async function main() {
+  console.log(`Файлы данных: ${STORAGE_DIR}${STORAGE_DIR === process.cwd() ? " (рабочая папка — при пересоздании контейнера пропадут!)" : " (постоянный диск)"}`);
+  console.log("=== LAB v3.5: парсер идей запущен (не торгует; каждый сигнал записывается без лимитов, фильтр бирж с ожиданием) ===");
+  console.log(
+    "Идеи: запас (z), недооценка, паника без разворота, импульс, арбитраж, подтверждение монетами, согласие профилей (7 профилей), модель цены (+ Binance/Coinbase по всей сетке), справедливая цена, «темка» (скальп от начала окна), режим волатильности, заражение, траектория токена, пила, пара BTC+ETH, Binance/Coinbase по корзинам, лоси, стоп, «лаб бот».",
+  );
+
+  btcPriceFeed.start();
+  ethPriceFeed.start();
+  solPriceFeed.start();
+  xrpPriceFeed.start();
+  dogePriceFeed.start();
+  volTracker.start();
+  binance.start();
+  coinbase.start();
+  for (const x of EXTRA_EXCHANGES) x.feed.start();
+
+  const logger = createLogger(false);
+  const botToken = process.env.LAB_TELEGRAM_BOT_TOKEN ?? process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.LAB_TELEGRAM_CHAT_ID ?? process.env.TELEGRAM_CHAT_ID;
+  const telegram = createTelegramNotifier(botToken, chatId, logger);
+
+  // v15: на чистом диске (нет тома) — сначала восстановить данные и настройки из закреплённой копии в Telegram, до чтения файлов
+  tgbInit(botToken, chatId);
+  const restoredTxt = await tgbRestore();
+  if (restoredTxt) { console.log(restoredTxt); void telegram?.send(escapeTelegramHtml(restoredTxt)); }
+
+  startPageServer();
+  const lab = new ResearchLab();
+  if (telegram) lab.onPaperText = (text) => void telegram.send(escapeTelegramHtml(text));
+
+  loadLiveCfg();
+  if (LIVE_TRADE_ENV) {
+    const missing = ["PRIVATE_KEY", "FUNDER_ADDRESS"].filter((k) => !process.env[k] && !(k === "FUNDER_ADDRESS" && process.env.PROFILE_ADDRESS));
+    if (missing.length > 0) {
+      const t = `🔴 LAB: LAB_TRADE=on, но не заданы переменные: ${missing.join(", ")}. Торговля НЕ включена, работает «как бы купил».`;
+      console.log(t);
+      lab.onPaperText?.(t);
+    } else {
+      try {
+        const apiKey = process.env.CLOB_API_KEY;
+        const apiSecret = process.env.CLOB_API_SECRET;
+        const apiPassphrase = process.env.CLOB_API_PASSPHRASE;
+        const clob = await ClobService.init(
+          {
+            host: process.env.CLOB_HOST ?? "https://clob.polymarket.com",
+            rpcUrl: process.env.RPC_URL,
+            chainId: Number(process.env.CHAIN_ID ?? "137"),
+            privateKey: process.env.PRIVATE_KEY!,
+            signatureType: Number(process.env.SIGNATURE_TYPE ?? "1"),
+            funderAddress: process.env.FUNDER_ADDRESS ?? process.env.PROFILE_ADDRESS,
+            apiCreds: apiKey && apiSecret && apiPassphrase ? { key: apiKey, secret: apiSecret, passphrase: apiPassphrase } : undefined,
+          },
+          logger,
+        );
+        lab.setClob(clob);
+        try {
+          const cr = clob.getApiCreds();
+          setPolyboltCreds({ key: cr.key, secret: cr.secret, passphrase: cr.passphrase });
+        } catch (e) {
+          console.log(`[polybolt] не удалось передать ключи фиду цен: ${(e as Error).message}`);
+        }
+        lab.liveEnabled = true;
+        const t = `🟢 LAB: РЕАЛЬНАЯ торговля включена. ${TRADE_CFGS.filter((c) => c.on).map((c) => `${c.name} ${stakeTxt(c)} (потолок ${c.cap}${c.minBid !== undefined ? `, мин. bid ${c.minBid}` : ""}${notStarted(c) ? `, старт ${c.fromDay} 00:00 UTC` : ""}${ended(c) ? `, закончила ${c.untilDay} 00:00 UTC` : ""})`).join("; ")}. Лимиты: ${LIVE_MAX_PER_WINDOW} в окне, ${LIVE_MAX_OPEN} открытых, ${LIVE_QUOTA_PER_HOUR}/час. Выключить: «лаб торговля выкл».`;
+        console.log(t);
+        lab.onPaperText?.(t);
+      } catch (err) {
+        const t = `🔴 LAB: не удалось подключиться к бирже (${(err as Error).message}). Торговля НЕ включена, работает «как бы купил».`;
+        console.log(t);
+        lab.onPaperText?.(t);
+      }
+    }
+  }
+  lab.start();
+  tgbStart();
+
+  if (telegram && botToken && chatId) {
+    console.log('Telegram включён. Команды начинаются со слова "лаб" (список: "лаб помощь").');
+    pollTelegramCommands(botToken, chatId, telegram, lab);
+  } else {
+    console.log("Telegram не настроен — отчёты недоступны (задай LAB_TELEGRAM_BOT_TOKEN и LAB_TELEGRAM_CHAT_ID).");
+  }
+
+  const shutdown = () => {
+    lab.saveState();
+    process.exit(0);
+  };
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
+}
+
+main().catch((err) => {
+  console.error("Фатальная ошибка:", err);
+  process.exit(1);
+});
